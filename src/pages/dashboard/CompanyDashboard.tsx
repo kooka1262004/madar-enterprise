@@ -1150,15 +1150,25 @@ const CompanyDashboard = () => {
                 ))}
               </div>
               
-              {showAddEmployee && (
-                <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); saveEmployee(Object.fromEntries(fd)); }} className="glass rounded-2xl p-6 space-y-3">
+              {showAddEmployee && (() => {
+                const allPerms = [
+                  {k:"dashboard",l:"لوحة التحكم"},{k:"products",l:"المنتجات"},{k:"stock",l:"حركة المخزون"},{k:"barcode",l:"الباركود"},
+                  {k:"suppliers",l:"الموردين"},{k:"inventory",l:"الجرد"},{k:"reorder",l:"إعادة الطلب"},{k:"returns",l:"التالف والمرتجعات"},
+                  {k:"accounting",l:"المحاسبة"},{k:"profits",l:"الأرباح"},{k:"invoices",l:"الفواتير"},{k:"reports",l:"التقارير"},
+                  {k:"hr",l:"الموارد البشرية"},{k:"users",l:"المستخدمين"},{k:"activity-log",l:"سجل النشاطات"},{k:"settings",l:"الإعدادات"},
+                  {k:"notifications",l:"الإشعارات"},{k:"messages",l:"المراسلات"},
+                ];
+                const [selPerms, setSelPerms] = useState<string[]>(["dashboard","my-info","notifications","messages"]);
+                return (
+                <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); const data: any = Object.fromEntries(fd); data.permissions = selPerms; data.status = data.accountStatus || "active"; saveEmployee(data); }} className="glass rounded-2xl p-6 space-y-3">
                   <h4 className="font-bold text-foreground">{t("إضافة موظف جديد","Add New Employee")}</h4>
-                  <p className="text-xs text-muted-foreground">{t("أدخل بيانات الموظف الكاملة لإضافته لنظام الموارد البشرية.","Enter complete employee data to add to HR system.")}</p>
+                  <p className="text-xs text-muted-foreground">{t("أدخل بيانات الموظف الكاملة. الموظف سيستخدم البريد وكلمة المرور لتسجيل الدخول.","Enter complete employee data. Employee will use email and password to login.")}</p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div><label className="text-xs font-bold text-foreground">{t("الاسم الكامل *","Full Name *")}</label><input name="fullName" required className={inputClass} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("البريد الإلكتروني *","Email *")}</label><input name="email" type="email" required className={inputClass} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("كلمة المرور *","Password *")}</label><input name="password" type="password" required className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("الهاتف","Phone")}</label><input name="phone" className={inputClass} /></div>
-                    <div><label className="text-xs font-bold text-foreground">{t("البريد الإلكتروني","Email")}</label><input name="email" type="email" className={inputClass} /></div>
-                    <div><label className="text-xs font-bold text-foreground">{t("الوظيفة","Position")}</label><input name="position" className={inputClass} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("المسمى الوظيفي","Position")}</label><input name="position" className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("القسم","Department")}</label><input name="department" className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("الراتب الأساسي","Base Salary")}</label><input name="salary" type="number" className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("نوع العقد","Contract Type")}</label><select name="contractType" className={inputClass}><option>{t("دائم","Permanent")}</option><option>{t("مؤقت","Temporary")}</option><option>{t("جزئي","Part-time")}</option></select></div>
@@ -1167,13 +1177,29 @@ const CompanyDashboard = () => {
                     <div><label className="text-xs font-bold text-foreground">{t("المؤهل","Qualification")}</label><input name="qualification" className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("اسم المصرف","Bank Name")}</label><input name="bankName" className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("رقم الحساب","Account Number")}</label><input name="bankAccount" className={inputClass} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("حالة الحساب","Account Status")}</label>
+                      <select name="accountStatus" className={inputClass}><option value="active">{t("نشط","Active")}</option><option value="suspended">{t("موقوف","Suspended")}</option></select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-bold text-foreground mb-2 block">{t("الصلاحيات (الأقسام التي سيراها الموظف)","Permissions (sections visible to employee)")}</label>
+                    <p className="text-xs text-muted-foreground mb-2">{t("اختر الأقسام التي تريد أن يراها هذا الموظف في لوحته. الأقسام غير المحددة ستكون مخفية عنه.","Select sections you want this employee to see. Unselected sections will be hidden.")}</p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {allPerms.map(p => (
+                        <label key={p.k} className="flex items-center gap-2 glass rounded-lg p-2 cursor-pointer hover:border-primary/30 transition-all">
+                          <input type="checkbox" checked={selPerms.includes(p.k)} onChange={(e) => { if (e.target.checked) setSelPerms([...selPerms, p.k]); else setSelPerms(selPerms.filter(x => x !== p.k)); }} className="rounded accent-primary" />
+                          <span className="text-xs text-foreground">{p.l}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <button type="submit" className="px-6 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold">{t("حفظ","Save")}</button>
                     <button type="button" onClick={() => setShowAddEmployee(false)} className="px-6 py-2 rounded-xl border border-border text-foreground text-sm">{t("إلغاء","Cancel")}</button>
                   </div>
                 </form>
-              )}
+                );
+              })()}
 
               {hrTab === "overview" && (
                 <div className="space-y-4">
@@ -1186,10 +1212,22 @@ const CompanyDashboard = () => {
                   {employees.length > 0 && (
                     <div className="glass rounded-2xl p-4 overflow-x-auto">
                       <div className="flex justify-end mb-2"><button onClick={() => exportToPDF(t("الموظفين","Employees"), employees.map((e: any) => ({ name: e.fullName, position: e.position, dept: e.department, salary: e.salary, contract: e.contractType })), [t("الاسم","Name"),t("الوظيفة","Position"),t("القسم","Dept"),t("الراتب","Salary"),t("العقد","Contract")])} className="px-3 py-1.5 rounded-lg border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button></div>
-                      <table className="w-full text-sm">
-                        <thead><tr className="border-b border-border"><th className="text-right py-2 px-3 text-muted-foreground">{t("الاسم","Name")}</th><th className="text-right py-2 px-3 text-muted-foreground">{t("الوظيفة","Position")}</th><th className="text-right py-2 px-3 text-muted-foreground">{t("القسم","Dept")}</th><th className="text-right py-2 px-3 text-muted-foreground">{t("الراتب","Salary")}</th><th className="text-right py-2 px-3 text-muted-foreground">{t("إجراءات","Actions")}</th></tr></thead>
-                        <tbody>{employees.map((e: any) => (<tr key={e.id} className="border-b border-border/30"><td className="py-2 px-3 text-foreground font-medium">{e.fullName}</td><td className="py-2 px-3 text-muted-foreground">{e.position}</td><td className="py-2 px-3 text-muted-foreground">{e.department}</td><td className="py-2 px-3 text-primary font-bold">{e.salary} {t("د.ل","LYD")}</td><td className="py-2 px-3"><button className="text-destructive" onClick={() => { localStorage.setItem(`madar_employees_${user.id}`, JSON.stringify(employees.filter((emp: any) => emp.id !== e.id))); window.location.reload(); }}><Trash2 className="h-4 w-4" /></button></td></tr>))}</tbody>
-                      </table>
+                       <table className="w-full text-sm">
+                         <thead><tr className="border-b border-border"><th className="text-right py-2 px-3 text-muted-foreground">{t("الاسم","Name")}</th><th className="text-right py-2 px-3 text-muted-foreground">{t("البريد","Email")}</th><th className="text-right py-2 px-3 text-muted-foreground">{t("الوظيفة","Position")}</th><th className="text-right py-2 px-3 text-muted-foreground">{t("الراتب","Salary")}</th><th className="text-right py-2 px-3 text-muted-foreground">{t("الحالة","Status")}</th><th className="text-right py-2 px-3 text-muted-foreground">{t("آخر دخول","Last Login")}</th><th className="text-right py-2 px-3 text-muted-foreground">{t("إجراءات","Actions")}</th></tr></thead>
+                         <tbody>{employees.map((e: any) => (<tr key={e.id} className="border-b border-border/30">
+                           <td className="py-2 px-3 text-foreground font-medium">{e.fullName}</td>
+                           <td className="py-2 px-3 text-muted-foreground text-xs">{e.email}</td>
+                           <td className="py-2 px-3 text-muted-foreground">{e.position}</td>
+                           <td className="py-2 px-3 text-primary font-bold">{e.salary} {t("د.ل","LYD")}</td>
+                           <td className="py-2 px-3"><span className={`px-2 py-0.5 rounded-full text-[10px] ${e.status === "suspended" ? "bg-destructive/20 text-destructive" : "bg-success/20 text-success"}`}>{e.status === "suspended" ? t("موقوف","Suspended") : t("نشط","Active")}</span></td>
+                           <td className="py-2 px-3 text-muted-foreground text-[10px]">{e.lastLogin ? new Date(e.lastLogin).toLocaleDateString("ar-LY") : t("لم يدخل بعد","Never")}</td>
+                           <td className="py-2 px-3 flex gap-1 flex-wrap">
+                             <button title={e.status === "suspended" ? t("تفعيل","Activate") : t("إيقاف","Suspend")} onClick={() => { const updated = employees.map((emp: any) => emp.id === e.id ? {...emp, status: emp.status === "suspended" ? "active" : "suspended"} : emp); localStorage.setItem(`madar_employees_${user.id}`, JSON.stringify(updated)); window.location.reload(); }} className={`p-1 ${e.status === "suspended" ? "text-success" : "text-warning"}`}>{e.status === "suspended" ? <Check className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}</button>
+                             <button title={t("إعادة كلمة المرور","Reset Password")} onClick={() => { const newPass = prompt(t("أدخل كلمة المرور الجديدة:","Enter new password:")); if (newPass) { const updated = employees.map((emp: any) => emp.id === e.id ? {...emp, password: newPass} : emp); localStorage.setItem(`madar_employees_${user.id}`, JSON.stringify(updated)); alert(t("تم تغيير كلمة المرور بنجاح!","Password changed!")); } }} className="p-1 text-primary"><RefreshCw className="h-3.5 w-3.5" /></button>
+                             <button title={t("حذف","Delete")} className="p-1 text-destructive" onClick={() => { if (confirm(t("هل تريد حذف هذا الموظف؟","Delete this employee?"))) { localStorage.setItem(`madar_employees_${user.id}`, JSON.stringify(employees.filter((emp: any) => emp.id !== e.id))); window.location.reload(); } }}><Trash2 className="h-3.5 w-3.5" /></button>
+                           </td>
+                         </tr>))}</tbody>
+                       </table>
                     </div>
                   )}
                 </div>

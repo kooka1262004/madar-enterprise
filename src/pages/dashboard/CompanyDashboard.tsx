@@ -176,9 +176,51 @@ const CompanyDashboard = () => {
   };
 
   const saveUser = (u: any) => {
+    const userId = Date.now().toString();
+    // Save to madar_users for company dashboard display
     const users = JSON.parse(localStorage.getItem("madar_users") || "[]");
-    users.push({ ...u, id: Date.now().toString(), companyId: user.id, companyName: user.companyName });
+    users.push({ ...u, id: userId, companyId: user.id, companyName: user.companyName });
     localStorage.setItem("madar_users", JSON.stringify(users));
+    
+    // Also save as employee so they can login via /login/user
+    const rolePermissions: Record<string, string[]> = {
+      "مسؤول مخزن": ["dashboard","my-info","products","stock","barcode","suppliers","inventory","returns"],
+      "Stock Manager": ["dashboard","my-info","products","stock","barcode","suppliers","inventory","returns"],
+      "محاسب": ["dashboard","my-info","accounting","profits","invoices","reports"],
+      "Accountant": ["dashboard","my-info","accounting","profits","invoices","reports"],
+      "مسؤول جرد": ["dashboard","my-info","products","inventory","stock","returns"],
+      "Audit Manager": ["dashboard","my-info","products","inventory","stock","returns"],
+      "مسؤول منتجات": ["dashboard","my-info","products","stock","barcode","suppliers"],
+      "Product Manager": ["dashboard","my-info","products","stock","barcode","suppliers"],
+      "مسؤول موارد بشرية": ["dashboard","my-info","hr","users","permissions"],
+      "HR Manager": ["dashboard","my-info","hr","users","permissions"],
+      "موظف عادي": ["dashboard","my-info"],
+      "Regular Employee": ["dashboard","my-info"],
+    };
+    const perms = rolePermissions[u.role] || ["dashboard","my-info"];
+    const emps = JSON.parse(localStorage.getItem(`madar_employees_${user.id}`) || "[]");
+    emps.push({
+      id: userId,
+      fullName: u.username,
+      email: u.email,
+      password: u.password,
+      position: u.role,
+      department: u.role,
+      phone: "",
+      salary: 0,
+      contractType: "دائم",
+      contractEnd: "",
+      nationalId: "",
+      qualification: "",
+      bankName: "",
+      bankAccount: "",
+      status: "active",
+      accountStatus: "active",
+      permissions: perms,
+      createdAt: new Date().toISOString(),
+    });
+    localStorage.setItem(`madar_employees_${user.id}`, JSON.stringify(emps));
+    
     setShowAddUser(false);
     window.location.reload();
   };

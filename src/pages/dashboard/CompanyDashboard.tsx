@@ -1577,21 +1577,35 @@ const CompanyDashboard = () => {
             <div className="glass rounded-2xl p-6">
               <h3 className="font-bold text-foreground mb-2">{t("الصلاحيات والتوظيف","Permissions")}</h3>
               <p className="text-sm text-muted-foreground mb-4">{t("حدد صلاحيات كل موظف. كل قسم يمكن تشغيله أو إيقاف ظهوره لأي موظف. الموظف لا يرى إلا ما تسمح له.","Set permissions for each employee. Each section can be toggled on/off. Employees only see what you allow.")}</p>
-              {companyUsers.length === 0 ? <p className="text-sm text-muted-foreground">{t("لا يوجد موظفون.","No employees.")}</p> : (
+              {employees.length === 0 ? <p className="text-sm text-muted-foreground">{t("لا يوجد موظفون. أضف موظفين من قسم المستخدمين أولاً.","No employees. Add users from the Users section first.")}</p> : (
                 <div className="space-y-4">
-                  {companyUsers.map((u: any) => (
-                    <div key={u.id} className="glass rounded-xl p-4">
-                      <p className="font-bold text-foreground mb-2">{u.username} - <span className="text-primary">{u.role}</span></p>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                        {flatItems.filter(i => i.key !== "dashboard").map(item => (
-                          <label key={item.key} className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-                            <input type="checkbox" defaultChecked className="rounded accent-primary" />
-                            {lang === "ar" ? item.label : item.labelEn}
-                          </label>
-                        ))}
+                  {employees.map((emp: any) => {
+                    const empPerms: string[] = emp.permissions || ["dashboard","my-info"];
+                    return (
+                      <div key={emp.id} className="glass rounded-xl p-4">
+                        <p className="font-bold text-foreground mb-2">{emp.fullName} - <span className="text-primary">{emp.position}</span></p>
+                        <p className="text-xs text-muted-foreground mb-3">{emp.email}</p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          {flatItems.filter(i => !["dashboard","subscription","wallet"].includes(i.key)).map(item => (
+                            <label key={item.key} className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                              <input type="checkbox" checked={empPerms.includes(item.key)} onChange={(e) => {
+                                const updatedEmps = employees.map((em: any) => {
+                                  if (em.id !== emp.id) return em;
+                                  let newPerms = [...(em.permissions || [])];
+                                  if (e.target.checked) { if (!newPerms.includes(item.key)) newPerms.push(item.key); }
+                                  else { newPerms = newPerms.filter(p => p !== item.key); }
+                                  return { ...em, permissions: newPerms };
+                                });
+                                localStorage.setItem(`madar_employees_${user.id}`, JSON.stringify(updatedEmps));
+                                window.location.reload();
+                              }} className="rounded accent-primary" />
+                              {lang === "ar" ? item.label : item.labelEn}
+                            </label>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

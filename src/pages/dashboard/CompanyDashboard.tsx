@@ -5,14 +5,13 @@ import {
   Truck, ClipboardList, TrendingUp, RotateCcw, FileText, DollarSign,
   UserCog, Settings, LogOut, Bell, Menu, X, ShoppingCart, AlertTriangle, Clock, Briefcase,
   Plus, Edit, Trash2, Download, Eye, Send, Check, Search, Upload, Calendar, Award, Flag, MessageSquare, ListChecks,
-  Moon, Sun, Globe, Camera, RefreshCw, ArrowUpDown, Receipt, Printer, Monitor, Smartphone, Laptop, Volume2
+  Moon, Sun, Globe, Camera, RefreshCw, ArrowUpDown, Receipt, Printer, Volume2
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area } from "recharts";
 import logo from "@/assets/logo-transparent.png";
 import { exportToPDF, exportSimplePDF } from "@/utils/pdfExport";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import BarcodeGenerator from "@/components/BarcodeGenerator";
-import { getDevicesForCompany, removeDevice, deactivateDevice, getDeviceIcon, generateDeviceId } from "@/utils/deviceManager";
 
 const sidebarSections = [
   { title: "الرئيسية", titleEn: "Main", items: [

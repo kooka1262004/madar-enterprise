@@ -754,12 +754,8 @@ const CompanyDashboard = () => {
               )}
             </div>
           )}
-                    <input type="file" accept="image/*" className="hidden" onChange={() => alert(t("تم رفع الصورة. جاري تحليل الباركود...","Image uploaded. Analyzing barcode..."))} />
-                  </label>
-                </div>
-              )}
-            </div>
-          )}
+
+
 
           {/* Suppliers */}
           {activeTab === "suppliers" && (

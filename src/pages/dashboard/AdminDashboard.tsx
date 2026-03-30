@@ -59,6 +59,7 @@ const sidebarSections = [
     { icon: Scale, label: "لوائح وقوانين", labelEn: "Terms & Conditions", key: "terms" },
     { icon: MessageSquare, label: "المراسلات", labelEn: "Messages", key: "messages" },
     { icon: Bell, label: "الإشعارات", labelEn: "Notifications", key: "notifications" },
+    { icon: Monitor, label: "تواصل معنا", labelEn: "Contact Info", key: "contact" },
   ]},
   { title: "الحساب", titleEn: "Account", items: [
     { icon: User, label: "الملف الشخصي", labelEn: "Profile", key: "profile" },

@@ -525,6 +525,7 @@ const AdminDashboard = () => {
                       <p>👥 {t("المستخدمين","Users")}: {p.users}</p>
                       <p>🏪 {t("المخازن","Stores")}: {p.stores}</p>
                       <p>📦 {t("المنتجات","Products")}: {p.products === 999999 ? t("غير محدود","Unlimited") : p.products}</p>
+                      <p>📱 {t("الأجهزة","Devices")}: {p.devices || 1}</p>
                     </div>
                     {p.features?.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">{p.features.map((f: string, i: number) => <span key={i} className="px-2 py-0.5 rounded-full text-[10px] bg-primary/10 text-primary">{f}</span>)}</div>

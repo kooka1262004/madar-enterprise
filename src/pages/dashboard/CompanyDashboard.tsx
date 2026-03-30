@@ -650,6 +650,20 @@ const CompanyDashboard = () => {
                       <input name="senderName" required placeholder={t("اسم المرسل","Sender Name")} className={inputClass} />
                       <input name="phone" required placeholder={t("رقم الهاتف","Phone")} className={inputClass} />
                       <input name="amount" type="number" required placeholder={t("المبلغ","Amount")} className={inputClass} />
+                      <div>
+                        <label className="text-xs font-bold text-foreground">{t("إثبات الدفع (مطلوب) *","Payment Proof (required) *")}</label>
+                        <label className="glass rounded-xl p-3 text-center border-dashed border-2 border-border cursor-pointer hover:border-primary/50 transition-all block mt-1">
+                          <Upload className="h-5 w-5 text-muted-foreground mx-auto mb-1" />
+                          <p className="text-[10px] text-muted-foreground">{uploadProof ? t("✅ تم رفع الصورة","✅ Photo uploaded") : t("ارفع صورة إثبات الدفع","Upload payment proof")}</p>
+                          <input type="file" accept="image/*" className="hidden" onChange={(ev) => {
+                            const file = ev.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = (re) => setUploadProof(re.target?.result as string);
+                            reader.readAsDataURL(file);
+                          }} />
+                        </label>
+                      </div>
                       <p className="text-xs text-warning">⚠️ {t("أرفق صورة تثبت التحويل.","Attach transfer proof.")}</p>
                       <div className="flex gap-2">
                         <button type="submit" className="px-6 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold">{t("إرسال","Submit")}</button>

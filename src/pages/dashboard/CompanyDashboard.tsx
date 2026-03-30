@@ -124,6 +124,11 @@ const CompanyDashboard = () => {
   const inventoryLogs = JSON.parse(localStorage.getItem(`madar_inventory_${user.id}`) || "[]");
   const adminProfile = JSON.parse(localStorage.getItem("madar_admin_profile") || "{}");
   const deliveryPrices = JSON.parse(localStorage.getItem("madar_delivery_prices") || "{}");
+  const orders = JSON.parse(localStorage.getItem(`madar_orders_${user.id}`) || "[]");
+  const empLeaveRequests = JSON.parse(localStorage.getItem(`madar_leaves_${user.id}`) || "[]");
+  const empAdvanceRequests = JSON.parse(localStorage.getItem(`madar_advances_${user.id}`) || "[]");
+  const empSalaryRequests = JSON.parse(localStorage.getItem(`madar_salary_requests_${user.id}`) || "[]");
+  const [showAddOrder, setShowAddOrder] = useState(false);
 
   const logout = () => { localStorage.removeItem("madar_user"); navigate("/"); };
   const flatItems = sidebarSections.flatMap(s => s.items);

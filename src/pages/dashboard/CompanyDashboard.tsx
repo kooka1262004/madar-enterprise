@@ -1538,37 +1538,72 @@ const CompanyDashboard = () => {
           {/* Users, Permissions, Activity Log, Fraud, Settings - remain similar with bilingual support */}
           {activeTab === "users" && (
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">{t("المستخدمون لا يمكنهم إنشاء حسابات بأنفسهم. أضفهم من هنا وحدد صلاحياتهم.","Users cannot create accounts themselves. Add them here and set permissions.")}</p>
+              <p className="text-sm text-muted-foreground">{t("المستخدمون لا يمكنهم إنشاء حسابات بأنفسهم. أضفهم من هنا وحدد صلاحياتهم. بعد الإضافة يستطيع الموظف تسجيل الدخول من صفحة دخول الموظفين.","Users cannot create accounts themselves. Add them here. After adding, employees can login from the employee login page.")}</p>
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-foreground">{t("المستخدمين","Users")} ({companyUsers.length})</h3>
+                <h3 className="font-bold text-foreground">{t("المستخدمين","Users")} ({employees.length})</h3>
                 <button onClick={() => setShowAddUser(true)} className="px-4 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center gap-2"><Plus className="h-4 w-4" /> {t("إضافة مستخدم","Add User")}</button>
               </div>
               {showAddUser && (
                 <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); saveUser(Object.fromEntries(fd)); }} className="glass rounded-2xl p-6 space-y-3">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div><label className="text-xs font-bold text-foreground">{t("اسم المستخدم *","Username *")}</label><input name="username" required className={inputClass} /></div>
-                    <div><label className="text-xs font-bold text-foreground">{t("البريد *","Email *")}</label><input name="email" type="email" required className={inputClass} /></div>
-                    <div><label className="text-xs font-bold text-foreground">{t("كلمة المرور *","Password *")}</label><input name="password" type="password" required className={inputClass} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("اسم المستخدم *","Full Name *")}</label><input name="username" required className={inputClass} placeholder={t("الاسم الكامل","Full name")} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("البريد الإلكتروني *","Email *")}</label><input name="email" type="email" required className={inputClass} placeholder={t("البريد الإلكتروني","Email address")} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("كلمة المرور *","Password *")}</label><input name="password" required className={inputClass} placeholder={t("كلمة المرور","Password")} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("الصلاحية","Role")}</label>
                       <select name="role" className={inputClass}><option>{t("مسؤول مخزن","Stock Manager")}</option><option>{t("محاسب","Accountant")}</option><option>{t("مسؤول جرد","Audit Manager")}</option><option>{t("مسؤول منتجات","Product Manager")}</option><option>{t("مسؤول موارد بشرية","HR Manager")}</option><option>{t("موظف عادي","Regular Employee")}</option></select>
                     </div>
                   </div>
+                  <p className="text-xs text-muted-foreground">💡 {t("بعد الإضافة يمكن للموظف تسجيل الدخول من صفحة دخول الموظفين باستخدام البريد وكلمة المرور.","After adding, the employee can login from the employee login page using email and password.")}</p>
                   <div className="flex gap-2">
                     <button type="submit" className="px-6 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold">{t("إضافة","Add")}</button>
                     <button type="button" onClick={() => setShowAddUser(false)} className="px-6 py-2 rounded-xl border border-border text-foreground text-sm">{t("إلغاء","Cancel")}</button>
                   </div>
                 </form>
               )}
-              {companyUsers.length > 0 && (
+              {employees.length > 0 && (
                 <div className="glass rounded-2xl p-4 overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead><tr className="border-b border-border"><th className="text-right py-2 px-3 text-muted-foreground">{t("المستخدم","User")}</th><th className="text-right py-2 px-3 text-muted-foreground">{t("البريد","Email")}</th><th className="text-right py-2 px-3 text-muted-foreground">{t("الصلاحية","Role")}</th></tr></thead>
-                    <tbody>{companyUsers.map((u: any) => (<tr key={u.id} className="border-b border-border/30"><td className="py-2 px-3 text-foreground">{u.username}</td><td className="py-2 px-3 text-muted-foreground">{u.email}</td><td className="py-2 px-3"><span className="px-2 py-0.5 rounded-full text-xs bg-primary/20 text-primary">{u.role}</span></td></tr>))}</tbody>
+                    <thead><tr className="border-b border-border">
+                      <th className="text-right py-2 px-3 text-muted-foreground">{t("المستخدم","User")}</th>
+                      <th className="text-right py-2 px-3 text-muted-foreground">{t("البريد","Email")}</th>
+                      <th className="text-right py-2 px-3 text-muted-foreground">{t("الصلاحية","Role")}</th>
+                      <th className="text-right py-2 px-3 text-muted-foreground">{t("الحالة","Status")}</th>
+                      <th className="text-right py-2 px-3 text-muted-foreground">{t("إجراءات","Actions")}</th>
+                    </tr></thead>
+                    <tbody>{employees.map((emp: any) => (
+                      <tr key={emp.id} className="border-b border-border/30">
+                        <td className="py-2 px-3 text-foreground font-bold">{emp.fullName}</td>
+                        <td className="py-2 px-3 text-muted-foreground">{emp.email}</td>
+                        <td className="py-2 px-3"><span className="px-2 py-0.5 rounded-full text-xs bg-primary/20 text-primary">{emp.position}</span></td>
+                        <td className="py-2 px-3"><span className={`px-2 py-0.5 rounded-full text-xs ${emp.accountStatus === "suspended" ? "bg-destructive/20 text-destructive" : "bg-success/20 text-success"}`}>{emp.accountStatus === "suspended" ? t("موقوف","Suspended") : t("نشط","Active")}</span></td>
+                        <td className="py-2 px-3">
+                          <div className="flex gap-1">
+                            <button onClick={() => {
+                              const updated = employees.map((e: any) => e.id === emp.id ? { ...e, accountStatus: e.accountStatus === "suspended" ? "active" : "suspended" } : e);
+                              localStorage.setItem(`madar_employees_${user.id}`, JSON.stringify(updated));
+                              window.location.reload();
+                            }} className={`p-1 rounded ${emp.accountStatus === "suspended" ? "text-success" : "text-warning"}`} title={emp.accountStatus === "suspended" ? t("تفعيل","Activate") : t("إيقاف","Suspend")}>
+                              {emp.accountStatus === "suspended" ? <Check className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                            </button>
+                            <button onClick={() => {
+                              if (!confirm(t("هل أنت متأكد من حذف هذا المستخدم؟","Are you sure you want to delete this user?"))) return;
+                              const updated = employees.filter((e: any) => e.id !== emp.id);
+                              localStorage.setItem(`madar_employees_${user.id}`, JSON.stringify(updated));
+                              const users = JSON.parse(localStorage.getItem("madar_users") || "[]").filter((u: any) => u.id !== emp.id);
+                              localStorage.setItem("madar_users", JSON.stringify(users));
+                              window.location.reload();
+                            }} className="p-1 rounded text-destructive" title={t("حذف","Delete")}>
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}</tbody>
                   </table>
                 </div>
               )}
-              {companyUsers.length === 0 && !showAddUser && (
-                <div className="glass rounded-2xl p-6 text-center"><Users className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لم تقم بإضافة أي مستخدمين.","No users added yet.")}</p></div>
+              {employees.length === 0 && !showAddUser && (
+                <div className="glass rounded-2xl p-6 text-center"><Users className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لم تقم بإضافة أي مستخدمين. أضف موظفين ليتمكنوا من تسجيل الدخول.","No users added yet. Add employees so they can login.")}</p></div>
               )}
             </div>
           )}

@@ -543,6 +543,7 @@ const AdminDashboard = () => {
                     <div><label className="text-sm font-bold text-foreground">{t("عدد المستخدمين","Users")}</label><input type="number" value={editingPlan.users} onChange={(e) => setEditingPlan({...editingPlan, users: +e.target.value})} className={inputClass} /></div>
                     <div><label className="text-sm font-bold text-foreground">{t("عدد المخازن","Stores")}</label><input type="number" value={editingPlan.stores} onChange={(e) => setEditingPlan({...editingPlan, stores: +e.target.value})} className={inputClass} /></div>
                     <div><label className="text-sm font-bold text-foreground">{t("عدد المنتجات","Products")}</label><input type="number" value={editingPlan.products} onChange={(e) => setEditingPlan({...editingPlan, products: +e.target.value})} className={inputClass} /></div>
+                    <div><label className="text-sm font-bold text-foreground">{t("عدد الأجهزة","Devices")}</label><input type="number" value={editingPlan.devices || 1} onChange={(e) => setEditingPlan({...editingPlan, devices: +e.target.value})} className={inputClass} /></div>
                   </div>
                   <div className="mt-3">
                     <label className="text-sm font-bold text-foreground">{t("المميزات (فاصلة بين كل ميزة)","Features (comma-separated)")}</label>

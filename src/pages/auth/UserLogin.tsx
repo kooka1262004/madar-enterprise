@@ -11,11 +11,41 @@ const UserLogin = () => {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     const users = JSON.parse(localStorage.getItem("madar_users") || "[]");
-    const user = users.find((u: any) => (u.username === form.username || u.email === form.username) && u.password === form.password && u.companyId === form.company);
+    const user = users.find((u: any) => 
+      (u.username === form.username || u.email === form.username) && 
+      u.password === form.password && 
+      (u.companyId === form.company || (u.companyName || "").toLowerCase() === form.company.toLowerCase())
+    );
     if (user) {
       localStorage.setItem("madar_user", JSON.stringify({ role: "user", ...user }));
       navigate("/user");
     } else {
+      // Also check employees list across all companies
+      const companies = JSON.parse(localStorage.getItem("madar_companies") || "[]");
+      const matchedCompany = companies.find((c: any) => 
+        c.companyName?.toLowerCase() === form.company.toLowerCase() || c.id === form.company
+      );
+      if (matchedCompany) {
+        const employees = JSON.parse(localStorage.getItem(`madar_employees_${matchedCompany.id}`) || "[]");
+        const emp = employees.find((e: any) => 
+          (e.email === form.username || e.fullName === form.username) && form.password
+        );
+        if (emp) {
+          const userData = {
+            role: "user",
+            id: emp.id,
+            username: emp.fullName,
+            name: emp.fullName,
+            email: emp.email,
+            companyId: matchedCompany.id,
+            companyName: matchedCompany.companyName,
+            permissions: emp.permissions || ["dashboard", "my-info", "notifications", "messages"],
+          };
+          localStorage.setItem("madar_user", JSON.stringify(userData));
+          navigate("/user");
+          return;
+        }
+      }
       alert("بيانات الدخول غير صحيحة أو الشركة غير متطابقة");
     }
   };

@@ -67,11 +67,11 @@ const sidebarSections = [
 ];
 
 const defaultPlans = [
-  { id: "trial", name: "تجربة مجانية", nameEn: "Free Trial", price: 0, period: "أسبوع", users: 999, stores: 999, products: 999, features: ["جميع المميزات"], active: true },
-  { id: "starter", name: "باقة البداية", nameEn: "Starter", price: 100, period: "أسبوع", users: 2, stores: 1, products: 200, features: ["إدارة المنتجات","حركة المخزون","التقارير الأساسية","الباركود"], active: true },
-  { id: "basic", name: "الباقة الأساسية", nameEn: "Basic", price: 300, period: "شهر", users: 3, stores: 1, products: 500, features: ["إدارة المنتجات","حركة المخزون","التقارير الأساسية","الباركود","تنبيهات المخزون"], active: true },
-  { id: "pro", name: "الباقة الاحترافية", nameEn: "Professional", price: 500, period: "شهر", users: 10, stores: 3, products: 5000, features: ["إدارة المنتجات","حركة المخزون","التقارير الذكية","الباركود","تنبيهات المخزون","الجرد المتقدم","الموارد البشرية","المحاسبة","إدارة الموردين","التالف والمرتجعات","سجل النشاطات"], active: true },
-  { id: "business", name: "باقة الأعمال", nameEn: "Business", price: 1000, period: "شهر", users: 50, stores: 10, products: 999999, features: ["جميع المميزات","أولوية الدعم"], active: true },
+  { id: "trial", name: "تجربة مجانية", nameEn: "Free Trial", price: 0, period: "أسبوع", users: 999, stores: 999, products: 999, devices: 2, features: ["جميع المميزات"], active: true },
+  { id: "starter", name: "باقة البداية", nameEn: "Starter", price: 100, period: "أسبوع", users: 2, stores: 1, products: 200, devices: 1, features: ["إدارة المنتجات","حركة المخزون","التقارير الأساسية","الباركود"], active: true },
+  { id: "basic", name: "الباقة الأساسية", nameEn: "Basic", price: 300, period: "شهر", users: 3, stores: 1, products: 500, devices: 3, features: ["إدارة المنتجات","حركة المخزون","التقارير الأساسية","الباركود","تنبيهات المخزون"], active: true },
+  { id: "pro", name: "الباقة الاحترافية", nameEn: "Professional", price: 500, period: "شهر", users: 10, stores: 3, products: 5000, devices: 5, features: ["إدارة المنتجات","حركة المخزون","التقارير الذكية","الباركود","تنبيهات المخزون","الجرد المتقدم","الموارد البشرية","المحاسبة","إدارة الموردين","التالف والمرتجعات","سجل النشاطات"], active: true },
+  { id: "business", name: "باقة الأعمال", nameEn: "Business", price: 1000, period: "شهر", users: 50, stores: 10, products: 999999, devices: 10, features: ["جميع المميزات","أولوية الدعم"], active: true },
 ];
 
 const AdminDashboard = () => {

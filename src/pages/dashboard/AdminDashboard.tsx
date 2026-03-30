@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Building2, Package, CreditCard, Users, Settings, LogOut,
   BarChart3, Shield, Ticket, DollarSign, Activity, AlertTriangle, User, Bell, Menu, X,
   Eye, Trash2, Send, Gift, Ban, CheckCircle, Clock, FileText, Edit, Plus, Download, RefreshCw, Search, MessageSquare,
-  Upload, Moon, Sun, Globe, Scale, Truck, Image, Monitor
+  Upload, Moon, Sun, Globe, Scale, Truck, Image, Monitor, Check
 } from "lucide-react";
 import logo from "@/assets/logo-transparent.png";
 import { exportToPDF, exportSimplePDF } from "@/utils/pdfExport";
@@ -1034,43 +1034,57 @@ const AdminDashboard = () => {
           )}
 
           {/* Platform Branding - Fixed Logo Upload */}
-          {activeTab === "branding" && (
+          {activeTab === "branding" && (() => {
+            const [tempBranding, setTempBranding] = useState({...branding});
+            const [saved, setSaved] = useState(false);
+            const handleTempLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const reader = new FileReader();
+              reader.onload = (ev) => { setTempBranding({...tempBranding, logo: ev.target?.result as string}); };
+              reader.readAsDataURL(file);
+            };
+            return (
             <div className="space-y-4 max-w-lg">
               <div className="glass rounded-2xl p-6">
                 <h3 className="font-bold text-foreground mb-4">{t("هوية المنصة","Platform Branding")}</h3>
-                <p className="text-sm text-muted-foreground mb-4">{t("غيّر اسم المنصة والشعار والألوان. التغييرات تظهر في جميع الصفحات.","Change platform name, logo and colors.")}</p>
+                <p className="text-sm text-muted-foreground mb-4">{t("غيّر اسم المنصة والشعار والألوان. اضغط حفظ لتطبيق التغييرات.","Change platform name, logo and colors. Click Save to apply.")}</p>
                 <div className="space-y-4">
-                  <div><label className="text-sm font-bold text-foreground">{t("اسم المنصة","Platform Name")}</label><input value={branding.name} onChange={(e) => saveBranding({...branding, name: e.target.value})} className={inputClass} /></div>
+                  <div><label className="text-sm font-bold text-foreground">{t("اسم المنصة","Platform Name")}</label><input value={tempBranding.name} onChange={(e) => setTempBranding({...tempBranding, name: e.target.value})} className={inputClass} /></div>
                   <div>
                     <label className="text-sm font-bold text-foreground">{t("شعار المنصة","Platform Logo")}</label>
-                    {branding.logo && (
+                    {tempBranding.logo && (
                       <div className="mb-3 glass rounded-xl p-4 flex items-center justify-center">
-                        <img src={branding.logo} alt="Logo" className="h-20 object-contain" />
+                        <img src={tempBranding.logo} alt="Logo" className="h-20 object-contain" />
                       </div>
                     )}
                     <label className="glass rounded-xl p-6 text-center border-dashed border-2 border-border cursor-pointer hover:border-primary/50 transition-all block">
                       <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                       <p className="text-xs text-muted-foreground">{t("اسحب الشعار هنا أو انقر للتحميل","Drag logo here or click to upload")}</p>
                       <p className="text-[10px] text-muted-foreground mt-1">{t("يُفضل PNG بخلفية شفافة","PNG with transparent background preferred")}</p>
-                      <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                      <input type="file" accept="image/*" className="hidden" onChange={handleTempLogo} />
                     </label>
                   </div>
                   <div><label className="text-sm font-bold text-foreground">{t("اللون الأساسي","Primary Color")}</label>
                     <div className="flex gap-2 items-center">
-                      <input type="color" value={branding.primaryColor} onChange={(e) => saveBranding({...branding, primaryColor: e.target.value})} className="w-10 h-10 rounded-lg cursor-pointer" />
-                      <input value={branding.primaryColor} onChange={(e) => saveBranding({...branding, primaryColor: e.target.value})} className={inputClass} />
+                      <input type="color" value={tempBranding.primaryColor} onChange={(e) => setTempBranding({...tempBranding, primaryColor: e.target.value})} className="w-10 h-10 rounded-lg cursor-pointer" />
+                      <input value={tempBranding.primaryColor} onChange={(e) => setTempBranding({...tempBranding, primaryColor: e.target.value})} className={inputClass} />
                     </div>
                   </div>
                   <div><label className="text-sm font-bold text-foreground">{t("لون التمييز","Accent Color")}</label>
                     <div className="flex gap-2 items-center">
-                      <input type="color" value={branding.accentColor} onChange={(e) => saveBranding({...branding, accentColor: e.target.value})} className="w-10 h-10 rounded-lg cursor-pointer" />
-                      <input value={branding.accentColor} onChange={(e) => saveBranding({...branding, accentColor: e.target.value})} className={inputClass} />
+                      <input type="color" value={tempBranding.accentColor} onChange={(e) => setTempBranding({...tempBranding, accentColor: e.target.value})} className="w-10 h-10 rounded-lg cursor-pointer" />
+                      <input value={tempBranding.accentColor} onChange={(e) => setTempBranding({...tempBranding, accentColor: e.target.value})} className={inputClass} />
                     </div>
                   </div>
+                  <button onClick={() => { saveBranding(tempBranding); setSaved(true); setTimeout(() => setSaved(false), 3000); }} className="w-full px-6 py-3 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center justify-center gap-2">
+                    {saved ? <><Check className="h-4 w-4" /> {t("تم الحفظ بنجاح! ✅","Saved Successfully! ✅")}</> : <>{t("حفظ الآن","Save Now")}</>}
+                  </button>
                 </div>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* Settings */}
           {activeTab === "settings" && (

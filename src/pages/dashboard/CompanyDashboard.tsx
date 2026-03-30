@@ -36,6 +36,10 @@ const sidebarSections = [
   ]},
   { title: "الموارد البشرية", titleEn: "Human Resources", items: [
     { icon: Briefcase, label: "الموارد البشرية", labelEn: "HR", key: "hr" },
+    { icon: Send, label: "طلبات الموظفين", labelEn: "Employee Requests", key: "emp-requests" },
+  ]},
+  { title: "الشحن والطلبات", titleEn: "Shipping & Orders", items: [
+    { icon: Truck, label: "تتبع الطلبات", labelEn: "Order Tracking", key: "orders" },
   ]},
   { title: "الإدارة", titleEn: "Administration", items: [
     { icon: Users, label: "المستخدمين", labelEn: "Users", key: "users" },
@@ -120,6 +124,11 @@ const CompanyDashboard = () => {
   const inventoryLogs = JSON.parse(localStorage.getItem(`madar_inventory_${user.id}`) || "[]");
   const adminProfile = JSON.parse(localStorage.getItem("madar_admin_profile") || "{}");
   const deliveryPrices = JSON.parse(localStorage.getItem("madar_delivery_prices") || "{}");
+  const orders = JSON.parse(localStorage.getItem(`madar_orders_${user.id}`) || "[]");
+  const empLeaveRequests = JSON.parse(localStorage.getItem(`madar_leaves_${user.id}`) || "[]");
+  const empAdvanceRequests = JSON.parse(localStorage.getItem(`madar_advances_${user.id}`) || "[]");
+  const empSalaryRequests = JSON.parse(localStorage.getItem(`madar_salary_requests_${user.id}`) || "[]");
+  const [showAddOrder, setShowAddOrder] = useState(false);
 
   const logout = () => { localStorage.removeItem("madar_user"); navigate("/"); };
   const flatItems = sidebarSections.flatMap(s => s.items);
@@ -1725,6 +1734,189 @@ const CompanyDashboard = () => {
               <h3 className="font-bold text-foreground mb-4">{t("كشف التلاعب والاحتيال","Fraud Detection")}</h3>
               <p className="text-sm text-muted-foreground mb-4">{t("مراقبة العمليات المشبوهة داخل شركتك.","Monitor suspicious operations within your company.")}</p>
               <div className="glass rounded-xl p-6 text-center"><AlertTriangle className="h-12 w-12 text-success mx-auto mb-3" /><p className="text-foreground font-bold">{t("لا توجد عمليات مشبوهة","No suspicious operations")}</p></div>
+            </div>
+          )}
+
+          {/* Order Tracking */}
+          {activeTab === "orders" && (
+            <div className="space-y-4">
+              <div className="glass rounded-2xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-foreground">{t("تتبع الطلبات والشحن","Order Tracking & Shipping")}</h3>
+                  <button onClick={() => setShowAddOrder(true)} className="px-4 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center gap-2"><Plus className="h-4 w-4" /> {t("طلب جديد","New Order")}</button>
+                </div>
+                <p className="text-sm text-muted-foreground mb-4">{t("تتبع حالة طلباتك وشحناتك بالكامل مع إشعارات فورية عند كل تغيير.","Track all your orders and shipments with real-time notifications.")}</p>
+
+                {showAddOrder && (
+                  <form onSubmit={(e) => {
+                    e.preventDefault();
+                    const fd = new FormData(e.target as HTMLFormElement);
+                    const data: any = Object.fromEntries(fd);
+                    const order = { ...data, id: Date.now().toString(), status: "pending", statusHistory: [{ status: "pending", date: new Date().toISOString(), note: t("تم إنشاء الطلب","Order created") }], createdAt: new Date().toISOString() };
+                    const updated = [...orders, order];
+                    localStorage.setItem(`madar_orders_${user.id}`, JSON.stringify(updated));
+                    setShowAddOrder(false);
+                    window.location.reload();
+                  }} className="glass rounded-xl p-4 mb-4 space-y-3">
+                    <h4 className="font-bold text-foreground text-sm">{t("إنشاء طلب جديد","Create New Order")}</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div><label className="text-xs font-bold text-foreground">{t("اسم العميل *","Client Name *")}</label><input name="clientName" required className={inputClass} /></div>
+                      <div><label className="text-xs font-bold text-foreground">{t("هاتف العميل","Client Phone")}</label><input name="clientPhone" className={inputClass} /></div>
+                      <div><label className="text-xs font-bold text-foreground">{t("العنوان","Address")}</label><input name="address" className={inputClass} /></div>
+                      <div><label className="text-xs font-bold text-foreground">{t("المدينة","City")}</label>
+                        <select name="city" className={inputClass}>
+                          {Object.keys(deliveryPrices).map(city => <option key={city} value={city}>{city}</option>)}
+                        </select>
+                      </div>
+                      <div><label className="text-xs font-bold text-foreground">{t("المنتج/الوصف","Product/Description")}</label><input name="description" required className={inputClass} /></div>
+                      <div><label className="text-xs font-bold text-foreground">{t("القيمة (د.ل)","Value (LYD)")}</label><input name="value" type="number" className={inputClass} /></div>
+                    </div>
+                    <textarea name="notes" rows={2} className={inputClass} placeholder={t("ملاحظات إضافية","Additional notes")} />
+                    <div className="flex gap-2">
+                      <button type="submit" className="px-6 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold">{t("إنشاء","Create")}</button>
+                      <button type="button" onClick={() => setShowAddOrder(false)} className="px-6 py-2 rounded-xl border border-border text-foreground text-sm">{t("إلغاء","Cancel")}</button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Order stats */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                  <div className="glass rounded-xl p-3 text-center"><p className="text-xl font-black text-warning">{orders.filter((o: any) => o.status === "pending").length}</p><p className="text-[10px] text-muted-foreground">{t("معلّق","Pending")}</p></div>
+                  <div className="glass rounded-xl p-3 text-center"><p className="text-xl font-black text-info">{orders.filter((o: any) => o.status === "processing").length}</p><p className="text-[10px] text-muted-foreground">{t("قيد التنفيذ","Processing")}</p></div>
+                  <div className="glass rounded-xl p-3 text-center"><p className="text-xl font-black text-primary">{orders.filter((o: any) => o.status === "shipped").length}</p><p className="text-[10px] text-muted-foreground">{t("تم الشحن","Shipped")}</p></div>
+                  <div className="glass rounded-xl p-3 text-center"><p className="text-xl font-black text-success">{orders.filter((o: any) => o.status === "delivered").length}</p><p className="text-[10px] text-muted-foreground">{t("تم التسليم","Delivered")}</p></div>
+                </div>
+
+                {/* Orders list */}
+                {orders.length === 0 ? (
+                  <div className="glass rounded-xl p-6 text-center"><Truck className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لا توجد طلبات.","No orders.")}</p></div>
+                ) : (
+                  <div className="space-y-3">
+                    {[...orders].reverse().map((order: any) => {
+                      const statusLabels: Record<string,string> = { pending: t("معلّق","Pending"), processing: t("قيد التنفيذ","Processing"), shipped: t("تم الشحن","Shipped"), delivered: t("تم التسليم","Delivered"), cancelled: t("ملغي","Cancelled") };
+                      const statusColors: Record<string,string> = { pending: "bg-warning/20 text-warning", processing: "bg-info/20 text-info", shipped: "bg-primary/20 text-primary", delivered: "bg-success/20 text-success", cancelled: "bg-destructive/20 text-destructive" };
+                      const statusFlow = ["pending", "processing", "shipped", "delivered"];
+                      const currentIdx = statusFlow.indexOf(order.status);
+                      return (
+                        <div key={order.id} className="glass rounded-xl p-4">
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <p className="text-sm font-bold text-foreground">{order.clientName}</p>
+                              <p className="text-xs text-muted-foreground">{order.description} · {order.city} · {order.value ? `${order.value} ${t("د.ل","LYD")}` : ""}</p>
+                            </div>
+                            <span className={`px-3 py-1 rounded-full text-xs ${statusColors[order.status] || "bg-muted text-muted-foreground"}`}>{statusLabels[order.status] || order.status}</span>
+                          </div>
+                          {/* Progress bar */}
+                          <div className="flex items-center gap-1 mb-2">
+                            {statusFlow.map((s, i) => (
+                              <div key={s} className="flex items-center gap-1 flex-1">
+                                <div className={`w-3 h-3 rounded-full ${i <= currentIdx ? "bg-primary" : "bg-muted"}`} />
+                                {i < statusFlow.length - 1 && <div className={`h-0.5 flex-1 ${i < currentIdx ? "bg-primary" : "bg-muted"}`} />}
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex justify-between text-[9px] text-muted-foreground mb-3">
+                            <span>{t("معلّق","Pending")}</span><span>{t("تنفيذ","Process")}</span><span>{t("شحن","Ship")}</span><span>{t("تسليم","Deliver")}</span>
+                          </div>
+                          {/* Status change buttons */}
+                          {order.status !== "delivered" && order.status !== "cancelled" && (
+                            <div className="flex gap-1 flex-wrap">
+                              {order.status === "pending" && <button onClick={() => { const updated = orders.map((o: any) => o.id === order.id ? { ...o, status: "processing", statusHistory: [...(o.statusHistory||[]), { status: "processing", date: new Date().toISOString(), note: t("بدء التنفيذ","Started processing") }] } : o); localStorage.setItem(`madar_orders_${user.id}`, JSON.stringify(updated)); window.location.reload(); }} className="text-xs px-3 py-1.5 rounded-lg bg-info/20 text-info">{t("بدء التنفيذ","Start Processing")}</button>}
+                              {order.status === "processing" && <button onClick={() => { const updated = orders.map((o: any) => o.id === order.id ? { ...o, status: "shipped", statusHistory: [...(o.statusHistory||[]), { status: "shipped", date: new Date().toISOString(), note: t("تم شحن الطلب","Order shipped") }] } : o); localStorage.setItem(`madar_orders_${user.id}`, JSON.stringify(updated)); window.location.reload(); }} className="text-xs px-3 py-1.5 rounded-lg bg-primary/20 text-primary">{t("تم الشحن","Mark Shipped")}</button>}
+                              {order.status === "shipped" && <button onClick={() => { const updated = orders.map((o: any) => o.id === order.id ? { ...o, status: "delivered", statusHistory: [...(o.statusHistory||[]), { status: "delivered", date: new Date().toISOString(), note: t("تم التسليم","Delivered") }] } : o); localStorage.setItem(`madar_orders_${user.id}`, JSON.stringify(updated)); window.location.reload(); }} className="text-xs px-3 py-1.5 rounded-lg bg-success/20 text-success">{t("تم التسليم","Mark Delivered")}</button>}
+                              <button onClick={() => { const reason = prompt(t("سبب الإلغاء:","Cancellation reason:")); if (!reason) return; const updated = orders.map((o: any) => o.id === order.id ? { ...o, status: "cancelled", cancelReason: reason, statusHistory: [...(o.statusHistory||[]), { status: "cancelled", date: new Date().toISOString(), note: reason }] } : o); localStorage.setItem(`madar_orders_${user.id}`, JSON.stringify(updated)); window.location.reload(); }} className="text-xs px-3 py-1.5 rounded-lg bg-destructive/20 text-destructive">{t("إلغاء","Cancel")}</button>
+                            </div>
+                          )}
+                          {order.cancelReason && <p className="text-xs text-destructive mt-2">{t("سبب الإلغاء:","Reason:")} {order.cancelReason}</p>}
+                          <p className="text-[10px] text-muted-foreground mt-2">{new Date(order.createdAt).toLocaleDateString("ar-LY")}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Employee Requests (Leaves, Advances, Salary) */}
+          {activeTab === "emp-requests" && (
+            <div className="space-y-4">
+              <div className="glass rounded-2xl p-6">
+                <h3 className="font-bold text-foreground mb-2">{t("طلبات الموظفين","Employee Requests")}</h3>
+                <p className="text-sm text-muted-foreground mb-4">{t("طلبات الإجازات والسلف وسحب الرواتب المرسلة من الموظفين.", "Leave, advance and salary requests from employees.")}</p>
+
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="glass rounded-xl p-3 text-center"><p className="text-xl font-black text-primary">{empLeaveRequests.filter((r: any) => r.status === t("معلّقة","Pending")).length}</p><p className="text-[10px] text-muted-foreground">{t("إجازات معلقة","Pending Leaves")}</p></div>
+                  <div className="glass rounded-xl p-3 text-center"><p className="text-xl font-black text-warning">{empAdvanceRequests.filter((r: any) => r.status === t("معلّقة","Pending")).length}</p><p className="text-[10px] text-muted-foreground">{t("سلف معلقة","Pending Advances")}</p></div>
+                  <div className="glass rounded-xl p-3 text-center"><p className="text-xl font-black text-success">{empSalaryRequests.filter((r: any) => r.status === t("معلّقة","Pending")).length}</p><p className="text-[10px] text-muted-foreground">{t("طلبات راتب","Salary Requests")}</p></div>
+                </div>
+
+                {/* Leave Requests */}
+                <h4 className="font-bold text-foreground mb-3">{t("طلبات الإجازة","Leave Requests")}</h4>
+                {empLeaveRequests.length === 0 ? <p className="text-sm text-muted-foreground mb-4">{t("لا توجد طلبات.","No requests.")}</p> : (
+                  <div className="space-y-2 mb-6">{empLeaveRequests.map((r: any) => (
+                    <div key={r.id} className="glass rounded-xl p-3 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-foreground">{r.employee} - {r.type}</p>
+                        <p className="text-xs text-muted-foreground">{r.from} → {r.to} · {r.reason || ""}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded-full text-xs ${r.status === "مقبولة" || r.status === "Approved" ? "bg-success/20 text-success" : r.status === "مرفوضة" || r.status === "Rejected" ? "bg-destructive/20 text-destructive" : "bg-warning/20 text-warning"}`}>{r.status}</span>
+                        {(r.status === t("معلّقة","Pending") || r.status === "pending") && (
+                          <div className="flex gap-1">
+                            <button onClick={() => { const updated = empLeaveRequests.map((req: any) => req.id === r.id ? { ...req, status: t("مقبولة","Approved") } : req); localStorage.setItem(`madar_leaves_${user.id}`, JSON.stringify(updated)); window.location.reload(); }} className="p-1 text-success"><Check className="h-4 w-4" /></button>
+                            <button onClick={() => { const updated = empLeaveRequests.map((req: any) => req.id === r.id ? { ...req, status: t("مرفوضة","Rejected") } : req); localStorage.setItem(`madar_leaves_${user.id}`, JSON.stringify(updated)); window.location.reload(); }} className="p-1 text-destructive"><X className="h-4 w-4" /></button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}</div>
+                )}
+
+                {/* Advance Requests */}
+                <h4 className="font-bold text-foreground mb-3">{t("طلبات السلف","Advance Requests")}</h4>
+                {empAdvanceRequests.length === 0 ? <p className="text-sm text-muted-foreground mb-4">{t("لا توجد طلبات.","No requests.")}</p> : (
+                  <div className="space-y-2 mb-6">{empAdvanceRequests.map((r: any) => (
+                    <div key={r.id} className="glass rounded-xl p-3 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-foreground">{r.employee}</p>
+                        <p className="text-xs text-muted-foreground">{r.amount} {t("د.ل","LYD")} · {r.reason || ""}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded-full text-xs ${r.status === "مقبولة" || r.status === "Approved" ? "bg-success/20 text-success" : r.status === "مرفوضة" || r.status === "Rejected" ? "bg-destructive/20 text-destructive" : "bg-warning/20 text-warning"}`}>{r.status}</span>
+                        {(r.status === t("معلّقة","Pending") || r.status === "pending") && (
+                          <div className="flex gap-1">
+                            <button onClick={() => { const updated = empAdvanceRequests.map((req: any) => req.id === r.id ? { ...req, status: t("مقبولة","Approved") } : req); localStorage.setItem(`madar_advances_${user.id}`, JSON.stringify(updated)); window.location.reload(); }} className="p-1 text-success"><Check className="h-4 w-4" /></button>
+                            <button onClick={() => { const updated = empAdvanceRequests.map((req: any) => req.id === r.id ? { ...req, status: t("مرفوضة","Rejected") } : req); localStorage.setItem(`madar_advances_${user.id}`, JSON.stringify(updated)); window.location.reload(); }} className="p-1 text-destructive"><X className="h-4 w-4" /></button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}</div>
+                )}
+
+                {/* Salary Requests */}
+                <h4 className="font-bold text-foreground mb-3">{t("طلبات سحب الراتب","Salary Requests")}</h4>
+                {empSalaryRequests.length === 0 ? <p className="text-sm text-muted-foreground">{t("لا توجد طلبات.","No requests.")}</p> : (
+                  <div className="space-y-2">{empSalaryRequests.map((r: any) => (
+                    <div key={r.id} className="glass rounded-xl p-3 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-foreground">{r.employee} - {r.type}</p>
+                        <p className="text-xs text-muted-foreground">{r.amount ? `${r.amount} ${t("د.ل","LYD")}` : ""} · {r.notes || ""}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded-full text-xs ${r.status === "مقبولة" || r.status === "Approved" ? "bg-success/20 text-success" : r.status === "مرفوضة" || r.status === "Rejected" ? "bg-destructive/20 text-destructive" : "bg-warning/20 text-warning"}`}>{r.status}</span>
+                        {(r.status === t("معلّقة","Pending") || r.status === "pending") && (
+                          <div className="flex gap-1">
+                            <button onClick={() => { const updated = empSalaryRequests.map((req: any) => req.id === r.id ? { ...req, status: t("مقبولة","Approved") } : req); localStorage.setItem(`madar_salary_requests_${user.id}`, JSON.stringify(updated)); window.location.reload(); }} className="p-1 text-success"><Check className="h-4 w-4" /></button>
+                            <button onClick={() => { const updated = empSalaryRequests.map((req: any) => req.id === r.id ? { ...req, status: t("مرفوضة","Rejected") } : req); localStorage.setItem(`madar_salary_requests_${user.id}`, JSON.stringify(updated)); window.location.reload(); }} className="p-1 text-destructive"><X className="h-4 w-4" /></button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}</div>
+                )}
+              </div>
             </div>
           )}
 

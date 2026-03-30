@@ -662,16 +662,44 @@ const CompanyDashboard = () => {
                     <button onClick={generateBarcode} className="px-6 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold whitespace-nowrap">{t("توليد","Generate")}</button>
                   </div>
                   {generatedBarcode && (
-                    <div className="glass rounded-xl p-6 text-center">
-                      <div className="bg-white p-4 rounded-xl inline-block mb-3">
-                        <div className="flex items-end justify-center gap-[1px]" style={{ height: 60 }}>
-                          {generatedBarcode.split("").map((ch, i) => (
-                            <div key={i} style={{ width: `${2 + (ch.charCodeAt(0) % 3)}px`, height: `${30 + (ch.charCodeAt(0) % 30)}px`, backgroundColor: i % 3 === 0 ? "#000" : i % 2 === 0 ? "#333" : "#000" }} />
-                          ))}
-                        </div>
-                        <p className="text-xs text-black mt-2 font-mono">{generatedBarcode}</p>
-                      </div>
+                    <div className="glass rounded-xl p-6 text-center space-y-3">
+                      <BarcodeGenerator value={generatedBarcode} />
                       <p className="text-sm text-foreground font-bold">{generatedBarcode}</p>
+                      <div className="flex gap-2 justify-center">
+                        <button onClick={() => {
+                          const barcodes = [...savedBarcodes, { id: Date.now().toString(), code: generatedBarcode, createdAt: new Date().toISOString() }];
+                          setSavedBarcodes(barcodes);
+                          localStorage.setItem(`madar_barcodes_${user.id}`, JSON.stringify(barcodes));
+                          alert(t("تم حفظ الباركود!","Barcode saved!"));
+                        }} className="px-4 py-2 rounded-xl gradient-primary text-primary-foreground text-xs font-bold">{t("حفظ","Save")}</button>
+                        <button onClick={() => {
+                          const printWin = window.open("", "_blank");
+                          if (printWin) {
+                            printWin.document.write(`<html><body style="display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;"><div id="bc"></div><script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script><script>JsBarcode("#bc","${generatedBarcode}",{format:"CODE128",width:2,height:100,displayValue:true});window.onload=()=>window.print();<\/script></body></html>`);
+                          }
+                        }} className="px-4 py-2 rounded-xl border border-border text-foreground text-xs flex items-center gap-1"><Printer className="h-3 w-3" /> {t("طباعة","Print")}</button>
+                      </div>
+                    </div>
+                  )}
+                  {/* Saved Barcodes */}
+                  {savedBarcodes.length > 0 && (
+                    <div className="mt-4">
+                      <h5 className="text-sm font-bold text-foreground mb-2">{t("الباركودات المحفوظة","Saved Barcodes")} ({savedBarcodes.length})</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {savedBarcodes.map((bc: any) => (
+                          <div key={bc.id} className="glass rounded-xl p-3 flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-mono text-foreground">{bc.code}</p>
+                              <p className="text-[10px] text-muted-foreground">{new Date(bc.createdAt).toLocaleDateString("ar-LY")}</p>
+                            </div>
+                            <button onClick={() => {
+                              const filtered = savedBarcodes.filter(b => b.id !== bc.id);
+                              setSavedBarcodes(filtered);
+                              localStorage.setItem(`madar_barcodes_${user.id}`, JSON.stringify(filtered));
+                            }} className="text-destructive p-1"><Trash2 className="h-4 w-4" /></button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -680,8 +708,24 @@ const CompanyDashboard = () => {
                 <div className="glass rounded-2xl p-6 text-center">
                   <Camera className="h-16 w-16 text-primary mx-auto mb-4" />
                   <p className="text-sm text-foreground font-bold mb-2">{t("مسح الباركود بالكاميرا","Scan Barcode with Camera")}</p>
-                  <p className="text-xs text-muted-foreground mb-4">{t("اضغط على الزر لفتح الكاميرا ومسح الباركود.","Click button to open camera and scan barcode.")}</p>
-                  <button onClick={() => { const code = prompt(t("أدخل رقم الباركود:","Enter barcode number:")); if (code) { const prod = products.find((p: any) => p.barcode === code || p.code === code); alert(prod ? `${t("المنتج:","Product:")} ${prod.name}\n${t("الكمية:","Qty:")} ${prod.quantity}\n${t("السعر:","Price:")} ${prod.sellPrice}` : t("لم يتم العثور على منتج بهذا الباركود.","No product found with this barcode.")); } }} className="px-6 py-3 rounded-xl gradient-primary text-primary-foreground text-sm font-bold">{t("فتح الكاميرا","Open Camera")}</button>
+                  <p className="text-xs text-muted-foreground mb-4">{t("اضغط على الزر لفتح الكاميرا ومسح الباركود تلقائياً.","Click button to open camera and scan barcode automatically.")}</p>
+                  <button onClick={() => setShowBarcodeScanner(true)} className="px-6 py-3 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center gap-2 mx-auto"><Camera className="h-4 w-4" /> {t("فتح الكاميرا","Open Camera")}</button>
+                  {scannedResult && (
+                    <div className="mt-4 glass rounded-xl p-4 border-primary/30">
+                      <p className="text-xs text-muted-foreground mb-1">{t("نتيجة المسح:","Scan Result:")}</p>
+                      <p className="text-lg font-black text-primary font-mono">{scannedResult}</p>
+                      {(() => {
+                        const prod = products.find((p: any) => p.barcode === scannedResult || p.code === scannedResult);
+                        if (prod) return (
+                          <div className="mt-2 glass rounded-lg p-3 text-right">
+                            <p className="text-sm font-bold text-foreground">{prod.name}</p>
+                            <p className="text-xs text-muted-foreground">{t("الكمية:","Qty:")} {prod.quantity} | {t("السعر:","Price:")} {prod.sellPrice} {t("د.ل","LYD")}</p>
+                          </div>
+                        );
+                        return <p className="text-xs text-warning mt-1">{t("لم يتم العثور على منتج مطابق.","No matching product found.")}</p>;
+                      })()}
+                    </div>
+                  )}
                 </div>
               )}
               {barcodeMode === "upload" && (
@@ -690,6 +734,26 @@ const CompanyDashboard = () => {
                   <p className="text-sm text-foreground font-bold mb-2">{t("رفع صورة باركود","Upload Barcode Image")}</p>
                   <label className="px-6 py-3 rounded-xl gradient-primary text-primary-foreground text-sm font-bold cursor-pointer inline-block">
                     {t("اختر صورة","Choose Image")}
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        alert(t("تم رفع الصورة. سيتم تحليلها.","Image uploaded. Will be analyzed."));
+                      }
+                    }} />
+                  </label>
+                </div>
+              )}
+              {showBarcodeScanner && (
+                <BarcodeScanner
+                  lang={lang}
+                  onScan={(code) => {
+                    setScannedResult(code);
+                    setShowBarcodeScanner(false);
+                  }}
+                  onClose={() => setShowBarcodeScanner(false)}
+                />
+              )}
+            </div>
+          )}
                     <input type="file" accept="image/*" className="hidden" onChange={() => alert(t("تم رفع الصورة. جاري تحليل الباركود...","Image uploaded. Analyzing barcode..."))} />
                   </label>
                 </div>

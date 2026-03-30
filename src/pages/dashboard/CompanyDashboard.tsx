@@ -39,7 +39,6 @@ const sidebarSections = [
   ]},
   { title: "الإدارة", titleEn: "Administration", items: [
     { icon: Users, label: "المستخدمين", labelEn: "Users", key: "users" },
-    { icon: Monitor, label: "إدارة الأجهزة", labelEn: "Devices", key: "devices" },
     { icon: UserCog, label: "الصلاحيات", labelEn: "Permissions", key: "permissions" },
     { icon: MessageSquare, label: "المراسلات", labelEn: "Messages", key: "messages" },
     { icon: Clock, label: "سجل النشاطات", labelEn: "Activity Log", key: "activity-log" },

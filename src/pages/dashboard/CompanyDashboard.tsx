@@ -685,11 +685,37 @@ const CompanyDashboard = () => {
                               <div className="mt-3 glass rounded-lg p-3 border-warning/30">
                                 <p className="text-xs text-warning mb-2">📸 {t("يرجى رفع صورة إثبات التحويل / صورة الوصل","Please upload proof of transfer / receipt photo")}</p>
                                 <div className="flex gap-2 items-center">
-                                  <label className="px-4 py-2 rounded-xl border border-border text-foreground text-xs cursor-pointer flex items-center gap-1">
+                                  <label className="px-4 py-2 rounded-xl gradient-primary text-primary-foreground text-xs cursor-pointer flex items-center gap-1">
                                     <Upload className="h-3 w-3" /> {t("رفع صورة","Upload Photo")}
-                                    <input type="file" accept="image/*" className="hidden" onChange={() => alert(t("تم رفع الصورة بنجاح!","Photo uploaded!"))} />
+                                    <input type="file" accept="image/*" className="hidden" onChange={(ev) => {
+                                      const file = ev.target.files?.[0];
+                                      if (!file) return;
+                                      const reader = new FileReader();
+                                      reader.onload = (re) => {
+                                        const proofData = re.target?.result as string;
+                                        const reqs = JSON.parse(localStorage.getItem("madar_wallet_requests") || "[]");
+                                        const ri = reqs.findIndex((rq: any) => rq.id === r.id);
+                                        if (ri >= 0) {
+                                          reqs[ri] = { ...reqs[ri], proofImage: proofData, proofDate: new Date().toISOString() };
+                                          localStorage.setItem("madar_wallet_requests", JSON.stringify(reqs));
+                                          // Notify admin
+                                          const adminNotifs = JSON.parse(localStorage.getItem("madar_admin_notifs") || "[]");
+                                          adminNotifs.unshift({ id: Date.now().toString(), message: `${user.companyName} رفعت إثبات تحويل لطلب شحن بقيمة ${r.amount} د.ل`, date: new Date().toISOString(), read: false });
+                                          localStorage.setItem("madar_admin_notifs", JSON.stringify(adminNotifs));
+                                          alert(t("تم رفع الصورة بنجاح! سيراجعها مسؤول النظام.","Photo uploaded! Admin will review it."));
+                                          window.location.reload();
+                                        }
+                                      };
+                                      reader.readAsDataURL(file);
+                                    }} />
                                   </label>
                                 </div>
+                              </div>
+                            )}
+                            {r.proofImage && (
+                              <div className="mt-2 glass rounded-lg p-2">
+                                <p className="text-[10px] text-success mb-1">✅ {t("تم رفع إثبات التحويل","Proof uploaded")}</p>
+                                <img src={r.proofImage} alt="proof" className="h-16 rounded-lg object-cover" />
                               </div>
                             )}
                             <p className="text-[10px] text-muted-foreground mt-2">{new Date(r.date).toLocaleDateString("ar-LY")} {new Date(r.date).toLocaleTimeString("ar-LY")}</p>

@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Building2, AlertTriangle } from "lucide-react";
+import { Eye, EyeOff, User, AlertTriangle } from "lucide-react";
 import logo from "@/assets/logo-transparent.png";
 
-const CompanyLogin = () => {
+const UserLogin = () => {
   const navigate = useNavigate();
   const [showPass, setShowPass] = useState(false);
   const [form, setForm] = useState({ email: "", password: "" });
@@ -15,31 +15,49 @@ const CompanyLogin = () => {
     e.preventDefault();
     setError("");
 
-    if (form.email === "kookakooka6589@gmail.com") {
-      localStorage.setItem("madar_user", JSON.stringify({ role: "admin", email: form.email, name: "مسؤول النظام" }));
-      navigate("/admin");
-      return;
-    }
-
+    // Search across all companies' employees
     const companies = JSON.parse(localStorage.getItem("madar_companies") || "[]");
-    const company = companies.find((c: any) => c.email === form.email && c.password === form.password);
     
-    if (!company) {
-      setError(t("البريد الإلكتروني أو كلمة المرور غير صحيحة", "Invalid email or password"));
-      return;
+    for (const company of companies) {
+      const employees = JSON.parse(localStorage.getItem(`madar_employees_${company.id}`) || "[]");
+      const employee = employees.find((emp: any) => emp.email === form.email && emp.password === form.password);
+      
+      if (employee) {
+        // Check if employee account is active
+        if (employee.status === "suspended" || employee.accountStatus === "suspended") {
+          setError(t("هذا الحساب موقوف. يرجى التواصل مع مسؤول الشركة.", "Account suspended. Contact your company admin."));
+          return;
+        }
+
+        // Check if company is active
+        if (company.status === "suspended") {
+          setError(t("شركتك موقوفة حالياً. يرجى التواصل مع مسؤول النظام.", "Your company is suspended. Contact system admin."));
+          return;
+        }
+
+        // Update last login
+        const updatedEmployees = employees.map((emp: any) => 
+          emp.id === employee.id ? { ...emp, lastLogin: new Date().toISOString() } : emp
+        );
+        localStorage.setItem(`madar_employees_${company.id}`, JSON.stringify(updatedEmployees));
+
+        // Save user session
+        localStorage.setItem("madar_user", JSON.stringify({
+          role: "employee",
+          ...employee,
+          lastLogin: new Date().toISOString(),
+          companyId: company.id,
+          companyName: company.companyName,
+          managerName: company.managerName,
+          managerEmail: company.email,
+        }));
+
+        navigate("/user");
+        return;
+      }
     }
 
-    if (company.status === "suspended") {
-      setError(t("هذا الحساب موقوف. يرجى التواصل مع مسؤول النظام.", "Account suspended. Contact system admin."));
-      return;
-    }
-
-    // Update last login
-    const updatedCompany = { ...company, lastLogin: new Date().toISOString() };
-    const updatedCompanies = companies.map((c: any) => c.id === company.id ? updatedCompany : c);
-    localStorage.setItem("madar_companies", JSON.stringify(updatedCompanies));
-    localStorage.setItem("madar_user", JSON.stringify({ role: "company", ...updatedCompany }));
-    navigate("/company");
+    setError(t("البريد الإلكتروني أو كلمة المرور غير صحيحة. تأكد من أن مسؤول شركتك قد أضاف حسابك.", "Invalid email or password. Make sure your company admin has added your account."));
   };
 
   return (
@@ -47,8 +65,8 @@ const CompanyLogin = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link to="/"><img src={logo} alt="مدار" className="h-20 mx-auto mb-4" /></Link>
-          <h1 className="text-2xl font-black text-foreground">{t("دخول الشركات", "Company Login")}</h1>
-          <p className="text-sm text-muted-foreground mt-1">{t("سجّل دخولك لإدارة شركتك عبر منصة مدار", "Login to manage your company via Madar")}</p>
+          <h1 className="text-2xl font-black text-foreground">{t("دخول الموظفين", "Employee Login")}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t("سجّل دخولك بالبريد وكلمة المرور التي حددها لك مسؤول شركتك", "Login with credentials set by your company admin")}</p>
         </div>
 
         {error && (
@@ -74,19 +92,21 @@ const CompanyLogin = () => {
             </div>
           </div>
           <button type="submit" className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-all">
-            <Building2 className="h-4 w-4" /> {t("تسجيل الدخول", "Login")}
+            <User className="h-4 w-4" /> {t("تسجيل الدخول", "Login")}
           </button>
-          <div className="flex justify-between text-xs">
-            <button type="button" className="text-primary hover:underline">{t("نسيت كلمة المرور؟", "Forgot password?")}</button>
-            <Link to="/register/company" className="text-primary hover:underline">{t("إنشاء حساب جديد", "Create account")}</Link>
-          </div>
           <div className="text-center border-t border-border pt-3">
-            <Link to="/login/user" className="text-xs text-muted-foreground hover:text-primary transition-colors">{t("دخول الموظفين →", "Employee Login →")}</Link>
+            <Link to="/login/company" className="text-xs text-muted-foreground hover:text-primary transition-colors">{t("← دخول الشركات", "← Company Login")}</Link>
           </div>
         </form>
+
+        <div className="glass rounded-2xl p-4 mt-4">
+          <p className="text-xs text-muted-foreground text-center">
+            💡 {t("لا تملك حساب؟ اطلب من مسؤول شركتك إضافتك من قسم الموارد البشرية في لوحة التحكم.", "Don't have an account? Ask your company admin to add you from the HR section.")}
+          </p>
+        </div>
       </div>
     </div>
   );
 };
 
-export default CompanyLogin;
+export default UserLogin;

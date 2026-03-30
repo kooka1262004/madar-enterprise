@@ -1104,6 +1104,24 @@ const AdminDashboard = () => {
               </div>
             </div>
           )}
+
+          {/* Contact Info Management */}
+          {activeTab === "contact" && (
+            <div className="space-y-4 max-w-lg">
+              <div className="glass rounded-2xl p-6">
+                <h3 className="font-bold text-foreground mb-4">{t("إدارة معلومات التواصل","Contact Info Management")}</h3>
+                <p className="text-sm text-muted-foreground mb-4">{t("عدّل معلومات التواصل التي تظهر في صفحة الموقع الرئيسية.","Edit contact info shown on the landing page.")}</p>
+                <div className="space-y-3">
+                  <div><label className="text-sm font-bold text-foreground">{t("البريد الإلكتروني","Email")}</label><input value={contactInfo.email} onChange={(e) => { const c = {...contactInfo, email: e.target.value}; setContactInfo(c); localStorage.setItem("madar_contact_info", JSON.stringify(c)); }} className={inputClass} /></div>
+                  <div><label className="text-sm font-bold text-foreground">{t("رقم الهاتف","Phone")}</label><input value={contactInfo.phone} onChange={(e) => { const c = {...contactInfo, phone: e.target.value}; setContactInfo(c); localStorage.setItem("madar_contact_info", JSON.stringify(c)); }} className={inputClass} /></div>
+                  <div><label className="text-sm font-bold text-foreground">{t("العنوان","Address")}</label><input value={contactInfo.address} onChange={(e) => { const c = {...contactInfo, address: e.target.value}; setContactInfo(c); localStorage.setItem("madar_contact_info", JSON.stringify(c)); }} className={inputClass} /></div>
+                  <div><label className="text-sm font-bold text-foreground">{t("أيام العمل","Work Days")}</label><input value={contactInfo.workDays} onChange={(e) => { const c = {...contactInfo, workDays: e.target.value}; setContactInfo(c); localStorage.setItem("madar_contact_info", JSON.stringify(c)); }} className={inputClass} /></div>
+                  <div><label className="text-sm font-bold text-foreground">{t("أيام الإجازة","Off Days")}</label><input value={contactInfo.offDays} onChange={(e) => { const c = {...contactInfo, offDays: e.target.value}; setContactInfo(c); localStorage.setItem("madar_contact_info", JSON.stringify(c)); }} className={inputClass} /></div>
+                </div>
+                <p className="text-xs text-success mt-3">✅ {t("التغييرات تُحفظ تلقائياً وتظهر مباشرة في صفحة الموقع.","Changes are saved automatically and appear on the website.")}</p>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>

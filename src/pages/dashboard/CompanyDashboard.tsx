@@ -272,6 +272,73 @@ const CompanyDashboard = () => {
                   </div>
                 ))}
               </div>
+
+              {/* Device Info Card */}
+              {(() => {
+                const devices = getDevicesForCompany(user.id);
+                const allPlans = JSON.parse(localStorage.getItem("madar_plans") || "[]");
+                const plan = allPlans.find((p: any) => p.id === user.plan);
+                const maxDevices = plan?.devices || user.maxDevices || 3;
+                const activeDevices = devices.filter((d: any) => d.active);
+                return (
+                  <div className="glass rounded-2xl p-5 border-primary/20">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-bold text-foreground flex items-center gap-2"><Monitor className="h-4 w-4 text-primary" /> {t("حالة الأجهزة","Device Status")}</h4>
+                      <button onClick={() => setActiveTab("devices")} className="text-xs text-primary hover:underline">{t("إدارة الأجهزة","Manage Devices")}</button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="glass rounded-xl p-3 text-center"><p className="text-lg font-black text-primary">{activeDevices.length}</p><p className="text-[10px] text-muted-foreground">{t("مستخدمة","Active")}</p></div>
+                      <div className="glass rounded-xl p-3 text-center"><p className="text-lg font-black text-foreground">{maxDevices}</p><p className="text-[10px] text-muted-foreground">{t("الحد الأقصى","Max")}</p></div>
+                      <div className="glass rounded-xl p-3 text-center"><p className="text-lg font-black text-success">{maxDevices - activeDevices.length}</p><p className="text-[10px] text-muted-foreground">{t("متبقية","Remaining")}</p></div>
+                    </div>
+                    {activeDevices.length >= maxDevices && (
+                      <div className="mt-2 glass rounded-xl p-2 border-warning/30">
+                        <p className="text-[10px] text-warning text-center">⚠️ {t("تم الوصول للحد الأقصى! يرجى حذف جهاز أو ترقية الباقة.","Device limit reached! Remove a device or upgrade.")}</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Charts */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="glass rounded-2xl p-5">
+                  <h4 className="font-bold text-foreground mb-3">{t("حركة المبيعات","Sales Movement")}</h4>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <AreaChart data={[
+                      { name: t("يناير","Jan"), sales: 1200, purchases: 800 },
+                      { name: t("فبراير","Feb"), sales: 1800, purchases: 1200 },
+                      { name: t("مارس","Mar"), sales: 2400, purchases: 1000 },
+                      { name: t("أبريل","Apr"), sales: 2100, purchases: 1500 },
+                      { name: t("مايو","May"), sales: 3000, purchases: 1800 },
+                      { name: t("يونيو","Jun"), sales: 2700, purchases: 1400 },
+                    ]}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
+                      <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
+                      <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, color: "hsl(var(--foreground))" }} />
+                      <Area type="monotone" dataKey="sales" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.2)" />
+                      <Area type="monotone" dataKey="purchases" stroke="hsl(var(--destructive))" fill="hsl(var(--destructive) / 0.1)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="glass rounded-2xl p-5">
+                  <h4 className="font-bold text-foreground mb-3">{t("توزيع المخزون","Stock Distribution")}</h4>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie data={(() => {
+                        const typeCount: Record<string,number> = {};
+                        products.forEach((p: any) => { typeCount[p.type || "أخرى"] = (typeCount[p.type || "أخرى"] || 0) + Number(p.quantity || 0); });
+                        return Object.entries(typeCount).map(([name, value]) => ({ name, value }));
+                      })()} cx="50%" cy="50%" outerRadius={70} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
+                        {["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--warning))", "hsl(var(--destructive))"].map((c, i) => <Cell key={i} fill={c} />)}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="glass rounded-2xl p-5">
                   <h4 className="font-bold text-foreground mb-2">{t("ملخص مالي","Financial Summary")}</h4>

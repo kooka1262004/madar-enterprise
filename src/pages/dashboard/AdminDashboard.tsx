@@ -99,6 +99,7 @@ const AdminDashboard = () => {
   const [fraudLogs, setFraudLogs] = useState<any[]>(() => JSON.parse(localStorage.getItem("madar_fraud_logs") || "[]"));
   const [adminNotifications, setAdminNotifications] = useState<any[]>(() => JSON.parse(localStorage.getItem("madar_admin_notifs") || "[]"));
   const [adminMessages, setAdminMessages] = useState<any[]>(() => JSON.parse(localStorage.getItem("madar_admin_messages") || "[]"));
+  const [contactInfo, setContactInfo] = useState(() => JSON.parse(localStorage.getItem("madar_contact_info") || JSON.stringify({ email: "support@madar.ly", phone: "+218 XX XXX XXXX", address: "ليبيا - طرابلس", workDays: "الأحد - الخميس: 9:00 ص - 5:00 م", offDays: "الجمعة - السبت: مغلق" })));
   const [terms, setTerms] = useState<any[]>(() => JSON.parse(localStorage.getItem("madar_terms") || JSON.stringify([
     { id: "1", title: "حقوق المنصة", content: "منصة مدار تحتفظ بجميع الحقوق الفكرية والتقنية." },
     { id: "2", title: "حقوق العميل", content: "العميل يحتفظ بملكية بياناته الكاملة." },

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Building2, Upload } from "lucide-react";
-import logoDark from "@/assets/logo-dark.png";
+import { Eye, EyeOff, Building2 } from "lucide-react";
+import logo from "@/assets/logo-transparent.png";
 
 const cities = ["طرابلس","بنغازي","مصراتة","الزاوية","زليتن","صبراتة","الخمس","غريان","ترهونة","سرت","أجدابيا","البيضاء","درنة","طبرق","سبها","أوباري","مرزق","غدامس","نالوت","يفرن","جنزور","تاجوراء","أخرى"];
 const activities = ["تجارة عامة","تجارة إلكترونية","مواد غذائية","ملابس وأزياء","إلكترونيات","مواد بناء","أدوية","قطع غيار","أثاث","مستحضرات تجميل","مطاعم ومقاهي","خدمات","تصنيع","أخرى"];
@@ -16,24 +16,14 @@ const CompanyRegister = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (form.password !== form.confirmPassword) {
-      alert("كلمات المرور غير متطابقة");
-      return;
-    }
+    if (form.password !== form.confirmPassword) { alert("كلمات المرور غير متطابقة"); return; }
     const companies = JSON.parse(localStorage.getItem("madar_companies") || "[]");
-    if (companies.find((c: any) => c.email === form.email)) {
-      alert("البريد الإلكتروني مسجّل مسبقاً");
-      return;
-    }
+    if (companies.find((c: any) => c.email === form.email)) { alert("البريد الإلكتروني مسجّل مسبقاً"); return; }
     const newCompany = {
-      id: Date.now().toString(),
-      ...form,
-      plan: "trial",
-      planName: "تجربة مجانية",
+      id: Date.now().toString(), ...form,
+      plan: "trial", planName: "تجربة مجانية",
       trialEnd: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      wallet: 0,
-      status: "active",
-      createdAt: new Date().toISOString(),
+      wallet: 0, status: "active", createdAt: new Date().toISOString(),
     };
     companies.push(newCompany);
     localStorage.setItem("madar_companies", JSON.stringify(companies));
@@ -45,7 +35,7 @@ const CompanyRegister = () => {
     <div className="min-h-screen gradient-hero flex items-center justify-center p-4 py-20">
       <div className="w-full max-w-lg">
         <div className="text-center mb-8">
-          <Link to="/"><img src={logoDark} alt="مدار" className="h-20 mx-auto mb-4" /></Link>
+          <Link to="/"><img src={logo} alt="مدار" className="h-20 mx-auto mb-4" /></Link>
           <h1 className="text-2xl font-black text-foreground">إنشاء حساب شركة</h1>
           <p className="text-sm text-muted-foreground mt-1">مرحباً بك! سجّل شركتك وابدأ بتجربة مجانية لمدة أسبوع كامل بجميع المميزات.</p>
         </div>
@@ -71,7 +61,6 @@ const CompanyRegister = () => {
               <label className="block text-sm font-bold text-foreground mb-1">البريد الإلكتروني *</label>
               <input type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
                 placeholder="email@company.com" className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary text-sm" />
-              <p className="text-xs text-muted-foreground mt-1">سيُستخدم لتسجيل الدخول واستلام الإشعارات</p>
             </div>
             <div>
               <label className="block text-sm font-bold text-foreground mb-1">رقم الهاتف *</label>
@@ -118,8 +107,7 @@ const CompanyRegister = () => {
           </div>
 
           <button type="submit" className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-all">
-            <Building2 className="h-4 w-4" />
-            إنشاء الحساب وبدء التجربة المجانية
+            <Building2 className="h-4 w-4" /> إنشاء الحساب وبدء التجربة المجانية
           </button>
 
           <div className="text-center pt-2 border-t border-border/30">

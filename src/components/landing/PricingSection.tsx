@@ -14,6 +14,22 @@ const plans = [
     highlight: false,
   },
   {
+    name: "باقة البداية",
+    price: "100",
+    period: "دينار / أسبوعياً",
+    desc: "مناسبة لمن يريد البدء بسرعة بتكلفة منخفضة.",
+    features: [
+      "إدارة المنتجات",
+      "حركة المخزون",
+      "التقارير الأساسية",
+      "نظام الباركود",
+    ],
+    users: "2",
+    stores: "1",
+    products: "200",
+    highlight: false,
+  },
+  {
     name: "الباقة الأساسية",
     price: "300",
     period: "دينار / شهرياً",
@@ -55,7 +71,7 @@ const plans = [
   },
   {
     name: "باقة الأعمال",
-    price: "2,500",
+    price: "1,000",
     period: "دينار / شهرياً",
     desc: "للشركات الكبيرة التي تحتاج حلاً شاملاً بلا حدود.",
     features: [
@@ -94,13 +110,14 @@ const PricingSection = () => {
           <p className="text-muted-foreground max-w-xl mx-auto">
             اختر الباقة المناسبة لحجم أعمالك. جميع الباقات تشمل الدعم الفني والتحديثات المستمرة.
           </p>
+          <p className="text-xs text-muted-foreground mt-2">* الباقات قابلة للتعديل من قبل مسؤول النظام</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {plans.map((plan) => (
             <div
               key={plan.name}
-              className={`rounded-2xl p-6 flex flex-col transition-all relative ${
+              className={`rounded-2xl p-5 flex flex-col transition-all relative ${
                 plan.highlight
                   ? "glass border-primary/50 shadow-glow scale-[1.02]"
                   : "glass hover:border-primary/30"
@@ -111,16 +128,16 @@ const PricingSection = () => {
                   <Star className="h-3 w-3" /> الأكثر طلباً
                 </div>
               )}
-              <h3 className="text-xl font-bold text-foreground mb-2">{plan.name}</h3>
+              <h3 className="text-lg font-bold text-foreground mb-2">{plan.name}</h3>
               <div className="mb-1">
-                <span className="text-3xl font-black text-primary">{plan.price}</span>
+                <span className="text-2xl font-black text-primary">{plan.price}</span>
                 {plan.period && (
-                  <span className="text-sm text-muted-foreground mr-1">{plan.period}</span>
+                  <span className="text-xs text-muted-foreground mr-1">{plan.period}</span>
                 )}
               </div>
-              <p className="text-sm text-muted-foreground mb-4">{plan.desc}</p>
+              <p className="text-xs text-muted-foreground mb-3">{plan.desc}</p>
 
-              <div className="space-y-2 mb-4 text-sm">
+              <div className="space-y-1.5 mb-3 text-xs">
                 <div className="flex justify-between py-1 border-b border-border/30">
                   <span className="text-muted-foreground">المستخدمين</span>
                   <span className="font-bold text-foreground">{plan.users}</span>
@@ -135,10 +152,10 @@ const PricingSection = () => {
                 </div>
               </div>
 
-              <div className="space-y-2 mb-6 flex-1">
+              <div className="space-y-1.5 mb-4 flex-1">
                 {plan.features.map((f) => (
-                  <div key={f} className="flex items-center gap-2 text-sm">
-                    <Check className="h-4 w-4 text-success shrink-0" />
+                  <div key={f} className="flex items-center gap-2 text-xs">
+                    <Check className="h-3.5 w-3.5 text-success shrink-0" />
                     <span className="text-muted-foreground">{f}</span>
                   </div>
                 ))}
@@ -146,7 +163,7 @@ const PricingSection = () => {
 
               <Link
                 to="/register/company"
-                className={`block text-center py-2.5 rounded-xl font-bold text-sm transition-all ${
+                className={`block text-center py-2 rounded-xl font-bold text-sm transition-all ${
                   plan.highlight
                     ? "gradient-primary text-primary-foreground shadow-glow"
                     : "border border-border hover:border-primary/50 text-foreground"

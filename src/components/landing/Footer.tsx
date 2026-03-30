@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import logoLight from "@/assets/logo-light.png";
+import logo from "@/assets/logo-transparent.png";
 
 const Footer = () => {
   return (
@@ -7,7 +7,7 @@ const Footer = () => {
       <div className="container mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           <div>
-            <img src={logoLight} alt="مدار" className="h-10 mb-4" />
+            <img src={logo} alt="مدار" className="h-10 mb-4" />
             <p className="text-sm text-muted-foreground leading-relaxed">
               منصة متكاملة لإدارة المخازن والموارد البشرية والمحاسبة. تحكّم. تنظيم. نمو.
             </p>

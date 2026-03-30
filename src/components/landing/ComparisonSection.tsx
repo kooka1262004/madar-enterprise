@@ -22,9 +22,10 @@ const allFeatures = [
 
 type PlanCheck = boolean;
 const planData: Record<string, PlanCheck[]> = {
-  "الأساسية": [true,true,true,true,true, false,false,false,false,false,false,false,false,false,false,false,false],
+  "البداية":    [true,true,true,true,false, false,false,false,false,false,false,false,false,false,false,false,false],
+  "الأساسية":  [true,true,true,true,true, false,false,false,false,false,false,false,false,false,false,false,false],
   "الاحترافية": [true,true,true,true,true, true,true,true,true,true,true, false,false,false,false,false,false],
-  "الأعمال": [true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true],
+  "الأعمال":   [true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true],
 };
 
 const ComparisonSection = () => {
@@ -42,7 +43,7 @@ const ComparisonSection = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[600px]">
+          <table className="w-full min-w-[700px]">
             <thead>
               <tr className="border-b border-border">
                 <th className="text-right py-4 px-4 text-sm font-bold text-foreground">الميزة</th>

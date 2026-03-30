@@ -97,7 +97,11 @@ const CompanyDashboard = () => {
   const [lang, setLang] = useState(() => localStorage.getItem("madar_lang") || "ar");
   const [uploadProof, setUploadProof] = useState<any>(null);
   const [workSchedule, setWorkSchedule] = useState(() => JSON.parse(localStorage.getItem(`madar_schedule_${user.id}`) || JSON.stringify({ start: "08:00", end: "16:00", lateMinutes: 15, absentMinutes: 120 })));
-
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+  const [scannedResult, setScannedResult] = useState("");
+  const [showAddInvoice, setShowAddInvoice] = useState(false);
+  const [invoiceItems, setInvoiceItems] = useState<any[]>([{ product: "", quantity: 1, price: 0 }]);
+  const [savedBarcodes, setSavedBarcodes] = useState<any[]>(() => JSON.parse(localStorage.getItem(`madar_barcodes_${user.id}`) || "[]"));
   const t = (ar: string, en: string) => lang === "ar" ? ar : en;
 
   const products = JSON.parse(localStorage.getItem(`madar_products_${user.id}`) || "[]");

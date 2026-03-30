@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Building2, Package, CreditCard, Users, Settings, LogOut,
   BarChart3, Shield, Ticket, DollarSign, Activity, AlertTriangle, User, Bell, Menu, X,
   Eye, Trash2, Send, Gift, Ban, CheckCircle, Clock, FileText, Edit, Plus, Download, RefreshCw, Search, MessageSquare,
-  Upload, Moon, Sun, Globe, Scale, Truck, Image, Monitor
+  Upload, Moon, Sun, Globe, Scale, Truck, Image, Monitor, Check
 } from "lucide-react";
 import logo from "@/assets/logo-transparent.png";
 import { exportToPDF, exportSimplePDF } from "@/utils/pdfExport";

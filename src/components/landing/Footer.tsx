@@ -2,12 +2,15 @@ import { Link } from "react-router-dom";
 import logo from "@/assets/logo-transparent.png";
 
 const Footer = () => {
+  const branding = JSON.parse(localStorage.getItem("madar_branding") || "{}");
+  const displayLogo = branding.logo || logo;
+
   return (
     <footer className="border-t border-border/30 py-12 px-4">
       <div className="container mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           <div>
-            <img src={logo} alt="مدار" className="h-10 mb-4" />
+            <img src={displayLogo} alt={branding.name || "مدار"} className="h-10 mb-4" />
             <p className="text-sm text-muted-foreground leading-relaxed">
               منصة متكاملة لإدارة المخازن والموارد البشرية والمحاسبة. تحكّم. تنظيم. نمو.
             </p>

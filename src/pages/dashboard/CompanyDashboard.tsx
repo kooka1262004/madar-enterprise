@@ -923,6 +923,166 @@ const CompanyDashboard = () => {
             </div>
           )}
 
+          {/* Invoices */}
+          {activeTab === "invoices" && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">{t("نظام الفواتير الاحترافي: أنشئ فواتير، اطبعها بصيغة PDF، وأرسلها للعملاء.","Professional invoice system: Create invoices, print as PDF, and send to clients.")}</p>
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-foreground">{t("الفواتير","Invoices")} ({(JSON.parse(localStorage.getItem(`madar_invoices_${user.id}`) || "[]")).length})</h3>
+                <button onClick={() => setShowAddInvoice(true)} className="px-4 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center gap-2"><Plus className="h-4 w-4" /> {t("إنشاء فاتورة","Create Invoice")}</button>
+              </div>
+
+              {showAddInvoice && (
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const fd = new FormData(e.target as HTMLFormElement);
+                  const invoiceData = {
+                    id: Date.now().toString(),
+                    invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
+                    clientName: fd.get("clientName"),
+                    clientPhone: fd.get("clientPhone"),
+                    clientAddress: fd.get("clientAddress"),
+                    notes: fd.get("notes"),
+                    items: invoiceItems.filter(i => i.product),
+                    subtotal: invoiceItems.reduce((a, i) => a + (i.quantity * i.price), 0),
+                    tax: Number(fd.get("tax")) || 0,
+                    discount: Number(fd.get("discount")) || 0,
+                    total: invoiceItems.reduce((a, i) => a + (i.quantity * i.price), 0) - (Number(fd.get("discount")) || 0) + (Number(fd.get("tax")) || 0),
+                    status: "pending",
+                    createdAt: new Date().toISOString(),
+                    createdBy: user.managerName,
+                  };
+                  const invoices = JSON.parse(localStorage.getItem(`madar_invoices_${user.id}`) || "[]");
+                  invoices.push(invoiceData);
+                  localStorage.setItem(`madar_invoices_${user.id}`, JSON.stringify(invoices));
+                  setShowAddInvoice(false);
+                  setInvoiceItems([{ product: "", quantity: 1, price: 0 }]);
+                  window.location.reload();
+                }} className="glass rounded-2xl p-6 space-y-4">
+                  <h4 className="font-bold text-foreground">{t("إنشاء فاتورة جديدة","Create New Invoice")}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div><label className="text-xs font-bold text-foreground">{t("اسم العميل *","Client Name *")}</label><input name="clientName" required className={inputClass} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("هاتف العميل","Client Phone")}</label><input name="clientPhone" className={inputClass} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("عنوان العميل","Client Address")}</label><input name="clientAddress" className={inputClass} /></div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-bold text-foreground">{t("بنود الفاتورة","Invoice Items")}</label>
+                      <button type="button" onClick={() => setInvoiceItems([...invoiceItems, { product: "", quantity: 1, price: 0 }])} className="text-xs text-primary hover:underline flex items-center gap-1"><Plus className="h-3 w-3" /> {t("إضافة بند","Add Item")}</button>
+                    </div>
+                    <div className="space-y-2">
+                      {invoiceItems.map((item, idx) => (
+                        <div key={idx} className="grid grid-cols-12 gap-2 items-end">
+                          <div className="col-span-5">
+                            {idx === 0 && <label className="text-[10px] text-muted-foreground">{t("المنتج/الخدمة","Product/Service")}</label>}
+                            <select value={item.product} onChange={(e) => {
+                              const items = [...invoiceItems];
+                              items[idx].product = e.target.value;
+                              const prod = products.find((p: any) => p.name === e.target.value);
+                              if (prod) items[idx].price = Number(prod.sellPrice) || 0;
+                              setInvoiceItems(items);
+                            }} className={inputClass}>
+                              <option value="">{t("اختر أو اكتب","Select or type")}</option>
+                              {products.map((p: any) => <option key={p.id} value={p.name}>{p.name} - {p.sellPrice} {t("د.ل","LYD")}</option>)}
+                            </select>
+                          </div>
+                          <div className="col-span-2">
+                            {idx === 0 && <label className="text-[10px] text-muted-foreground">{t("الكمية","Qty")}</label>}
+                            <input type="number" min="1" value={item.quantity} onChange={(e) => { const items = [...invoiceItems]; items[idx].quantity = Number(e.target.value); setInvoiceItems(items); }} className={inputClass} />
+                          </div>
+                          <div className="col-span-3">
+                            {idx === 0 && <label className="text-[10px] text-muted-foreground">{t("السعر","Price")}</label>}
+                            <input type="number" value={item.price} onChange={(e) => { const items = [...invoiceItems]; items[idx].price = Number(e.target.value); setInvoiceItems(items); }} className={inputClass} />
+                          </div>
+                          <div className="col-span-1">
+                            {idx === 0 && <label className="text-[10px] text-muted-foreground">{t("المجموع","Total")}</label>}
+                            <p className="text-sm font-bold text-primary py-2">{item.quantity * item.price}</p>
+                          </div>
+                          <div className="col-span-1">
+                            {invoiceItems.length > 1 && <button type="button" onClick={() => setInvoiceItems(invoiceItems.filter((_, i) => i !== idx))} className="text-destructive p-1"><Trash2 className="h-4 w-4" /></button>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div><label className="text-xs font-bold text-foreground">{t("الضريبة","Tax")}</label><input name="tax" type="number" defaultValue={0} className={inputClass} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("الخصم","Discount")}</label><input name="discount" type="number" defaultValue={0} className={inputClass} /></div>
+                    <div className="glass rounded-xl p-3"><p className="text-xs text-muted-foreground">{t("الإجمالي","Total")}</p><p className="text-xl font-black text-primary">{invoiceItems.reduce((a, i) => a + (i.quantity * i.price), 0)} {t("د.ل","LYD")}</p></div>
+                  </div>
+                  <div><label className="text-xs font-bold text-foreground">{t("ملاحظات","Notes")}</label><textarea name="notes" rows={2} className={inputClass} /></div>
+                  <div className="flex gap-2">
+                    <button type="submit" className="px-6 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold">{t("حفظ الفاتورة","Save Invoice")}</button>
+                    <button type="button" onClick={() => { setShowAddInvoice(false); setInvoiceItems([{ product: "", quantity: 1, price: 0 }]); }} className="px-6 py-2 rounded-xl border border-border text-foreground text-sm">{t("إلغاء","Cancel")}</button>
+                  </div>
+                </form>
+              )}
+
+              {/* Invoice List */}
+              {(() => {
+                const invoices = JSON.parse(localStorage.getItem(`madar_invoices_${user.id}`) || "[]");
+                if (invoices.length === 0 && !showAddInvoice) return (
+                  <div className="glass rounded-2xl p-6 text-center"><Receipt className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لم تقم بإنشاء أي فواتير بعد.","No invoices created yet.")}</p></div>
+                );
+                return (
+                  <div className="glass rounded-2xl p-4 overflow-x-auto">
+                    <div className="flex justify-end mb-2">
+                      <button onClick={() => exportToPDF(t("الفواتير","Invoices"), invoices.map((inv: any) => ({ number: inv.invoiceNumber, client: inv.clientName, total: inv.total, status: inv.status, date: new Date(inv.createdAt).toLocaleDateString("ar-LY") })), [t("الرقم","#"),t("العميل","Client"),t("الإجمالي","Total"),t("الحالة","Status"),t("التاريخ","Date")])} className="px-3 py-1.5 rounded-lg border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button>
+                    </div>
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b border-border">
+                        <th className="text-right py-2 px-3 text-muted-foreground">{t("رقم الفاتورة","Invoice #")}</th>
+                        <th className="text-right py-2 px-3 text-muted-foreground">{t("العميل","Client")}</th>
+                        <th className="text-right py-2 px-3 text-muted-foreground">{t("الإجمالي","Total")}</th>
+                        <th className="text-right py-2 px-3 text-muted-foreground">{t("الحالة","Status")}</th>
+                        <th className="text-right py-2 px-3 text-muted-foreground">{t("التاريخ","Date")}</th>
+                        <th className="text-right py-2 px-3 text-muted-foreground">{t("إجراءات","Actions")}</th>
+                      </tr></thead>
+                      <tbody>{invoices.map((inv: any) => (
+                        <tr key={inv.id} className="border-b border-border/30">
+                          <td className="py-2 px-3 text-primary font-mono font-bold">{inv.invoiceNumber}</td>
+                          <td className="py-2 px-3 text-foreground">{inv.clientName}</td>
+                          <td className="py-2 px-3 text-foreground font-bold">{inv.total} {t("د.ل","LYD")}</td>
+                          <td className="py-2 px-3"><span className={`px-2 py-0.5 rounded-full text-xs ${inv.status === "paid" ? "bg-success/20 text-success" : inv.status === "sent" ? "bg-primary/20 text-primary" : "bg-warning/20 text-warning"}`}>{inv.status === "paid" ? t("مدفوعة","Paid") : inv.status === "sent" ? t("مرسلة","Sent") : t("معلّقة","Pending")}</span></td>
+                          <td className="py-2 px-3 text-muted-foreground text-xs">{new Date(inv.createdAt).toLocaleDateString("ar-LY")}</td>
+                          <td className="py-2 px-3 flex gap-1">
+                            <button onClick={() => {
+                              const itemsHTML = inv.items.map((i: any) => `<tr><td style="padding:8px;border:1px solid #e5e7eb;">${i.product}</td><td style="padding:8px;border:1px solid #e5e7eb;text-align:center;">${i.quantity}</td><td style="padding:8px;border:1px solid #e5e7eb;text-align:center;">${i.price}</td><td style="padding:8px;border:1px solid #e5e7eb;text-align:center;font-weight:bold;">${i.quantity * i.price}</td></tr>`).join("");
+                              exportSimplePDF(
+                                `فاتورة ${inv.invoiceNumber}`,
+                                `<div style="margin-bottom:20px;"><strong>العميل:</strong> ${inv.clientName}<br/><strong>الهاتف:</strong> ${inv.clientPhone || "-"}<br/><strong>العنوان:</strong> ${inv.clientAddress || "-"}</div>
+                                <table style="width:100%;border-collapse:collapse;">
+                                  <thead><tr style="background:#2563eb;color:white;"><th style="padding:8px;">المنتج/الخدمة</th><th style="padding:8px;">الكمية</th><th style="padding:8px;">السعر</th><th style="padding:8px;">المجموع</th></tr></thead>
+                                  <tbody>${itemsHTML}</tbody>
+                                </table>
+                                <div style="margin-top:15px;text-align:left;">
+                                  <p>المجموع الفرعي: ${inv.subtotal} د.ل</p>
+                                  <p>الضريبة: ${inv.tax} د.ل</p>
+                                  <p>الخصم: ${inv.discount} د.ل</p>
+                                  <p style="font-size:18px;font-weight:bold;color:#2563eb;">الإجمالي: ${inv.total} د.ل</p>
+                                </div>
+                                ${inv.notes ? `<div style="margin-top:15px;padding:10px;background:#f8fafc;border-radius:8px;"><strong>ملاحظات:</strong> ${inv.notes}</div>` : ""}`
+                              );
+                            }} className="p-1 text-primary hover:text-primary/80" title={t("طباعة PDF","Print PDF")}><Printer className="h-4 w-4" /></button>
+                            <button onClick={() => {
+                              const updated = invoices.map((i: any) => i.id === inv.id ? {...i, status: inv.status === "pending" ? "sent" : "paid"} : i);
+                              localStorage.setItem(`madar_invoices_${user.id}`, JSON.stringify(updated));
+                              window.location.reload();
+                            }} className="p-1 text-success hover:text-success/80" title={inv.status === "pending" ? t("تعيين كمرسلة","Mark Sent") : t("تعيين كمدفوعة","Mark Paid")}><Check className="h-4 w-4" /></button>
+                            <button onClick={() => {
+                              localStorage.setItem(`madar_invoices_${user.id}`, JSON.stringify(invoices.filter((i: any) => i.id !== inv.id)));
+                              window.location.reload();
+                            }} className="p-1 text-destructive hover:text-destructive/80"><Trash2 className="h-4 w-4" /></button>
+                          </td>
+                        </tr>
+                      ))}</tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
           {activeTab === "reports" && (
             <div className="space-y-4">
               <h3 className="font-bold text-foreground">{t("التقارير والتحليلات","Reports & Analytics")}</h3>

@@ -622,49 +622,61 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* Wallet Requests */}
+          {/* Wallet Requests - Full Status Flow */}
           {activeTab === "wallet-requests" && (
             <div className="glass rounded-2xl p-6">
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 mb-4">
                 <h3 className="font-bold text-foreground">{t("طلبات شحن المحافظ","Wallet Requests")}</h3>
                 <div className="flex gap-2">
-                  <button onClick={() => exportToPDF(t("طلبات الشحن","Wallet Requests"), walletRequests.map(r => ({ company: r.companyName, amount: `${r.amount}`, method: r.method, status: r.status === "approved" ? "مقبول" : r.status === "rejected" ? "مرفوض" : "معلّق", date: new Date(r.date).toLocaleDateString("ar-LY") })), [t("الشركة","Company"),t("المبلغ","Amount"),t("الطريقة","Method"),t("الحالة","Status"),t("التاريخ","Date")])} className="px-3 py-1.5 rounded-lg border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button>
+                  <button onClick={() => exportToPDF(t("طلبات الشحن","Wallet Requests"), walletRequests.map(r => ({ company: r.companyName, amount: `${r.amount}`, method: r.method, status: r.status, date: new Date(r.date).toLocaleDateString("ar-LY") })), [t("الشركة","Company"),t("المبلغ","Amount"),t("الطريقة","Method"),t("الحالة","Status"),t("التاريخ","Date")])} className="px-3 py-1.5 rounded-lg border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button>
                   {walletRequests.length > 0 && <button onClick={clearWalletRequests} className="px-3 py-1.5 rounded-lg bg-destructive/20 text-destructive text-xs flex items-center gap-1"><Trash2 className="h-3 w-3" /> {t("تصفير","Clear All")}</button>}
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground mb-4">{t("قم بمراجعة طلبات شحن المحافظ وتغيير حالتها (قبول / رفض / معلّق).","Review wallet requests and change their status.")}</p>
-              {walletRequests.length === 0 ? <p className="text-sm text-muted-foreground">{t("لا توجد طلبات شحن حالياً.","No wallet requests.")}</p> : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead><tr className="border-b border-border">
-                      <th className="text-right py-2 px-3 text-muted-foreground">{t("الشركة","Company")}</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground">{t("المبلغ","Amount")}</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground">{t("الطريقة","Method")}</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground">{t("التاريخ","Date")}</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground">{t("الحالة","Status")}</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground">{t("الإجراء","Action")}</th>
-                    </tr></thead>
-                    <tbody>
-                      {walletRequests.map((r: any) => (
-                        <tr key={r.id} className="border-b border-border/30">
-                          <td className="py-2 px-3 text-foreground">{r.companyName}</td>
-                          <td className="py-2 px-3 text-primary font-bold">{r.amount} {t("د.ل","LYD")}</td>
-                          <td className="py-2 px-3 text-muted-foreground">{r.method}</td>
-                          <td className="py-2 px-3 text-muted-foreground text-xs">{new Date(r.date).toLocaleDateString("ar-LY")}</td>
-                          <td className="py-2 px-3"><span className={`px-2 py-0.5 rounded-full text-xs ${r.status === "approved" ? "bg-success/20 text-success" : r.status === "rejected" ? "bg-destructive/20 text-destructive" : "bg-warning/20 text-warning"}`}>{r.status === "approved" ? t("مقبول","Approved") : r.status === "rejected" ? t("مرفوض","Rejected") : t("معلّق","Pending")}</span></td>
-                          <td className="py-2 px-3">
-                            <div className="flex gap-1">
-                              {r.status === "pending" && <>
-                                <button onClick={() => updateWalletRequest(r.id, "approved")} className="text-xs px-2 py-1 rounded bg-success/20 text-success">{t("قبول","Approve")}</button>
-                                <button onClick={() => updateWalletRequest(r.id, "rejected")} className="text-xs px-2 py-1 rounded bg-destructive/20 text-destructive">{t("رفض","Reject")}</button>
-                              </>}
-                              <button onClick={() => deleteWalletRequest(r.id)} className="text-xs px-2 py-1 rounded bg-destructive/10 text-destructive"><Trash2 className="h-3 w-3" /></button>
+              <p className="text-sm text-muted-foreground mb-4">{t("يمكنك تغيير حالة كل طلب: معلّق → قيد التنفيذ → إرسال مندوب → استلام → قبول/رفض.","Change status: Pending → Processing → Rep Sent → Received → Approved/Rejected.")}</p>
+              {walletRequests.length === 0 ? <p className="text-sm text-muted-foreground">{t("لا توجد طلبات.","No requests.")}</p> : (
+                <div className="space-y-4">
+                  {walletRequests.map((r: any) => {
+                    const statusFlow = ["pending","processing","sent_rep","received","approved"];
+                    const statusLabels: Record<string,string> = { pending: t("معلّق","Pending"), processing: t("قيد التنفيذ","Processing"), sent_rep: t("إرسال مندوب","Rep Sent"), received: t("تم الاستلام","Received"), approved: t("مقبول","Approved"), rejected: t("مرفوض","Rejected") };
+                    const statusColors: Record<string,string> = { pending: "bg-warning/20 text-warning", processing: "bg-info/20 text-info", sent_rep: "bg-primary/20 text-primary", received: "bg-accent/20 text-accent", approved: "bg-success/20 text-success", rejected: "bg-destructive/20 text-destructive" };
+                    const currentIdx = statusFlow.indexOf(r.status);
+                    return (
+                      <div key={r.id} className="glass rounded-xl p-4">
+                        <div className="flex flex-col md:flex-row justify-between gap-3 mb-3">
+                          <div>
+                            <p className="text-sm font-bold text-foreground">{r.companyName}</p>
+                            <p className="text-xs text-muted-foreground">{r.method} - {r.amount} {t("د.ل","LYD")} - {new Date(r.date).toLocaleDateString("ar-LY")}</p>
+                            {r.proofImage && <p className="text-xs text-success mt-1">✅ {t("تم رفع إثبات التحويل","Proof uploaded")}</p>}
+                          </div>
+                          <span className={`px-3 py-1 rounded-full text-xs self-start ${statusColors[r.status] || statusColors.pending}`}>{statusLabels[r.status] || r.status}</span>
+                        </div>
+                        {/* Status progress bar */}
+                        <div className="flex items-center gap-1 mb-2">
+                          {statusFlow.map((s, i) => (
+                            <div key={s} className="flex items-center gap-1 flex-1">
+                              <div className={`w-2.5 h-2.5 rounded-full ${i <= currentIdx ? "bg-primary" : "bg-muted"}`} />
+                              {i < statusFlow.length - 1 && <div className={`h-0.5 flex-1 ${i < currentIdx ? "bg-primary" : "bg-muted"}`} />}
                             </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          ))}
+                        </div>
+                        <div className="flex justify-between text-[9px] text-muted-foreground mb-3">
+                          <span>{t("معلّق","Pending")}</span><span>{t("تنفيذ","Process")}</span><span>{t("مندوب","Rep")}</span><span>{t("استلام","Recv")}</span><span>{t("مقبول","OK")}</span>
+                        </div>
+                        <div className="flex gap-1 flex-wrap">
+                          {r.status !== "approved" && r.status !== "rejected" && (
+                            <>
+                              {r.status === "pending" && <button onClick={() => updateWalletRequest(r.id, "processing")} className="text-xs px-3 py-1.5 rounded-lg bg-info/20 text-info">{t("قيد التنفيذ","Processing")}</button>}
+                              {r.status === "processing" && <button onClick={() => updateWalletRequest(r.id, "sent_rep")} className="text-xs px-3 py-1.5 rounded-lg bg-primary/20 text-primary">{t("إرسال مندوب","Send Rep")}</button>}
+                              {r.status === "sent_rep" && <button onClick={() => updateWalletRequest(r.id, "received")} className="text-xs px-3 py-1.5 rounded-lg bg-accent/20 text-accent">{t("تم الاستلام","Received")}</button>}
+                              {r.status === "received" && <button onClick={() => updateWalletRequest(r.id, "approved")} className="text-xs px-3 py-1.5 rounded-lg bg-success/20 text-success">{t("قبول وشحن المحفظة","Approve & Charge")}</button>}
+                              <button onClick={() => updateWalletRequest(r.id, "rejected")} className="text-xs px-3 py-1.5 rounded-lg bg-destructive/20 text-destructive">{t("رفض","Reject")}</button>
+                            </>
+                          )}
+                          <button onClick={() => deleteWalletRequest(r.id)} className="text-xs px-2 py-1.5 rounded-lg bg-destructive/10 text-destructive"><Trash2 className="h-3 w-3" /></button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Package, Warehouse, Users, CreditCard, BarChart3, QrCode,
   Truck, ClipboardList, TrendingUp, RotateCcw, FileText, DollarSign,
   UserCog, Settings, LogOut, Bell, Menu, X, ShoppingCart, AlertTriangle, Clock, Briefcase,
   Plus, Edit, Trash2, Download, Eye, Send, Check, Search, Upload, Calendar, Award, Flag, MessageSquare, ListChecks,
-  Moon, Sun, Globe, Camera, RefreshCw, ArrowUpDown
+  Moon, Sun, Globe, Camera, RefreshCw, ArrowUpDown, Receipt, Printer
 } from "lucide-react";
 import logo from "@/assets/logo-transparent.png";
 import { exportToPDF, exportSimplePDF } from "@/utils/pdfExport";
+import BarcodeScanner from "@/components/BarcodeScanner";
+import BarcodeGenerator from "@/components/BarcodeGenerator";
 
 const sidebarSections = [
   { title: "الرئيسية", titleEn: "Main", items: [
@@ -28,6 +30,7 @@ const sidebarSections = [
   { title: "المالية", titleEn: "Finance", items: [
     { icon: BarChart3, label: "المحاسبة", labelEn: "Accounting", key: "accounting" },
     { icon: TrendingUp, label: "الأرباح", labelEn: "Profits", key: "profits" },
+    { icon: Receipt, label: "الفواتير", labelEn: "Invoices", key: "invoices" },
     { icon: FileText, label: "التقارير", labelEn: "Reports", key: "reports" },
   ]},
   { title: "الموارد البشرية", titleEn: "Human Resources", items: [
@@ -94,7 +97,11 @@ const CompanyDashboard = () => {
   const [lang, setLang] = useState(() => localStorage.getItem("madar_lang") || "ar");
   const [uploadProof, setUploadProof] = useState<any>(null);
   const [workSchedule, setWorkSchedule] = useState(() => JSON.parse(localStorage.getItem(`madar_schedule_${user.id}`) || JSON.stringify({ start: "08:00", end: "16:00", lateMinutes: 15, absentMinutes: 120 })));
-
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+  const [scannedResult, setScannedResult] = useState("");
+  const [showAddInvoice, setShowAddInvoice] = useState(false);
+  const [invoiceItems, setInvoiceItems] = useState<any[]>([{ product: "", quantity: 1, price: 0 }]);
+  const [savedBarcodes, setSavedBarcodes] = useState<any[]>(() => JSON.parse(localStorage.getItem(`madar_barcodes_${user.id}`) || "[]"));
   const t = (ar: string, en: string) => lang === "ar" ? ar : en;
 
   const products = JSON.parse(localStorage.getItem(`madar_products_${user.id}`) || "[]");
@@ -655,16 +662,44 @@ const CompanyDashboard = () => {
                     <button onClick={generateBarcode} className="px-6 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold whitespace-nowrap">{t("توليد","Generate")}</button>
                   </div>
                   {generatedBarcode && (
-                    <div className="glass rounded-xl p-6 text-center">
-                      <div className="bg-white p-4 rounded-xl inline-block mb-3">
-                        <div className="flex items-end justify-center gap-[1px]" style={{ height: 60 }}>
-                          {generatedBarcode.split("").map((ch, i) => (
-                            <div key={i} style={{ width: `${2 + (ch.charCodeAt(0) % 3)}px`, height: `${30 + (ch.charCodeAt(0) % 30)}px`, backgroundColor: i % 3 === 0 ? "#000" : i % 2 === 0 ? "#333" : "#000" }} />
-                          ))}
-                        </div>
-                        <p className="text-xs text-black mt-2 font-mono">{generatedBarcode}</p>
-                      </div>
+                    <div className="glass rounded-xl p-6 text-center space-y-3">
+                      <BarcodeGenerator value={generatedBarcode} />
                       <p className="text-sm text-foreground font-bold">{generatedBarcode}</p>
+                      <div className="flex gap-2 justify-center">
+                        <button onClick={() => {
+                          const barcodes = [...savedBarcodes, { id: Date.now().toString(), code: generatedBarcode, createdAt: new Date().toISOString() }];
+                          setSavedBarcodes(barcodes);
+                          localStorage.setItem(`madar_barcodes_${user.id}`, JSON.stringify(barcodes));
+                          alert(t("تم حفظ الباركود!","Barcode saved!"));
+                        }} className="px-4 py-2 rounded-xl gradient-primary text-primary-foreground text-xs font-bold">{t("حفظ","Save")}</button>
+                        <button onClick={() => {
+                          const printWin = window.open("", "_blank");
+                          if (printWin) {
+                            printWin.document.write(`<html><body style="display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;"><div id="bc"></div><script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script><script>JsBarcode("#bc","${generatedBarcode}",{format:"CODE128",width:2,height:100,displayValue:true});window.onload=()=>window.print();<\/script></body></html>`);
+                          }
+                        }} className="px-4 py-2 rounded-xl border border-border text-foreground text-xs flex items-center gap-1"><Printer className="h-3 w-3" /> {t("طباعة","Print")}</button>
+                      </div>
+                    </div>
+                  )}
+                  {/* Saved Barcodes */}
+                  {savedBarcodes.length > 0 && (
+                    <div className="mt-4">
+                      <h5 className="text-sm font-bold text-foreground mb-2">{t("الباركودات المحفوظة","Saved Barcodes")} ({savedBarcodes.length})</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {savedBarcodes.map((bc: any) => (
+                          <div key={bc.id} className="glass rounded-xl p-3 flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-mono text-foreground">{bc.code}</p>
+                              <p className="text-[10px] text-muted-foreground">{new Date(bc.createdAt).toLocaleDateString("ar-LY")}</p>
+                            </div>
+                            <button onClick={() => {
+                              const filtered = savedBarcodes.filter(b => b.id !== bc.id);
+                              setSavedBarcodes(filtered);
+                              localStorage.setItem(`madar_barcodes_${user.id}`, JSON.stringify(filtered));
+                            }} className="text-destructive p-1"><Trash2 className="h-4 w-4" /></button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -673,8 +708,24 @@ const CompanyDashboard = () => {
                 <div className="glass rounded-2xl p-6 text-center">
                   <Camera className="h-16 w-16 text-primary mx-auto mb-4" />
                   <p className="text-sm text-foreground font-bold mb-2">{t("مسح الباركود بالكاميرا","Scan Barcode with Camera")}</p>
-                  <p className="text-xs text-muted-foreground mb-4">{t("اضغط على الزر لفتح الكاميرا ومسح الباركود.","Click button to open camera and scan barcode.")}</p>
-                  <button onClick={() => { const code = prompt(t("أدخل رقم الباركود:","Enter barcode number:")); if (code) { const prod = products.find((p: any) => p.barcode === code || p.code === code); alert(prod ? `${t("المنتج:","Product:")} ${prod.name}\n${t("الكمية:","Qty:")} ${prod.quantity}\n${t("السعر:","Price:")} ${prod.sellPrice}` : t("لم يتم العثور على منتج بهذا الباركود.","No product found with this barcode.")); } }} className="px-6 py-3 rounded-xl gradient-primary text-primary-foreground text-sm font-bold">{t("فتح الكاميرا","Open Camera")}</button>
+                  <p className="text-xs text-muted-foreground mb-4">{t("اضغط على الزر لفتح الكاميرا ومسح الباركود تلقائياً.","Click button to open camera and scan barcode automatically.")}</p>
+                  <button onClick={() => setShowBarcodeScanner(true)} className="px-6 py-3 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center gap-2 mx-auto"><Camera className="h-4 w-4" /> {t("فتح الكاميرا","Open Camera")}</button>
+                  {scannedResult && (
+                    <div className="mt-4 glass rounded-xl p-4 border-primary/30">
+                      <p className="text-xs text-muted-foreground mb-1">{t("نتيجة المسح:","Scan Result:")}</p>
+                      <p className="text-lg font-black text-primary font-mono">{scannedResult}</p>
+                      {(() => {
+                        const prod = products.find((p: any) => p.barcode === scannedResult || p.code === scannedResult);
+                        if (prod) return (
+                          <div className="mt-2 glass rounded-lg p-3 text-right">
+                            <p className="text-sm font-bold text-foreground">{prod.name}</p>
+                            <p className="text-xs text-muted-foreground">{t("الكمية:","Qty:")} {prod.quantity} | {t("السعر:","Price:")} {prod.sellPrice} {t("د.ل","LYD")}</p>
+                          </div>
+                        );
+                        return <p className="text-xs text-warning mt-1">{t("لم يتم العثور على منتج مطابق.","No matching product found.")}</p>;
+                      })()}
+                    </div>
+                  )}
                 </div>
               )}
               {barcodeMode === "upload" && (
@@ -683,12 +734,28 @@ const CompanyDashboard = () => {
                   <p className="text-sm text-foreground font-bold mb-2">{t("رفع صورة باركود","Upload Barcode Image")}</p>
                   <label className="px-6 py-3 rounded-xl gradient-primary text-primary-foreground text-sm font-bold cursor-pointer inline-block">
                     {t("اختر صورة","Choose Image")}
-                    <input type="file" accept="image/*" className="hidden" onChange={() => alert(t("تم رفع الصورة. جاري تحليل الباركود...","Image uploaded. Analyzing barcode..."))} />
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        alert(t("تم رفع الصورة. سيتم تحليلها.","Image uploaded. Will be analyzed."));
+                      }
+                    }} />
                   </label>
                 </div>
               )}
+              {showBarcodeScanner && (
+                <BarcodeScanner
+                  lang={lang}
+                  onScan={(code) => {
+                    setScannedResult(code);
+                    setShowBarcodeScanner(false);
+                  }}
+                  onClose={() => setShowBarcodeScanner(false)}
+                />
+              )}
             </div>
           )}
+
+
 
           {/* Suppliers */}
           {activeTab === "suppliers" && (
@@ -853,6 +920,166 @@ const CompanyDashboard = () => {
                   <div className="glass rounded-xl p-4 text-center"><p className="text-xs text-muted-foreground">{t("الخسارة","Loss")}</p><p className="text-xl font-black text-destructive">{totalProfit < 0 ? Math.abs(totalProfit) : 0} {t("د.ل","LYD")}</p></div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Invoices */}
+          {activeTab === "invoices" && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">{t("نظام الفواتير الاحترافي: أنشئ فواتير، اطبعها بصيغة PDF، وأرسلها للعملاء.","Professional invoice system: Create invoices, print as PDF, and send to clients.")}</p>
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-foreground">{t("الفواتير","Invoices")} ({(JSON.parse(localStorage.getItem(`madar_invoices_${user.id}`) || "[]")).length})</h3>
+                <button onClick={() => setShowAddInvoice(true)} className="px-4 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center gap-2"><Plus className="h-4 w-4" /> {t("إنشاء فاتورة","Create Invoice")}</button>
+              </div>
+
+              {showAddInvoice && (
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const fd = new FormData(e.target as HTMLFormElement);
+                  const invoiceData = {
+                    id: Date.now().toString(),
+                    invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
+                    clientName: fd.get("clientName"),
+                    clientPhone: fd.get("clientPhone"),
+                    clientAddress: fd.get("clientAddress"),
+                    notes: fd.get("notes"),
+                    items: invoiceItems.filter(i => i.product),
+                    subtotal: invoiceItems.reduce((a, i) => a + (i.quantity * i.price), 0),
+                    tax: Number(fd.get("tax")) || 0,
+                    discount: Number(fd.get("discount")) || 0,
+                    total: invoiceItems.reduce((a, i) => a + (i.quantity * i.price), 0) - (Number(fd.get("discount")) || 0) + (Number(fd.get("tax")) || 0),
+                    status: "pending",
+                    createdAt: new Date().toISOString(),
+                    createdBy: user.managerName,
+                  };
+                  const invoices = JSON.parse(localStorage.getItem(`madar_invoices_${user.id}`) || "[]");
+                  invoices.push(invoiceData);
+                  localStorage.setItem(`madar_invoices_${user.id}`, JSON.stringify(invoices));
+                  setShowAddInvoice(false);
+                  setInvoiceItems([{ product: "", quantity: 1, price: 0 }]);
+                  window.location.reload();
+                }} className="glass rounded-2xl p-6 space-y-4">
+                  <h4 className="font-bold text-foreground">{t("إنشاء فاتورة جديدة","Create New Invoice")}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div><label className="text-xs font-bold text-foreground">{t("اسم العميل *","Client Name *")}</label><input name="clientName" required className={inputClass} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("هاتف العميل","Client Phone")}</label><input name="clientPhone" className={inputClass} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("عنوان العميل","Client Address")}</label><input name="clientAddress" className={inputClass} /></div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-bold text-foreground">{t("بنود الفاتورة","Invoice Items")}</label>
+                      <button type="button" onClick={() => setInvoiceItems([...invoiceItems, { product: "", quantity: 1, price: 0 }])} className="text-xs text-primary hover:underline flex items-center gap-1"><Plus className="h-3 w-3" /> {t("إضافة بند","Add Item")}</button>
+                    </div>
+                    <div className="space-y-2">
+                      {invoiceItems.map((item, idx) => (
+                        <div key={idx} className="grid grid-cols-12 gap-2 items-end">
+                          <div className="col-span-5">
+                            {idx === 0 && <label className="text-[10px] text-muted-foreground">{t("المنتج/الخدمة","Product/Service")}</label>}
+                            <select value={item.product} onChange={(e) => {
+                              const items = [...invoiceItems];
+                              items[idx].product = e.target.value;
+                              const prod = products.find((p: any) => p.name === e.target.value);
+                              if (prod) items[idx].price = Number(prod.sellPrice) || 0;
+                              setInvoiceItems(items);
+                            }} className={inputClass}>
+                              <option value="">{t("اختر أو اكتب","Select or type")}</option>
+                              {products.map((p: any) => <option key={p.id} value={p.name}>{p.name} - {p.sellPrice} {t("د.ل","LYD")}</option>)}
+                            </select>
+                          </div>
+                          <div className="col-span-2">
+                            {idx === 0 && <label className="text-[10px] text-muted-foreground">{t("الكمية","Qty")}</label>}
+                            <input type="number" min="1" value={item.quantity} onChange={(e) => { const items = [...invoiceItems]; items[idx].quantity = Number(e.target.value); setInvoiceItems(items); }} className={inputClass} />
+                          </div>
+                          <div className="col-span-3">
+                            {idx === 0 && <label className="text-[10px] text-muted-foreground">{t("السعر","Price")}</label>}
+                            <input type="number" value={item.price} onChange={(e) => { const items = [...invoiceItems]; items[idx].price = Number(e.target.value); setInvoiceItems(items); }} className={inputClass} />
+                          </div>
+                          <div className="col-span-1">
+                            {idx === 0 && <label className="text-[10px] text-muted-foreground">{t("المجموع","Total")}</label>}
+                            <p className="text-sm font-bold text-primary py-2">{item.quantity * item.price}</p>
+                          </div>
+                          <div className="col-span-1">
+                            {invoiceItems.length > 1 && <button type="button" onClick={() => setInvoiceItems(invoiceItems.filter((_, i) => i !== idx))} className="text-destructive p-1"><Trash2 className="h-4 w-4" /></button>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div><label className="text-xs font-bold text-foreground">{t("الضريبة","Tax")}</label><input name="tax" type="number" defaultValue={0} className={inputClass} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("الخصم","Discount")}</label><input name="discount" type="number" defaultValue={0} className={inputClass} /></div>
+                    <div className="glass rounded-xl p-3"><p className="text-xs text-muted-foreground">{t("الإجمالي","Total")}</p><p className="text-xl font-black text-primary">{invoiceItems.reduce((a, i) => a + (i.quantity * i.price), 0)} {t("د.ل","LYD")}</p></div>
+                  </div>
+                  <div><label className="text-xs font-bold text-foreground">{t("ملاحظات","Notes")}</label><textarea name="notes" rows={2} className={inputClass} /></div>
+                  <div className="flex gap-2">
+                    <button type="submit" className="px-6 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold">{t("حفظ الفاتورة","Save Invoice")}</button>
+                    <button type="button" onClick={() => { setShowAddInvoice(false); setInvoiceItems([{ product: "", quantity: 1, price: 0 }]); }} className="px-6 py-2 rounded-xl border border-border text-foreground text-sm">{t("إلغاء","Cancel")}</button>
+                  </div>
+                </form>
+              )}
+
+              {/* Invoice List */}
+              {(() => {
+                const invoices = JSON.parse(localStorage.getItem(`madar_invoices_${user.id}`) || "[]");
+                if (invoices.length === 0 && !showAddInvoice) return (
+                  <div className="glass rounded-2xl p-6 text-center"><Receipt className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لم تقم بإنشاء أي فواتير بعد.","No invoices created yet.")}</p></div>
+                );
+                return (
+                  <div className="glass rounded-2xl p-4 overflow-x-auto">
+                    <div className="flex justify-end mb-2">
+                      <button onClick={() => exportToPDF(t("الفواتير","Invoices"), invoices.map((inv: any) => ({ number: inv.invoiceNumber, client: inv.clientName, total: inv.total, status: inv.status, date: new Date(inv.createdAt).toLocaleDateString("ar-LY") })), [t("الرقم","#"),t("العميل","Client"),t("الإجمالي","Total"),t("الحالة","Status"),t("التاريخ","Date")])} className="px-3 py-1.5 rounded-lg border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button>
+                    </div>
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b border-border">
+                        <th className="text-right py-2 px-3 text-muted-foreground">{t("رقم الفاتورة","Invoice #")}</th>
+                        <th className="text-right py-2 px-3 text-muted-foreground">{t("العميل","Client")}</th>
+                        <th className="text-right py-2 px-3 text-muted-foreground">{t("الإجمالي","Total")}</th>
+                        <th className="text-right py-2 px-3 text-muted-foreground">{t("الحالة","Status")}</th>
+                        <th className="text-right py-2 px-3 text-muted-foreground">{t("التاريخ","Date")}</th>
+                        <th className="text-right py-2 px-3 text-muted-foreground">{t("إجراءات","Actions")}</th>
+                      </tr></thead>
+                      <tbody>{invoices.map((inv: any) => (
+                        <tr key={inv.id} className="border-b border-border/30">
+                          <td className="py-2 px-3 text-primary font-mono font-bold">{inv.invoiceNumber}</td>
+                          <td className="py-2 px-3 text-foreground">{inv.clientName}</td>
+                          <td className="py-2 px-3 text-foreground font-bold">{inv.total} {t("د.ل","LYD")}</td>
+                          <td className="py-2 px-3"><span className={`px-2 py-0.5 rounded-full text-xs ${inv.status === "paid" ? "bg-success/20 text-success" : inv.status === "sent" ? "bg-primary/20 text-primary" : "bg-warning/20 text-warning"}`}>{inv.status === "paid" ? t("مدفوعة","Paid") : inv.status === "sent" ? t("مرسلة","Sent") : t("معلّقة","Pending")}</span></td>
+                          <td className="py-2 px-3 text-muted-foreground text-xs">{new Date(inv.createdAt).toLocaleDateString("ar-LY")}</td>
+                          <td className="py-2 px-3 flex gap-1">
+                            <button onClick={() => {
+                              const itemsHTML = inv.items.map((i: any) => `<tr><td style="padding:8px;border:1px solid #e5e7eb;">${i.product}</td><td style="padding:8px;border:1px solid #e5e7eb;text-align:center;">${i.quantity}</td><td style="padding:8px;border:1px solid #e5e7eb;text-align:center;">${i.price}</td><td style="padding:8px;border:1px solid #e5e7eb;text-align:center;font-weight:bold;">${i.quantity * i.price}</td></tr>`).join("");
+                              exportSimplePDF(
+                                `فاتورة ${inv.invoiceNumber}`,
+                                `<div style="margin-bottom:20px;"><strong>العميل:</strong> ${inv.clientName}<br/><strong>الهاتف:</strong> ${inv.clientPhone || "-"}<br/><strong>العنوان:</strong> ${inv.clientAddress || "-"}</div>
+                                <table style="width:100%;border-collapse:collapse;">
+                                  <thead><tr style="background:#2563eb;color:white;"><th style="padding:8px;">المنتج/الخدمة</th><th style="padding:8px;">الكمية</th><th style="padding:8px;">السعر</th><th style="padding:8px;">المجموع</th></tr></thead>
+                                  <tbody>${itemsHTML}</tbody>
+                                </table>
+                                <div style="margin-top:15px;text-align:left;">
+                                  <p>المجموع الفرعي: ${inv.subtotal} د.ل</p>
+                                  <p>الضريبة: ${inv.tax} د.ل</p>
+                                  <p>الخصم: ${inv.discount} د.ل</p>
+                                  <p style="font-size:18px;font-weight:bold;color:#2563eb;">الإجمالي: ${inv.total} د.ل</p>
+                                </div>
+                                ${inv.notes ? `<div style="margin-top:15px;padding:10px;background:#f8fafc;border-radius:8px;"><strong>ملاحظات:</strong> ${inv.notes}</div>` : ""}`
+                              );
+                            }} className="p-1 text-primary hover:text-primary/80" title={t("طباعة PDF","Print PDF")}><Printer className="h-4 w-4" /></button>
+                            <button onClick={() => {
+                              const updated = invoices.map((i: any) => i.id === inv.id ? {...i, status: inv.status === "pending" ? "sent" : "paid"} : i);
+                              localStorage.setItem(`madar_invoices_${user.id}`, JSON.stringify(updated));
+                              window.location.reload();
+                            }} className="p-1 text-success hover:text-success/80" title={inv.status === "pending" ? t("تعيين كمرسلة","Mark Sent") : t("تعيين كمدفوعة","Mark Paid")}><Check className="h-4 w-4" /></button>
+                            <button onClick={() => {
+                              localStorage.setItem(`madar_invoices_${user.id}`, JSON.stringify(invoices.filter((i: any) => i.id !== inv.id)));
+                              window.location.reload();
+                            }} className="p-1 text-destructive hover:text-destructive/80"><Trash2 className="h-4 w-4" /></button>
+                          </td>
+                        </tr>
+                      ))}</tbody>
+                    </table>
+                  </div>
+                );
+              })()}
             </div>
           )}
 

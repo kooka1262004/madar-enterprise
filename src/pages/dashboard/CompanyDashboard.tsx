@@ -187,10 +187,17 @@ const CompanyDashboard = () => {
 
   const submitWalletRequest = (method: string, data: any) => {
     const reqs = JSON.parse(localStorage.getItem("madar_wallet_requests") || "[]");
-    reqs.push({ id: Date.now().toString(), companyId: user.id, companyName: user.companyName, method, ...data, status: "pending", date: new Date().toISOString() });
+    const newReq: any = { id: Date.now().toString(), companyId: user.id, companyName: user.companyName, method, ...data, status: "pending", date: new Date().toISOString() };
+    if (uploadProof) { newReq.proofImage = uploadProof; newReq.proofDate = new Date().toISOString(); }
+    reqs.push(newReq);
     localStorage.setItem("madar_wallet_requests", JSON.stringify(reqs));
+    // Notify admin
+    const adminNotifs = JSON.parse(localStorage.getItem("madar_admin_notifs") || "[]");
+    adminNotifs.unshift({ id: Date.now().toString(), message: `طلب شحن محفظة جديد من ${user.companyName} بقيمة ${data.amount || "?"} د.ل (${method})${uploadProof ? " - مرفق إثبات" : ""}`, date: new Date().toISOString(), read: false });
+    localStorage.setItem("madar_admin_notifs", JSON.stringify(adminNotifs));
     setChargeStep(0);
     setChargeMethod("");
+    setUploadProof(null);
     alert(t("تم إرسال طلب الشحن بنجاح! سيتم مراجعته من قبل إدارة المنصة.","Wallet request submitted successfully!"));
   };
 

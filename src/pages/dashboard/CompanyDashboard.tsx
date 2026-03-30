@@ -42,6 +42,7 @@ const sidebarSections = [
     { icon: Users, label: "المستخدمين", labelEn: "Users", key: "users" },
     { icon: Monitor, label: "إدارة الأجهزة", labelEn: "Devices", key: "devices" },
     { icon: UserCog, label: "الصلاحيات", labelEn: "Permissions", key: "permissions" },
+    { icon: MessageSquare, label: "المراسلات", labelEn: "Messages", key: "messages" },
     { icon: Clock, label: "سجل النشاطات", labelEn: "Activity Log", key: "activity-log" },
     { icon: AlertTriangle, label: "كشف التلاعب", labelEn: "Fraud Detection", key: "fraud" },
     { icon: Settings, label: "الإعدادات", labelEn: "Settings", key: "settings" },
@@ -186,10 +187,17 @@ const CompanyDashboard = () => {
 
   const submitWalletRequest = (method: string, data: any) => {
     const reqs = JSON.parse(localStorage.getItem("madar_wallet_requests") || "[]");
-    reqs.push({ id: Date.now().toString(), companyId: user.id, companyName: user.companyName, method, ...data, status: "pending", date: new Date().toISOString() });
+    const newReq: any = { id: Date.now().toString(), companyId: user.id, companyName: user.companyName, method, ...data, status: "pending", date: new Date().toISOString() };
+    if (uploadProof) { newReq.proofImage = uploadProof; newReq.proofDate = new Date().toISOString(); }
+    reqs.push(newReq);
     localStorage.setItem("madar_wallet_requests", JSON.stringify(reqs));
+    // Notify admin
+    const adminNotifs = JSON.parse(localStorage.getItem("madar_admin_notifs") || "[]");
+    adminNotifs.unshift({ id: Date.now().toString(), message: `طلب شحن محفظة جديد من ${user.companyName} بقيمة ${data.amount || "?"} د.ل (${method})${uploadProof ? " - مرفق إثبات" : ""}`, date: new Date().toISOString(), read: false });
+    localStorage.setItem("madar_admin_notifs", JSON.stringify(adminNotifs));
     setChargeStep(0);
     setChargeMethod("");
+    setUploadProof(null);
     alert(t("تم إرسال طلب الشحن بنجاح! سيتم مراجعته من قبل إدارة المنصة.","Wallet request submitted successfully!"));
   };
 
@@ -605,6 +613,20 @@ const CompanyDashboard = () => {
                         <input name="senderAccount" required placeholder={t("رقم حسابك","Your Account")} className={inputClass} />
                         <input name="phone" required placeholder={t("رقم الهاتف","Phone")} className={inputClass} />
                         <input name="amount" type="number" required placeholder={t("المبلغ المحوّل","Transfer Amount")} className={inputClass} />
+                        <div>
+                          <label className="text-xs font-bold text-foreground">{t("إثبات التحويل (مطلوب) *","Transfer Proof (required) *")}</label>
+                          <label className="glass rounded-xl p-3 text-center border-dashed border-2 border-border cursor-pointer hover:border-primary/50 transition-all block mt-1">
+                            <Upload className="h-5 w-5 text-muted-foreground mx-auto mb-1" />
+                            <p className="text-[10px] text-muted-foreground">{uploadProof ? t("✅ تم رفع الصورة","✅ Photo uploaded") : t("ارفع صورة إثبات التحويل","Upload transfer proof")}</p>
+                            <input type="file" accept="image/*" className="hidden" onChange={(ev) => {
+                              const file = ev.target.files?.[0];
+                              if (!file) return;
+                              const reader = new FileReader();
+                              reader.onload = (re) => setUploadProof(re.target?.result as string);
+                              reader.readAsDataURL(file);
+                            }} />
+                          </label>
+                        </div>
                         <p className="text-xs text-warning">⚠️ {t("بدون صورة إثبات التحويل لا يمكن شحن المحفظة.","Without transfer proof, wallet cannot be charged.")}</p>
                         <div className="flex gap-2">
                           <button type="submit" className="px-6 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold">{t("إرسال","Submit")}</button>
@@ -628,6 +650,20 @@ const CompanyDashboard = () => {
                       <input name="senderName" required placeholder={t("اسم المرسل","Sender Name")} className={inputClass} />
                       <input name="phone" required placeholder={t("رقم الهاتف","Phone")} className={inputClass} />
                       <input name="amount" type="number" required placeholder={t("المبلغ","Amount")} className={inputClass} />
+                      <div>
+                        <label className="text-xs font-bold text-foreground">{t("إثبات الدفع (مطلوب) *","Payment Proof (required) *")}</label>
+                        <label className="glass rounded-xl p-3 text-center border-dashed border-2 border-border cursor-pointer hover:border-primary/50 transition-all block mt-1">
+                          <Upload className="h-5 w-5 text-muted-foreground mx-auto mb-1" />
+                          <p className="text-[10px] text-muted-foreground">{uploadProof ? t("✅ تم رفع الصورة","✅ Photo uploaded") : t("ارفع صورة إثبات الدفع","Upload payment proof")}</p>
+                          <input type="file" accept="image/*" className="hidden" onChange={(ev) => {
+                            const file = ev.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = (re) => setUploadProof(re.target?.result as string);
+                            reader.readAsDataURL(file);
+                          }} />
+                        </label>
+                      </div>
                       <p className="text-xs text-warning">⚠️ {t("أرفق صورة تثبت التحويل.","Attach transfer proof.")}</p>
                       <div className="flex gap-2">
                         <button type="submit" className="px-6 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold">{t("إرسال","Submit")}</button>
@@ -684,11 +720,37 @@ const CompanyDashboard = () => {
                               <div className="mt-3 glass rounded-lg p-3 border-warning/30">
                                 <p className="text-xs text-warning mb-2">📸 {t("يرجى رفع صورة إثبات التحويل / صورة الوصل","Please upload proof of transfer / receipt photo")}</p>
                                 <div className="flex gap-2 items-center">
-                                  <label className="px-4 py-2 rounded-xl border border-border text-foreground text-xs cursor-pointer flex items-center gap-1">
+                                  <label className="px-4 py-2 rounded-xl gradient-primary text-primary-foreground text-xs cursor-pointer flex items-center gap-1">
                                     <Upload className="h-3 w-3" /> {t("رفع صورة","Upload Photo")}
-                                    <input type="file" accept="image/*" className="hidden" onChange={() => alert(t("تم رفع الصورة بنجاح!","Photo uploaded!"))} />
+                                    <input type="file" accept="image/*" className="hidden" onChange={(ev) => {
+                                      const file = ev.target.files?.[0];
+                                      if (!file) return;
+                                      const reader = new FileReader();
+                                      reader.onload = (re) => {
+                                        const proofData = re.target?.result as string;
+                                        const reqs = JSON.parse(localStorage.getItem("madar_wallet_requests") || "[]");
+                                        const ri = reqs.findIndex((rq: any) => rq.id === r.id);
+                                        if (ri >= 0) {
+                                          reqs[ri] = { ...reqs[ri], proofImage: proofData, proofDate: new Date().toISOString() };
+                                          localStorage.setItem("madar_wallet_requests", JSON.stringify(reqs));
+                                          // Notify admin
+                                          const adminNotifs = JSON.parse(localStorage.getItem("madar_admin_notifs") || "[]");
+                                          adminNotifs.unshift({ id: Date.now().toString(), message: `${user.companyName} رفعت إثبات تحويل لطلب شحن بقيمة ${r.amount} د.ل`, date: new Date().toISOString(), read: false });
+                                          localStorage.setItem("madar_admin_notifs", JSON.stringify(adminNotifs));
+                                          alert(t("تم رفع الصورة بنجاح! سيراجعها مسؤول النظام.","Photo uploaded! Admin will review it."));
+                                          window.location.reload();
+                                        }
+                                      };
+                                      reader.readAsDataURL(file);
+                                    }} />
                                   </label>
                                 </div>
+                              </div>
+                            )}
+                            {r.proofImage && (
+                              <div className="mt-2 glass rounded-lg p-2">
+                                <p className="text-[10px] text-success mb-1">✅ {t("تم رفع إثبات التحويل","Proof uploaded")}</p>
+                                <img src={r.proofImage} alt="proof" className="h-16 rounded-lg object-cover" />
                               </div>
                             )}
                             <p className="text-[10px] text-muted-foreground mt-2">{new Date(r.date).toLocaleDateString("ar-LY")} {new Date(r.date).toLocaleTimeString("ar-LY")}</p>
@@ -1660,6 +1722,61 @@ const CompanyDashboard = () => {
               )}
             </div>
           )}
+
+          {/* Messages */}
+          {activeTab === "messages" && (() => {
+            const companyMessages = JSON.parse(localStorage.getItem(`madar_messages_company_${user.id}`) || "[]");
+            const adminMessages = JSON.parse(localStorage.getItem("madar_admin_messages") || "[]").filter((m: any) => !m.company || m.company === user.id);
+            const allMessages = [...companyMessages, ...adminMessages.map((m: any) => ({ ...m, fromAdmin: true }))].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            return (
+            <div className="space-y-4">
+              <div className="glass rounded-2xl p-6">
+                <h3 className="font-bold text-foreground mb-4">{t("المراسلات مع إدارة المنصة","Messages with Platform Admin")}</h3>
+                <p className="text-sm text-muted-foreground mb-4">{t("أرسل رسالة لمسؤول النظام أو اطلع على الرسائل المرسلة إليك.","Send a message to system admin or view received messages.")}</p>
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  const fd = new FormData(e.target as HTMLFormElement);
+                  const message = fd.get("message") as string;
+                  if (!message) return;
+                  const msg = { id: Date.now().toString(), from: user.companyName, companyId: user.id, message, date: new Date().toISOString(), type: "رسالة من شركة" };
+                  const msgs = [...companyMessages, msg];
+                  localStorage.setItem(`madar_messages_company_${user.id}`, JSON.stringify(msgs));
+                  // Also save to admin messages
+                  const admMsgs = JSON.parse(localStorage.getItem("madar_admin_messages") || "[]");
+                  admMsgs.unshift({ ...msg, from: user.companyName, company: user.id });
+                  localStorage.setItem("madar_admin_messages", JSON.stringify(admMsgs));
+                  // Notify admin
+                  const adminNotifs = JSON.parse(localStorage.getItem("madar_admin_notifs") || "[]");
+                  adminNotifs.unshift({ id: Date.now().toString(), message: `رسالة جديدة من ${user.companyName}: ${message.substring(0, 50)}...`, date: new Date().toISOString(), read: false });
+                  localStorage.setItem("madar_admin_notifs", JSON.stringify(adminNotifs));
+                  (e.target as HTMLFormElement).reset();
+                  alert(t("تم إرسال الرسالة بنجاح!","Message sent!"));
+                  window.location.reload();
+                }} className="space-y-3 mb-6">
+                  <textarea name="message" required rows={3} placeholder={t("اكتب رسالتك لمسؤول النظام...","Write your message to system admin...")} className={inputClass} />
+                  <button type="submit" className="px-6 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center gap-2"><Send className="h-4 w-4" /> {t("إرسال","Send")}</button>
+                </form>
+              </div>
+              <div className="glass rounded-2xl p-6">
+                <h4 className="font-bold text-foreground mb-4">{t("سجل المراسلات","Message History")}</h4>
+                {allMessages.length === 0 ? <p className="text-sm text-muted-foreground">{t("لا توجد رسائل.","No messages.")}</p> : (
+                  <div className="space-y-2">{allMessages.map((m: any) => (
+                    <div key={m.id} className={`glass rounded-xl p-3 ${m.fromAdmin ? "border-primary/20" : ""}`}>
+                      <div className="flex justify-between items-start mb-1">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] ${m.fromAdmin ? "bg-primary/20 text-primary" : "bg-accent/20 text-accent"}`}>
+                          {m.fromAdmin ? t("من مسؤول النظام","From Admin") : t("أنت","You")}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">{m.date ? new Date(m.date).toLocaleDateString("ar-LY") + " " + new Date(m.date).toLocaleTimeString("ar-LY") : ""}</span>
+                      </div>
+                      {m.type && <span className="text-[10px] text-muted-foreground">{m.type}</span>}
+                      <p className="text-sm text-foreground mt-1">{m.message}</p>
+                    </div>
+                  ))}</div>
+                )}
+              </div>
+            </div>
+            );
+          })()}
 
           {activeTab === "fraud" && (
             <div className="glass rounded-2xl p-6">

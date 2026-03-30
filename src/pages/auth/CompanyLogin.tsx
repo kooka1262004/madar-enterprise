@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Building2, AlertTriangle, Monitor } from "lucide-react";
+import { Eye, EyeOff, Building2, AlertTriangle, Monitor, Trash2, ArrowUpCircle } from "lucide-react";
 import logo from "@/assets/logo-transparent.png";
-import { registerDevice, getMaxDevicesForPlan, getDevicesForCompany } from "@/utils/deviceManager";
+import { registerDevice, getMaxDevicesForPlan, getDevicesForCompany, removeDevice, getDeviceIcon } from "@/utils/deviceManager";
 
 const CompanyLogin = () => {
   const navigate = useNavigate();
@@ -48,15 +48,26 @@ const CompanyLogin = () => {
       return;
     }
 
-    localStorage.setItem("madar_user", JSON.stringify({ role: "company", ...company }));
+    // Store subscription info for verification
+    const updatedCompany = { ...company, lastLogin: new Date().toISOString() };
+    const updatedCompanies = companies.map((c: any) => c.id === company.id ? updatedCompany : c);
+    localStorage.setItem("madar_companies", JSON.stringify(updatedCompanies));
+
+    localStorage.setItem("madar_user", JSON.stringify({ role: "company", ...updatedCompany }));
     navigate("/company");
   };
 
-  const removeDeviceAndRetry = (deviceId: string) => {
+  const handleRemoveDevice = (deviceId: string) => {
     if (!deviceError) return;
-    const { removeDevice } = require("@/utils/deviceManager");
     removeDevice(deviceError.companyId, deviceId);
-    setDeviceError(null);
+    const updatedDevices = getDevicesForCompany(deviceError.companyId);
+    if (updatedDevices.filter(d => d.active).length < deviceError.maxDevices) {
+      setDeviceError(null);
+      // Auto retry login
+      handleLogin({ preventDefault: () => {} } as React.FormEvent);
+    } else {
+      setDeviceError({ ...deviceError, devices: updatedDevices });
+    }
   };
 
   return (
@@ -86,17 +97,24 @@ const CompanyLogin = () => {
               {deviceError.devices.map((d: any) => (
                 <div key={d.id} className="flex items-center justify-between glass rounded-xl p-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-lg">{d.type === "هاتف" ? "📱" : d.type === "تابلت" ? "📲" : d.type === "لابتوب" ? "💻" : "🖥️"}</span>
+                    <span className="text-lg">{getDeviceIcon(d.type)}</span>
                     <div>
                       <p className="text-xs font-bold text-foreground">{d.name}</p>
                       <p className="text-[10px] text-muted-foreground">{t("آخر نشاط:", "Last:")} {new Date(d.lastActivity).toLocaleDateString("ar-LY")}</p>
                     </div>
                   </div>
-                  <button onClick={() => removeDeviceAndRetry(d.id)} className="text-xs px-2 py-1 rounded-lg bg-destructive/20 text-destructive">{t("حذف", "Remove")}</button>
+                  <button onClick={() => handleRemoveDevice(d.id)} className="text-xs px-2 py-1 rounded-lg bg-destructive/20 text-destructive flex items-center gap-1">
+                    <Trash2 className="h-3 w-3" /> {t("حذف", "Remove")}
+                  </button>
                 </div>
               ))}
             </div>
-            <button onClick={() => setDeviceError(null)} className="w-full py-2 rounded-xl border border-border text-foreground text-sm">{t("إعادة المحاولة", "Try Again")}</button>
+            <div className="flex gap-2">
+              <button onClick={() => setDeviceError(null)} className="flex-1 py-2 rounded-xl border border-border text-foreground text-sm">{t("إعادة المحاولة", "Try Again")}</button>
+              <button onClick={() => navigate("/register/company")} className="flex-1 py-2 rounded-xl bg-primary/20 text-primary text-sm font-bold flex items-center justify-center gap-1">
+                <ArrowUpCircle className="h-3 w-3" /> {t("ترقية الباقة", "Upgrade Plan")}
+              </button>
+            </div>
           </div>
         )}
 

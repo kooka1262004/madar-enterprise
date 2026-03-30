@@ -710,6 +710,14 @@ const AdminDashboard = () => {
                           <div>
                             <p className="text-sm font-bold text-foreground">{r.companyName}</p>
                             <p className="text-xs text-muted-foreground">{r.method} - {r.amount} {t("د.ل","LYD")} - {new Date(r.date).toLocaleDateString("ar-LY")}</p>
+                            {r.proofImage && (
+                              <div className="mt-2">
+                                <p className="text-xs text-success mb-1">✅ {t("إثبات التحويل:","Transfer Proof:")}</p>
+                                <img src={r.proofImage} alt="proof" className="h-24 rounded-lg object-cover border border-border cursor-pointer" onClick={() => window.open(r.proofImage, "_blank")} />
+                                <p className="text-[9px] text-muted-foreground mt-1">{r.proofDate ? new Date(r.proofDate).toLocaleDateString("ar-LY") : ""}</p>
+                              </div>
+                            )}
+                            {!r.proofImage && r.method !== "كاش" && <p className="text-xs text-warning mt-1">⚠️ {t("لم يتم رفع إثبات التحويل بعد","No proof uploaded yet")}</p>}
                             {r.proofImage && <p className="text-xs text-success mt-1">✅ {t("تم رفع إثبات التحويل","Proof uploaded")}</p>}
                           </div>
                           <span className={`px-3 py-1 rounded-full text-xs self-start ${statusColors[r.status] || statusColors.pending}`}>{statusLabels[r.status] || r.status}</span>

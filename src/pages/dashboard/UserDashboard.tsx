@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, LogOut, Bell, Menu, X, Package, Warehouse, BarChart3, QrCode,
   Truck, ClipboardList, RotateCcw, FileText, DollarSign, Briefcase, Clock, TrendingUp, ShoppingCart, UserCog,
-  Moon, Sun, Globe, Download, Camera, Upload, Plus, Trash2, Send, Check, Eye, Award, Flag, MessageSquare, Calendar, ListChecks, Settings, Receipt, Users
+  Moon, Sun, Globe, Download, Camera, Upload, Plus, Trash2, Send, Check, Eye, Award, Flag, MessageSquare, Calendar, ListChecks, Settings, Receipt, Users, Shield
 } from "lucide-react";
 import logo from "@/assets/logo-transparent.png";
 import { exportToPDF, exportSimplePDF } from "@/utils/pdfExport";

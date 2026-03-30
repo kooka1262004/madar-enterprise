@@ -30,6 +30,7 @@ const sidebarSections = [
   { title: "المالية", titleEn: "Finance", items: [
     { icon: BarChart3, label: "المحاسبة", labelEn: "Accounting", key: "accounting" },
     { icon: TrendingUp, label: "الأرباح", labelEn: "Profits", key: "profits" },
+    { icon: Receipt, label: "الفواتير", labelEn: "Invoices", key: "invoices" },
     { icon: FileText, label: "التقارير", labelEn: "Reports", key: "reports" },
   ]},
   { title: "الموارد البشرية", titleEn: "Human Resources", items: [

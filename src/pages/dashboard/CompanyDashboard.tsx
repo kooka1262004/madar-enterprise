@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Package, Warehouse, Users, CreditCard, BarChart3, QrCode,
   Truck, ClipboardList, TrendingUp, RotateCcw, FileText, DollarSign,
   UserCog, Settings, LogOut, Bell, Menu, X, ShoppingCart, AlertTriangle, Clock, Briefcase,
   Plus, Edit, Trash2, Download, Eye, Send, Check, Search, Upload, Calendar, Award, Flag, MessageSquare, ListChecks,
-  Moon, Sun, Globe, Camera, RefreshCw, ArrowUpDown
+  Moon, Sun, Globe, Camera, RefreshCw, ArrowUpDown, Receipt, Printer
 } from "lucide-react";
 import logo from "@/assets/logo-transparent.png";
 import { exportToPDF, exportSimplePDF } from "@/utils/pdfExport";
+import BarcodeScanner from "@/components/BarcodeScanner";
+import BarcodeGenerator from "@/components/BarcodeGenerator";
 
 const sidebarSections = [
   { title: "الرئيسية", titleEn: "Main", items: [

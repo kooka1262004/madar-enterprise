@@ -1160,7 +1160,7 @@ const CompanyDashboard = () => {
                 ];
                 const [selPerms, setSelPerms] = useState<string[]>(["dashboard","my-info","notifications","messages"]);
                 return (
-                <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); const data = Object.fromEntries(fd); data.permissions = selPerms; data.status = (data as any).accountStatus || "active"; saveEmployee(data); }} className="glass rounded-2xl p-6 space-y-3">
+                <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); const data: any = Object.fromEntries(fd); data.permissions = selPerms; data.status = data.accountStatus || "active"; saveEmployee(data); }} className="glass rounded-2xl p-6 space-y-3">
                   <h4 className="font-bold text-foreground">{t("إضافة موظف جديد","Add New Employee")}</h4>
                   <p className="text-xs text-muted-foreground">{t("أدخل بيانات الموظف الكاملة. الموظف سيستخدم البريد وكلمة المرور لتسجيل الدخول.","Enter complete employee data. Employee will use email and password to login.")}</p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

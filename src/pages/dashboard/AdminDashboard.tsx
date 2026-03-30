@@ -153,11 +153,64 @@ const AdminDashboard = () => {
           comps[ci] = { ...comps[ci], wallet: (comps[ci].wallet || 0) + (Number(req.amount) || 0) };
           localStorage.setItem("madar_companies", JSON.stringify(comps));
           setCompanies(comps);
+          // Send notification to company
+          const compNotifs = JSON.parse(localStorage.getItem(`madar_notif_company_${req.companyId}`) || "[]");
+          compNotifs.push({ id: Date.now().toString(), message: `تم قبول طلب شحن المحفظة بقيمة ${req.amount} د.ل`, date: new Date().toISOString(), read: false });
+          localStorage.setItem(`madar_notif_company_${req.companyId}`, JSON.stringify(compNotifs));
         }
+      }
+      if (status === "received") {
+        // Send notification to company to upload proof
+        const req = reqs[idx];
+        const compNotifs = JSON.parse(localStorage.getItem(`madar_notif_company_${req.companyId}`) || "[]");
+        compNotifs.push({ id: Date.now().toString(), message: `الرجاء رفع إثبات التحويل أو استلام القيمة لشحن محفظتك. لا تشحن المحفظة بدون إثبات.`, date: new Date().toISOString(), read: false, type: "proof_required", requestId: id });
+        localStorage.setItem(`madar_notif_company_${req.companyId}`, JSON.stringify(compNotifs));
       }
       localStorage.setItem("madar_wallet_requests", JSON.stringify(reqs));
       setWalletRequests(reqs);
+      addAdminNotif(`تم تغيير حالة طلب شحن المحفظة إلى: ${status}`);
     }
+  };
+
+  const addAdminNotif = (message: string) => {
+    const notif = { id: Date.now().toString(), message, date: new Date().toISOString(), read: false };
+    const updated = [notif, ...adminNotifications];
+    setAdminNotifications(updated);
+    localStorage.setItem("madar_admin_notifs", JSON.stringify(updated));
+  };
+
+  const saveTerms = (t: any[]) => { setTerms(t); localStorage.setItem("madar_terms", JSON.stringify(t)); };
+  const saveMessages = (m: any[]) => { setAdminMessages(m); localStorage.setItem("madar_admin_messages", JSON.stringify(m)); };
+
+  const sendMessage = () => {
+    if (!newMessage.message) return;
+    const msg = { id: Date.now().toString(), ...newMessage, from: t("مسؤول النظام","System Admin"), date: new Date().toISOString() };
+    saveMessages([msg, ...adminMessages]);
+    // Notify targeted companies
+    if (newMessage.company) {
+      const compNotifs = JSON.parse(localStorage.getItem(`madar_notif_company_${newMessage.company}`) || "[]");
+      compNotifs.push({ id: Date.now().toString(), message: `رسالة جديدة من مسؤول النظام: ${newMessage.message}`, date: new Date().toISOString(), read: false });
+      localStorage.setItem(`madar_notif_company_${newMessage.company}`, JSON.stringify(compNotifs));
+    } else {
+      companies.forEach(c => {
+        const compNotifs = JSON.parse(localStorage.getItem(`madar_notif_company_${c.id}`) || "[]");
+        compNotifs.push({ id: Date.now().toString(), message: `رسالة جديدة من مسؤول النظام: ${newMessage.message}`, date: new Date().toISOString(), read: false });
+        localStorage.setItem(`madar_notif_company_${c.id}`, JSON.stringify(compNotifs));
+      });
+    }
+    setNewMessage({ company: "", type: "إشعار عام", message: "" });
+    alert(t("تم إرسال الرسالة بنجاح!","Message sent successfully!"));
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const logoData = ev.target?.result as string;
+      saveBranding({ ...branding, logo: logoData });
+    };
+    reader.readAsDataURL(file);
   };
 
   const deleteWalletRequest = (id: string) => {

@@ -85,7 +85,7 @@ const AdminDashboard = () => {
   const [currency, setCurrency] = useState(() => JSON.parse(localStorage.getItem("madar_currency") || JSON.stringify({ primary: "LYD", secondary: "USD", rate: 4.85 })));
   const [coupons, setCoupons] = useState(() => JSON.parse(localStorage.getItem("madar_coupons") || "[]"));
   const [deliveryPrices, setDeliveryPrices] = useState(() => JSON.parse(localStorage.getItem("madar_delivery_prices") || JSON.stringify(defaultDeliveryPrices)));
-  const [branding, setBranding] = useState(() => JSON.parse(localStorage.getItem("madar_branding") || JSON.stringify({ name: "مدار", primaryColor: "#2563eb", accentColor: "#c9a227" })));
+  const [branding, setBranding] = useState(() => JSON.parse(localStorage.getItem("madar_branding") || JSON.stringify({ name: "مدار", primaryColor: "#2563eb", accentColor: "#c9a227", logo: "" })));
   const [platformSettings, setPlatformSettings] = useState(() => JSON.parse(localStorage.getItem("madar_platform_settings") || JSON.stringify({ autoRegistration: true, maintenanceMode: false })));
   const [editingPlan, setEditingPlan] = useState<any>(null);
   const [newCoupon, setNewCoupon] = useState({ code: "", value: 0, type: "percent", maxUses: 10, expiresAt: "" });
@@ -95,6 +95,22 @@ const AdminDashboard = () => {
   const [lang, setLang] = useState(() => localStorage.getItem("madar_lang") || "ar");
   const [searchCompany, setSearchCompany] = useState("");
   const [fraudLogs, setFraudLogs] = useState<any[]>(() => JSON.parse(localStorage.getItem("madar_fraud_logs") || "[]"));
+  const [adminNotifications, setAdminNotifications] = useState<any[]>(() => JSON.parse(localStorage.getItem("madar_admin_notifs") || "[]"));
+  const [adminMessages, setAdminMessages] = useState<any[]>(() => JSON.parse(localStorage.getItem("madar_admin_messages") || "[]"));
+  const [terms, setTerms] = useState<any[]>(() => JSON.parse(localStorage.getItem("madar_terms") || JSON.stringify([
+    { id: "1", title: "حقوق المنصة", content: "منصة مدار تحتفظ بجميع الحقوق الفكرية والتقنية." },
+    { id: "2", title: "حقوق العميل", content: "العميل يحتفظ بملكية بياناته الكاملة." },
+    { id: "3", title: "الاشتراكات", content: "عند انتهاء الاشتراك يتم تعليق الحساب مع الاحتفاظ بالبيانات 90 يوم." },
+    { id: "4", title: "الاستخدام", content: "يُمنع استخدام المنصة لأغراض غير قانونية." },
+    { id: "5", title: "المحفظة", content: "شحن المحفظة غير قابل للاسترداد بعد القبول." },
+    { id: "6", title: "الصلاحيات", content: "كل شركة مسؤولة عن إدارة صلاحيات موظفيها." },
+    { id: "7", title: "الخصوصية", content: "لا تشارك المنصة بيانات أي شركة مع طرف ثالث." },
+    { id: "8", title: "التعليق", content: "يحق لمسؤول النظام تعليق أي حساب يخالف القوانين." },
+    { id: "9", title: "التحديثات", content: "تحتفظ المنصة بحق تعديل القوانين مع إشعار المستخدمين." },
+    { id: "10", title: "النزاعات", content: "يتم حل النزاعات وفق القانون الليبي." },
+  ])));
+  const [editingTerm, setEditingTerm] = useState<any>(null);
+  const [newMessage, setNewMessage] = useState({ company: "", type: "إشعار عام", message: "" });
 
   const t = (ar: string, en: string) => lang === "ar" ? ar : en;
 
@@ -137,11 +153,64 @@ const AdminDashboard = () => {
           comps[ci] = { ...comps[ci], wallet: (comps[ci].wallet || 0) + (Number(req.amount) || 0) };
           localStorage.setItem("madar_companies", JSON.stringify(comps));
           setCompanies(comps);
+          // Send notification to company
+          const compNotifs = JSON.parse(localStorage.getItem(`madar_notif_company_${req.companyId}`) || "[]");
+          compNotifs.push({ id: Date.now().toString(), message: `تم قبول طلب شحن المحفظة بقيمة ${req.amount} د.ل`, date: new Date().toISOString(), read: false });
+          localStorage.setItem(`madar_notif_company_${req.companyId}`, JSON.stringify(compNotifs));
         }
+      }
+      if (status === "received") {
+        // Send notification to company to upload proof
+        const req = reqs[idx];
+        const compNotifs = JSON.parse(localStorage.getItem(`madar_notif_company_${req.companyId}`) || "[]");
+        compNotifs.push({ id: Date.now().toString(), message: `الرجاء رفع إثبات التحويل أو استلام القيمة لشحن محفظتك. لا تشحن المحفظة بدون إثبات.`, date: new Date().toISOString(), read: false, type: "proof_required", requestId: id });
+        localStorage.setItem(`madar_notif_company_${req.companyId}`, JSON.stringify(compNotifs));
       }
       localStorage.setItem("madar_wallet_requests", JSON.stringify(reqs));
       setWalletRequests(reqs);
+      addAdminNotif(`تم تغيير حالة طلب شحن المحفظة إلى: ${status}`);
     }
+  };
+
+  const addAdminNotif = (message: string) => {
+    const notif = { id: Date.now().toString(), message, date: new Date().toISOString(), read: false };
+    const updated = [notif, ...adminNotifications];
+    setAdminNotifications(updated);
+    localStorage.setItem("madar_admin_notifs", JSON.stringify(updated));
+  };
+
+  const saveTerms = (t: any[]) => { setTerms(t); localStorage.setItem("madar_terms", JSON.stringify(t)); };
+  const saveMessages = (m: any[]) => { setAdminMessages(m); localStorage.setItem("madar_admin_messages", JSON.stringify(m)); };
+
+  const sendMessage = () => {
+    if (!newMessage.message) return;
+    const msg = { id: Date.now().toString(), ...newMessage, from: t("مسؤول النظام","System Admin"), date: new Date().toISOString() };
+    saveMessages([msg, ...adminMessages]);
+    // Notify targeted companies
+    if (newMessage.company) {
+      const compNotifs = JSON.parse(localStorage.getItem(`madar_notif_company_${newMessage.company}`) || "[]");
+      compNotifs.push({ id: Date.now().toString(), message: `رسالة جديدة من مسؤول النظام: ${newMessage.message}`, date: new Date().toISOString(), read: false });
+      localStorage.setItem(`madar_notif_company_${newMessage.company}`, JSON.stringify(compNotifs));
+    } else {
+      companies.forEach(c => {
+        const compNotifs = JSON.parse(localStorage.getItem(`madar_notif_company_${c.id}`) || "[]");
+        compNotifs.push({ id: Date.now().toString(), message: `رسالة جديدة من مسؤول النظام: ${newMessage.message}`, date: new Date().toISOString(), read: false });
+        localStorage.setItem(`madar_notif_company_${c.id}`, JSON.stringify(compNotifs));
+      });
+    }
+    setNewMessage({ company: "", type: "إشعار عام", message: "" });
+    alert(t("تم إرسال الرسالة بنجاح!","Message sent successfully!"));
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const logoData = ev.target?.result as string;
+      saveBranding({ ...branding, logo: logoData });
+    };
+    reader.readAsDataURL(file);
   };
 
   const deleteWalletRequest = (id: string) => {
@@ -553,49 +622,61 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* Wallet Requests */}
+          {/* Wallet Requests - Full Status Flow */}
           {activeTab === "wallet-requests" && (
             <div className="glass rounded-2xl p-6">
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 mb-4">
                 <h3 className="font-bold text-foreground">{t("طلبات شحن المحافظ","Wallet Requests")}</h3>
                 <div className="flex gap-2">
-                  <button onClick={() => exportToPDF(t("طلبات الشحن","Wallet Requests"), walletRequests.map(r => ({ company: r.companyName, amount: `${r.amount}`, method: r.method, status: r.status === "approved" ? "مقبول" : r.status === "rejected" ? "مرفوض" : "معلّق", date: new Date(r.date).toLocaleDateString("ar-LY") })), [t("الشركة","Company"),t("المبلغ","Amount"),t("الطريقة","Method"),t("الحالة","Status"),t("التاريخ","Date")])} className="px-3 py-1.5 rounded-lg border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button>
+                  <button onClick={() => exportToPDF(t("طلبات الشحن","Wallet Requests"), walletRequests.map(r => ({ company: r.companyName, amount: `${r.amount}`, method: r.method, status: r.status, date: new Date(r.date).toLocaleDateString("ar-LY") })), [t("الشركة","Company"),t("المبلغ","Amount"),t("الطريقة","Method"),t("الحالة","Status"),t("التاريخ","Date")])} className="px-3 py-1.5 rounded-lg border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button>
                   {walletRequests.length > 0 && <button onClick={clearWalletRequests} className="px-3 py-1.5 rounded-lg bg-destructive/20 text-destructive text-xs flex items-center gap-1"><Trash2 className="h-3 w-3" /> {t("تصفير","Clear All")}</button>}
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground mb-4">{t("قم بمراجعة طلبات شحن المحافظ وتغيير حالتها (قبول / رفض / معلّق).","Review wallet requests and change their status.")}</p>
-              {walletRequests.length === 0 ? <p className="text-sm text-muted-foreground">{t("لا توجد طلبات شحن حالياً.","No wallet requests.")}</p> : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead><tr className="border-b border-border">
-                      <th className="text-right py-2 px-3 text-muted-foreground">{t("الشركة","Company")}</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground">{t("المبلغ","Amount")}</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground">{t("الطريقة","Method")}</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground">{t("التاريخ","Date")}</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground">{t("الحالة","Status")}</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground">{t("الإجراء","Action")}</th>
-                    </tr></thead>
-                    <tbody>
-                      {walletRequests.map((r: any) => (
-                        <tr key={r.id} className="border-b border-border/30">
-                          <td className="py-2 px-3 text-foreground">{r.companyName}</td>
-                          <td className="py-2 px-3 text-primary font-bold">{r.amount} {t("د.ل","LYD")}</td>
-                          <td className="py-2 px-3 text-muted-foreground">{r.method}</td>
-                          <td className="py-2 px-3 text-muted-foreground text-xs">{new Date(r.date).toLocaleDateString("ar-LY")}</td>
-                          <td className="py-2 px-3"><span className={`px-2 py-0.5 rounded-full text-xs ${r.status === "approved" ? "bg-success/20 text-success" : r.status === "rejected" ? "bg-destructive/20 text-destructive" : "bg-warning/20 text-warning"}`}>{r.status === "approved" ? t("مقبول","Approved") : r.status === "rejected" ? t("مرفوض","Rejected") : t("معلّق","Pending")}</span></td>
-                          <td className="py-2 px-3">
-                            <div className="flex gap-1">
-                              {r.status === "pending" && <>
-                                <button onClick={() => updateWalletRequest(r.id, "approved")} className="text-xs px-2 py-1 rounded bg-success/20 text-success">{t("قبول","Approve")}</button>
-                                <button onClick={() => updateWalletRequest(r.id, "rejected")} className="text-xs px-2 py-1 rounded bg-destructive/20 text-destructive">{t("رفض","Reject")}</button>
-                              </>}
-                              <button onClick={() => deleteWalletRequest(r.id)} className="text-xs px-2 py-1 rounded bg-destructive/10 text-destructive"><Trash2 className="h-3 w-3" /></button>
+              <p className="text-sm text-muted-foreground mb-4">{t("يمكنك تغيير حالة كل طلب: معلّق → قيد التنفيذ → إرسال مندوب → استلام → قبول/رفض.","Change status: Pending → Processing → Rep Sent → Received → Approved/Rejected.")}</p>
+              {walletRequests.length === 0 ? <p className="text-sm text-muted-foreground">{t("لا توجد طلبات.","No requests.")}</p> : (
+                <div className="space-y-4">
+                  {walletRequests.map((r: any) => {
+                    const statusFlow = ["pending","processing","sent_rep","received","approved"];
+                    const statusLabels: Record<string,string> = { pending: t("معلّق","Pending"), processing: t("قيد التنفيذ","Processing"), sent_rep: t("إرسال مندوب","Rep Sent"), received: t("تم الاستلام","Received"), approved: t("مقبول","Approved"), rejected: t("مرفوض","Rejected") };
+                    const statusColors: Record<string,string> = { pending: "bg-warning/20 text-warning", processing: "bg-info/20 text-info", sent_rep: "bg-primary/20 text-primary", received: "bg-accent/20 text-accent", approved: "bg-success/20 text-success", rejected: "bg-destructive/20 text-destructive" };
+                    const currentIdx = statusFlow.indexOf(r.status);
+                    return (
+                      <div key={r.id} className="glass rounded-xl p-4">
+                        <div className="flex flex-col md:flex-row justify-between gap-3 mb-3">
+                          <div>
+                            <p className="text-sm font-bold text-foreground">{r.companyName}</p>
+                            <p className="text-xs text-muted-foreground">{r.method} - {r.amount} {t("د.ل","LYD")} - {new Date(r.date).toLocaleDateString("ar-LY")}</p>
+                            {r.proofImage && <p className="text-xs text-success mt-1">✅ {t("تم رفع إثبات التحويل","Proof uploaded")}</p>}
+                          </div>
+                          <span className={`px-3 py-1 rounded-full text-xs self-start ${statusColors[r.status] || statusColors.pending}`}>{statusLabels[r.status] || r.status}</span>
+                        </div>
+                        {/* Status progress bar */}
+                        <div className="flex items-center gap-1 mb-2">
+                          {statusFlow.map((s, i) => (
+                            <div key={s} className="flex items-center gap-1 flex-1">
+                              <div className={`w-2.5 h-2.5 rounded-full ${i <= currentIdx ? "bg-primary" : "bg-muted"}`} />
+                              {i < statusFlow.length - 1 && <div className={`h-0.5 flex-1 ${i < currentIdx ? "bg-primary" : "bg-muted"}`} />}
                             </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          ))}
+                        </div>
+                        <div className="flex justify-between text-[9px] text-muted-foreground mb-3">
+                          <span>{t("معلّق","Pending")}</span><span>{t("تنفيذ","Process")}</span><span>{t("مندوب","Rep")}</span><span>{t("استلام","Recv")}</span><span>{t("مقبول","OK")}</span>
+                        </div>
+                        <div className="flex gap-1 flex-wrap">
+                          {r.status !== "approved" && r.status !== "rejected" && (
+                            <>
+                              {r.status === "pending" && <button onClick={() => updateWalletRequest(r.id, "processing")} className="text-xs px-3 py-1.5 rounded-lg bg-info/20 text-info">{t("قيد التنفيذ","Processing")}</button>}
+                              {r.status === "processing" && <button onClick={() => updateWalletRequest(r.id, "sent_rep")} className="text-xs px-3 py-1.5 rounded-lg bg-primary/20 text-primary">{t("إرسال مندوب","Send Rep")}</button>}
+                              {r.status === "sent_rep" && <button onClick={() => updateWalletRequest(r.id, "received")} className="text-xs px-3 py-1.5 rounded-lg bg-accent/20 text-accent">{t("تم الاستلام","Received")}</button>}
+                              {r.status === "received" && <button onClick={() => updateWalletRequest(r.id, "approved")} className="text-xs px-3 py-1.5 rounded-lg bg-success/20 text-success">{t("قبول وشحن المحفظة","Approve & Charge")}</button>}
+                              <button onClick={() => updateWalletRequest(r.id, "rejected")} className="text-xs px-3 py-1.5 rounded-lg bg-destructive/20 text-destructive">{t("رفض","Reject")}</button>
+                            </>
+                          )}
+                          <button onClick={() => deleteWalletRequest(r.id)} className="text-xs px-2 py-1.5 rounded-lg bg-destructive/10 text-destructive"><Trash2 className="h-3 w-3" /></button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -647,30 +728,52 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* Platform Status */}
+          {/* Platform Status - Expanded */}
           {activeTab === "status" && (
             <div className="space-y-4">
               <div className="glass rounded-2xl p-6">
                 <h3 className="font-bold text-foreground mb-4">{t("حالة المنصة والصيانة","Platform Status & Maintenance")}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                   <div className="glass rounded-xl p-4 text-center"><div className="w-3 h-3 rounded-full bg-success mx-auto mb-2" /><p className="text-sm text-foreground font-bold">{t("المنصة تعمل","Online")}</p><p className="text-xs text-muted-foreground">{t("جميع الخدمات متاحة","All services available")}</p></div>
                   <div className="glass rounded-xl p-4 text-center"><Activity className="h-6 w-6 text-primary mx-auto mb-2" /><p className="text-sm text-foreground font-bold">{t("الأداء","Performance")}</p><p className="text-xs text-muted-foreground">{t("ممتاز","Excellent")}</p></div>
                   <div className="glass rounded-xl p-4 text-center"><Clock className="h-6 w-6 text-warning mx-auto mb-2" /><p className="text-sm text-foreground font-bold">{t("آخر تحديث","Last Update")}</p><p className="text-xs text-muted-foreground">{new Date().toLocaleDateString("ar-LY")}</p></div>
                   <div className="glass rounded-xl p-4 text-center"><Users className="h-6 w-6 text-primary mx-auto mb-2" /><p className="text-sm text-foreground font-bold">{t("المتصلين","Connected")}</p><p className="text-xs text-muted-foreground">{companies.filter(c => c.status === "active").length} {t("شركة","companies")}</p></div>
                 </div>
+
+                {/* Storage & Capacity */}
+                <div className="glass rounded-xl p-4 mb-4">
+                  <h4 className="font-bold text-foreground text-sm mb-3">{t("السعة والتخزين","Storage & Capacity")}</h4>
+                  <div className="space-y-3">
+                    {[
+                      { label: t("التخزين المستخدم","Storage Used"), value: `${((JSON.stringify(localStorage).length / 1024 / 1024) * 100).toFixed(1)}%`, used: JSON.stringify(localStorage).length / 1024, max: 5120 },
+                      { label: t("الذاكرة","Memory"), value: "45%", used: 45, max: 100 },
+                      { label: t("تحمل الطلبات","Request Load"), value: `${walletRequests.length + companies.length}`, used: walletRequests.length + companies.length, max: 1000 },
+                    ].map(item => (
+                      <div key={item.label}>
+                        <div className="flex justify-between text-xs mb-1"><span className="text-muted-foreground">{item.label}</span><span className="text-foreground font-bold">{item.value}</span></div>
+                        <div className="h-2 rounded-full bg-muted overflow-hidden"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min((item.used / item.max) * 100, 100)}%` }} /></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="glass rounded-xl p-4 mb-4">
                   <h4 className="font-bold text-foreground text-sm mb-2">{t("معلومات النظام","System Info")}</h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-muted-foreground">
-                    <div><span className="font-bold text-foreground">{t("الإصدار","Version")}:</span> 1.0.0</div>
+                    <div><span className="font-bold text-foreground">{t("الإصدار","Version")}:</span> 2.0.0</div>
                     <div><span className="font-bold text-foreground">{t("الشركات","Companies")}:</span> {companies.length}</div>
                     <div><span className="font-bold text-foreground">{t("المستخدمين","Users")}:</span> {allUsers.length}</div>
                     <div><span className="font-bold text-foreground">{t("الطلبات","Requests")}:</span> {walletRequests.length}</div>
+                    <div><span className="font-bold text-foreground">{t("حجم البيانات","Data Size")}:</span> {(JSON.stringify(localStorage).length / 1024).toFixed(1)} KB</div>
+                    <div><span className="font-bold text-foreground">{t("الإشعارات","Notifications")}:</span> {adminNotifications.length}</div>
+                    <div><span className="font-bold text-foreground">{t("الرسائل","Messages")}:</span> {adminMessages.length}</div>
+                    <div><span className="font-bold text-foreground">{t("الكوبونات","Coupons")}:</span> {coupons.length}</div>
                   </div>
                 </div>
                 <div className="flex gap-2 flex-wrap">
-                  <button onClick={() => { alert(t("تمت إعادة التشغيل بنجاح!","Restart successful!")); }} className="px-4 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center gap-2"><RefreshCw className="h-4 w-4" /> {t("إعادة تشغيل","Restart")}</button>
-                  <button onClick={() => { localStorage.removeItem("madar_fraud_logs"); setFraudLogs([]); alert(t("تم تنظيف الذاكرة!","Cache cleared!")); }} className="px-4 py-2 rounded-xl border border-border text-foreground text-sm flex items-center gap-2"><Trash2 className="h-4 w-4" /> {t("تنظيف الذاكرة","Clear Cache")}</button>
-                  <button onClick={() => exportSimplePDF(t("تقرير حالة المنصة","Platform Status Report"), `<p>حالة المنصة: تعمل</p><p>الشركات: ${companies.length}</p><p>المستخدمين: ${allUsers.length}</p><p>الطلبات: ${walletRequests.length}</p>`)} className="px-4 py-2 rounded-xl border border-border text-foreground text-sm flex items-center gap-2"><Download className="h-4 w-4" /> PDF</button>
+                  <button onClick={() => { alert(t("تمت إعادة التشغيل بنجاح!","Restart successful!")); addAdminNotif(t("تم إعادة تشغيل المنصة","Platform restarted")); }} className="px-4 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center gap-2"><RefreshCw className="h-4 w-4" /> {t("إعادة تشغيل","Restart")}</button>
+                  <button onClick={() => { localStorage.removeItem("madar_fraud_logs"); setFraudLogs([]); alert(t("تم تنظيف الذاكرة!","Cache cleared!")); addAdminNotif(t("تم تنظيف ذاكرة المنصة","Platform cache cleared")); }} className="px-4 py-2 rounded-xl border border-border text-foreground text-sm flex items-center gap-2"><Trash2 className="h-4 w-4" /> {t("تنظيف الذاكرة","Clear Cache")}</button>
+                  <button onClick={() => exportSimplePDF(t("تقرير حالة المنصة","Platform Status Report"), `<p>حالة المنصة: تعمل</p><p>الشركات: ${companies.length}</p><p>المستخدمين: ${allUsers.length}</p><p>الطلبات: ${walletRequests.length}</p><p>حجم البيانات: ${(JSON.stringify(localStorage).length / 1024).toFixed(1)} KB</p>`)} className="px-4 py-2 rounded-xl border border-border text-foreground text-sm flex items-center gap-2"><Download className="h-4 w-4" /> PDF</button>
                 </div>
               </div>
             </div>
@@ -688,7 +791,7 @@ const AdminDashboard = () => {
                 <div className="glass rounded-xl p-6 text-center">
                   <Shield className="h-12 w-12 text-success mx-auto mb-3" />
                   <p className="text-foreground font-bold">{t("لا توجد عمليات مشبوهة","No suspicious operations")}</p>
-                  <p className="text-xs text-muted-foreground">{t("جميع العمليات طبيعية حتى الآن","All operations are normal")}</p>
+                  <p className="text-xs text-muted-foreground">{t("جميع العمليات طبيعية","All operations normal")}</p>
                 </div>
               ) : (
                 <div className="space-y-2">{fraudLogs.map((log: any, i: number) => (
@@ -701,46 +804,138 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* Terms & Conditions */}
+          {/* Terms & Conditions - CRUD */}
           {activeTab === "terms" && (
             <div className="space-y-4">
               <div className="glass rounded-2xl p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold text-foreground">{t("لوائح وقوانين المنصة","Terms & Conditions")}</h3>
-                  <button onClick={() => exportSimplePDF(t("لوائح وقوانين منصة مدار","Madar Platform Terms"), termsAndConditions)} className="px-3 py-1.5 rounded-lg border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button>
+                  <div className="flex gap-2">
+                    <button onClick={() => setEditingTerm({ id: "", title: "", content: "" })} className="px-4 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center gap-2"><Plus className="h-4 w-4" /> {t("إضافة","Add")}</button>
+                    <button onClick={() => exportSimplePDF(t("لوائح المنصة","Terms"), terms.map((t: any) => `<h4>${t.title}</h4><p>${t.content}</p>`).join(""))} className="px-3 py-1.5 rounded-lg border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button>
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground mb-4">{t("هذه اللوائح والقوانين تضمن حق المنصة وحق العميل. يجب على جميع المستخدمين الالتزام بها.","These terms ensure the rights of the platform and clients.")}</p>
-                <div className="prose prose-sm max-w-none text-foreground" dangerouslySetInnerHTML={{ __html: termsAndConditions }} />
+                <p className="text-sm text-muted-foreground mb-4">{t("هذه اللوائح تضمن حق المنصة وحق العميل. يتم إعلام الشركات عند أي تعديل.","These terms ensure rights. Companies are notified on changes.")}</p>
+
+                {editingTerm && (
+                  <div className="glass rounded-xl p-4 mb-4 space-y-3">
+                    <input value={editingTerm.title} onChange={e => setEditingTerm({...editingTerm, title: e.target.value})} placeholder={t("عنوان اللائحة","Term Title")} className={inputClass} />
+                    <textarea value={editingTerm.content} onChange={e => setEditingTerm({...editingTerm, content: e.target.value})} placeholder={t("محتوى اللائحة","Term Content")} rows={3} className={inputClass} />
+                    <div className="flex gap-2">
+                      <button onClick={() => {
+                        if (!editingTerm.title) return;
+                        if (editingTerm.id) {
+                          saveTerms(terms.map(t => t.id === editingTerm.id ? editingTerm : t));
+                        } else {
+                          saveTerms([...terms, { ...editingTerm, id: Date.now().toString() }]);
+                        }
+                        // Notify companies
+                        companies.forEach(c => {
+                          const notifs = JSON.parse(localStorage.getItem(`madar_notif_company_${c.id}`) || "[]");
+                          notifs.push({ id: Date.now().toString(), message: `تم تحديث لوائح وقوانين المنصة: ${editingTerm.title}`, date: new Date().toISOString(), read: false });
+                          localStorage.setItem(`madar_notif_company_${c.id}`, JSON.stringify(notifs));
+                        });
+                        setEditingTerm(null);
+                      }} className="px-6 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold">{t("حفظ","Save")}</button>
+                      <button onClick={() => setEditingTerm(null)} className="px-6 py-2 rounded-xl border border-border text-foreground text-sm">{t("إلغاء","Cancel")}</button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  {terms.map((term: any, i: number) => (
+                    <div key={term.id} className="glass rounded-xl p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-sm font-bold text-foreground">{i + 1}. {term.title}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{term.content}</p>
+                        </div>
+                        <div className="flex gap-1 flex-shrink-0">
+                          <button onClick={() => setEditingTerm({...term})} className="text-primary"><Edit className="h-4 w-4" /></button>
+                          <button onClick={() => saveTerms(terms.filter(t => t.id !== term.id))} className="text-destructive"><Trash2 className="h-4 w-4" /></button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
 
-          {/* Messages */}
+          {/* Messages - Persistent */}
           {activeTab === "messages" && (
-            <div className="glass rounded-2xl p-6">
-              <h3 className="font-bold text-foreground mb-4">{t("المراسلات","Messages")}</h3>
-              <p className="text-sm text-muted-foreground mb-4">{t("إرسال رسائل وتحذيرات للشركات والمستخدمين.","Send messages and warnings to companies.")}</p>
-              <div className="space-y-3">
-                <div><label className="text-sm font-bold text-foreground">{t("اختر الشركة","Select Company")}</label>
-                  <select className={inputClass}><option value="">{t("جميع الشركات","All Companies")}</option>{companies.map((c: any) => <option key={c.id} value={c.id}>{c.companyName}</option>)}</select>
+            <div className="space-y-4">
+              <div className="glass rounded-2xl p-6">
+                <h3 className="font-bold text-foreground mb-4">{t("المراسلات","Messages")}</h3>
+                <p className="text-sm text-muted-foreground mb-4">{t("إرسال رسائل للشركات. الرسائل محفوظة ويمكن للشركات الرد عليها.","Send messages to companies. Messages are saved and companies can reply.")}</p>
+                <div className="space-y-3">
+                  <div><label className="text-sm font-bold text-foreground">{t("اختر الشركة","Select Company")}</label>
+                    <select value={newMessage.company} onChange={e => setNewMessage({...newMessage, company: e.target.value})} className={inputClass}><option value="">{t("جميع الشركات","All Companies")}</option>{companies.map((c: any) => <option key={c.id} value={c.id}>{c.companyName}</option>)}</select>
+                  </div>
+                  <div><label className="text-sm font-bold text-foreground">{t("نوع الرسالة","Message Type")}</label>
+                    <select value={newMessage.type} onChange={e => setNewMessage({...newMessage, type: e.target.value})} className={inputClass}><option>{t("إشعار عام","General Notice")}</option><option>{t("تحذير","Warning")}</option><option>{t("تهنئة","Congratulation")}</option><option>{t("تذكير بالدفع","Payment Reminder")}</option></select>
+                  </div>
+                  <div><label className="text-sm font-bold text-foreground">{t("الرسالة","Message")}</label><textarea value={newMessage.message} onChange={e => setNewMessage({...newMessage, message: e.target.value})} rows={3} className={inputClass} placeholder={t("اكتب رسالتك هنا...","Write your message here...")} /></div>
+                  <button onClick={sendMessage} className="px-6 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center gap-2"><Send className="h-4 w-4" /> {t("إرسال","Send")}</button>
                 </div>
-                <div><label className="text-sm font-bold text-foreground">{t("نوع الرسالة","Message Type")}</label>
-                  <select className={inputClass}><option>{t("إشعار عام","General Notice")}</option><option>{t("تحذير","Warning")}</option><option>{t("تهنئة","Congratulation")}</option><option>{t("تذكير بالدفع","Payment Reminder")}</option></select>
-                </div>
-                <div><label className="text-sm font-bold text-foreground">{t("الرسالة","Message")}</label><textarea rows={3} className={inputClass} placeholder={t("اكتب رسالتك هنا...","Write your message here...")} /></div>
-                <button className="px-6 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center gap-2"><Send className="h-4 w-4" /> {t("إرسال","Send")}</button>
+              </div>
+              {/* Received messages from companies */}
+              <div className="glass rounded-2xl p-6">
+                <h3 className="font-bold text-foreground mb-4">{t("الرسائل المرسلة والمستلمة","Sent & Received Messages")}</h3>
+                {adminMessages.length === 0 ? <p className="text-sm text-muted-foreground">{t("لا توجد رسائل.","No messages.")}</p> : (
+                  <div className="space-y-2">{adminMessages.map((m: any) => (
+                    <div key={m.id} className="glass rounded-xl p-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] ${m.type === "تحذير" || m.type === "Warning" ? "bg-destructive/20 text-destructive" : "bg-primary/20 text-primary"}`}>{m.type}</span>
+                          <span className="text-xs text-muted-foreground mr-2">{m.from === t("مسؤول النظام","System Admin") ? `→ ${m.company ? companies.find(c => c.id === m.company)?.companyName || t("الكل","All") : t("الكل","All")}` : `← ${m.from}`}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-muted-foreground">{m.date ? new Date(m.date).toLocaleDateString("ar-LY") : ""}</span>
+                          <button onClick={() => saveMessages(adminMessages.filter(msg => msg.id !== m.id))} className="text-destructive"><Trash2 className="h-3 w-3" /></button>
+                        </div>
+                      </div>
+                      <p className="text-sm text-foreground mt-1">{m.message}</p>
+                    </div>
+                  ))}</div>
+                )}
               </div>
             </div>
           )}
 
           {/* Notifications */}
           {activeTab === "notifications" && (
-            <div className="glass rounded-2xl p-6">
-              <h3 className="font-bold text-foreground mb-4">{t("الإشعارات","Notifications")}</h3>
-              <div className="glass rounded-xl p-6 text-center">
-                <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">{t("لا توجد إشعارات جديدة","No new notifications")}</p>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-foreground">{t("الإشعارات","Notifications")} ({adminNotifications.filter(n => !n.read).length} {t("جديد","new")})</h3>
+                <div className="flex gap-2">
+                  {adminNotifications.length > 0 && (
+                    <>
+                      <button onClick={() => { const updated = adminNotifications.map(n => ({...n, read: true})); setAdminNotifications(updated); localStorage.setItem("madar_admin_notifs", JSON.stringify(updated)); }} className="text-xs text-primary hover:underline">{t("تعيين الكل كمقروء","Mark all read")}</button>
+                      <button onClick={() => { setAdminNotifications([]); localStorage.setItem("madar_admin_notifs", "[]"); }} className="text-xs text-destructive hover:underline">{t("حذف الكل","Delete all")}</button>
+                    </>
+                  )}
+                </div>
               </div>
+              {adminNotifications.length === 0 ? (
+                <div className="glass rounded-2xl p-6 text-center">
+                  <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground">{t("لا توجد إشعارات جديدة","No new notifications")}</p>
+                </div>
+              ) : (
+                <div className="space-y-2">{adminNotifications.map((n: any) => (
+                  <div key={n.id} onClick={() => { const updated = adminNotifications.map(nn => nn.id === n.id ? {...nn, read: true} : nn); setAdminNotifications(updated); localStorage.setItem("madar_admin_notifs", JSON.stringify(updated)); }} className={`glass rounded-xl p-4 cursor-pointer transition-all ${!n.read ? "border-primary/30" : ""}`}>
+                    <div className="flex justify-between items-start">
+                      <p className={`text-sm ${!n.read ? "font-bold text-foreground" : "text-muted-foreground"}`}>{n.message}</p>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {!n.read && <span className="w-2 h-2 rounded-full bg-primary" />}
+                        <button onClick={(e) => { e.stopPropagation(); const updated = adminNotifications.filter(nn => nn.id !== n.id); setAdminNotifications(updated); localStorage.setItem("madar_admin_notifs", JSON.stringify(updated)); }} className="text-destructive"><Trash2 className="h-3 w-3" /></button>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1">{n.date ? new Date(n.date).toLocaleDateString("ar-LY") + " " + new Date(n.date).toLocaleTimeString("ar-LY") : ""}</p>
+                  </div>
+                ))}</div>
+              )}
             </div>
           )}
 
@@ -756,7 +951,7 @@ const AdminDashboard = () => {
                   <div><label className="text-sm font-bold text-foreground">{t("كلمة المرور الجديدة","New Password")}</label><input type="password" value={profile.password} onChange={(e) => saveProfile({...profile, password: e.target.value})} placeholder={t("أدخل كلمة مرور جديدة","Enter new password")} className={inputClass} /></div>
                   <div>
                     <label className="text-sm font-bold text-foreground">{t("رقم الحساب المصرفي","Bank Account")}</label>
-                    <input value={profile.bankAccount} onChange={(e) => saveProfile({...profile, bankAccount: e.target.value})} placeholder={t("يظهر هذا الرقم للعملاء عند التحويل المصرفي","Shown to clients for bank transfer")} className={inputClass} />
+                    <input value={profile.bankAccount} onChange={(e) => saveProfile({...profile, bankAccount: e.target.value})} placeholder={t("يظهر للعملاء عند التحويل المصرفي","Shown to clients for bank transfer")} className={inputClass} />
                     <p className="text-xs text-muted-foreground mt-1">{t("سيظهر هذا الرقم في خانة شحن المحافظ بالتحويل المصرفي","This number appears in wallet charging via bank transfer")}</p>
                   </div>
                 </div>
@@ -764,21 +959,27 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* Platform Branding */}
+          {/* Platform Branding - Fixed Logo Upload */}
           {activeTab === "branding" && (
             <div className="space-y-4 max-w-lg">
               <div className="glass rounded-2xl p-6">
                 <h3 className="font-bold text-foreground mb-4">{t("هوية المنصة","Platform Branding")}</h3>
-                <p className="text-sm text-muted-foreground mb-4">{t("غيّر اسم المنصة والشعار والألوان. التغييرات تظهر في جميع الصفحات.","Change platform name, logo and colors. Changes appear everywhere.")}</p>
+                <p className="text-sm text-muted-foreground mb-4">{t("غيّر اسم المنصة والشعار والألوان. التغييرات تظهر في جميع الصفحات.","Change platform name, logo and colors.")}</p>
                 <div className="space-y-4">
                   <div><label className="text-sm font-bold text-foreground">{t("اسم المنصة","Platform Name")}</label><input value={branding.name} onChange={(e) => saveBranding({...branding, name: e.target.value})} className={inputClass} /></div>
                   <div>
                     <label className="text-sm font-bold text-foreground">{t("شعار المنصة","Platform Logo")}</label>
-                    <div className="glass rounded-xl p-6 text-center border-dashed border-2 border-border cursor-pointer hover:border-primary/50 transition-all">
+                    {branding.logo && (
+                      <div className="mb-3 glass rounded-xl p-4 flex items-center justify-center">
+                        <img src={branding.logo} alt="Logo" className="h-20 object-contain" />
+                      </div>
+                    )}
+                    <label className="glass rounded-xl p-6 text-center border-dashed border-2 border-border cursor-pointer hover:border-primary/50 transition-all block">
                       <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                       <p className="text-xs text-muted-foreground">{t("اسحب الشعار هنا أو انقر للتحميل","Drag logo here or click to upload")}</p>
                       <p className="text-[10px] text-muted-foreground mt-1">{t("يُفضل PNG بخلفية شفافة","PNG with transparent background preferred")}</p>
-                    </div>
+                      <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                    </label>
                   </div>
                   <div><label className="text-sm font-bold text-foreground">{t("اللون الأساسي","Primary Color")}</label>
                     <div className="flex gap-2 items-center">
@@ -801,28 +1002,27 @@ const AdminDashboard = () => {
           {activeTab === "settings" && (
             <div className="glass rounded-2xl p-6">
               <h3 className="font-bold text-foreground mb-4">{t("إعدادات المنصة","Platform Settings")}</h3>
-              <p className="text-sm text-muted-foreground mb-4">{t("إعدادات عامة للمنصة وتخصيص المظهر والسلوك.","General platform settings.")}</p>
               <div className="space-y-4 max-w-lg">
                 <div className="flex items-center justify-between glass rounded-xl p-4">
-                  <div><p className="text-sm font-bold text-foreground">{t("وضع الصيانة","Maintenance Mode")}</p><p className="text-xs text-muted-foreground">{t("إيقاف المنصة مؤقتاً للصيانة","Temporarily disable platform for maintenance")}</p></div>
+                  <div><p className="text-sm font-bold text-foreground">{t("وضع الصيانة","Maintenance Mode")}</p><p className="text-xs text-muted-foreground">{t("إيقاف المنصة مؤقتاً","Temporarily disable platform")}</p></div>
                   <button onClick={() => saveSettings({...platformSettings, maintenanceMode: !platformSettings.maintenanceMode})} className={`px-4 py-2 rounded-xl text-sm font-bold ${platformSettings.maintenanceMode ? "bg-destructive text-destructive-foreground" : "border border-border text-foreground"}`}>
                     {platformSettings.maintenanceMode ? t("إيقاف","Disable") : t("تفعيل","Enable")}
                   </button>
                 </div>
                 <div className="flex items-center justify-between glass rounded-xl p-4">
-                  <div><p className="text-sm font-bold text-foreground">{t("التسجيل التلقائي","Auto Registration")}</p><p className="text-xs text-muted-foreground">{t("السماح بتسجيل الشركات تلقائياً بدون تحقق","Allow companies to register without verification")}</p></div>
+                  <div><p className="text-sm font-bold text-foreground">{t("التسجيل التلقائي","Auto Registration")}</p><p className="text-xs text-muted-foreground">{t("السماح بتسجيل الشركات بدون تحقق","Allow registration without verification")}</p></div>
                   <button onClick={() => saveSettings({...platformSettings, autoRegistration: !platformSettings.autoRegistration})} className={`px-4 py-2 rounded-xl text-sm font-bold ${platformSettings.autoRegistration ? "gradient-primary text-primary-foreground" : "border border-border text-foreground"}`}>
                     {platformSettings.autoRegistration ? t("مفعّل","Enabled") : t("معطّل","Disabled")}
                   </button>
                 </div>
                 <div className="flex items-center justify-between glass rounded-xl p-4">
-                  <div><p className="text-sm font-bold text-foreground">{t("المظهر","Theme")}</p><p className="text-xs text-muted-foreground">{t("التبديل بين الوضع الليلي والنهاري","Toggle dark/light mode")}</p></div>
+                  <div><p className="text-sm font-bold text-foreground">{t("المظهر","Theme")}</p></div>
                   <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="px-4 py-2 rounded-xl border border-border text-foreground text-sm flex items-center gap-2">
                     {theme === "dark" ? <><Sun className="h-4 w-4" /> {t("نهاري","Light")}</> : <><Moon className="h-4 w-4" /> {t("ليلي","Dark")}</>}
                   </button>
                 </div>
                 <div className="flex items-center justify-between glass rounded-xl p-4">
-                  <div><p className="text-sm font-bold text-foreground">{t("اللغة","Language")}</p><p className="text-xs text-muted-foreground">{t("التبديل بين العربية والإنجليزية","Toggle Arabic/English")}</p></div>
+                  <div><p className="text-sm font-bold text-foreground">{t("اللغة","Language")}</p></div>
                   <button onClick={() => setLang(lang === "ar" ? "en" : "ar")} className="px-4 py-2 rounded-xl border border-border text-foreground text-sm flex items-center gap-2">
                     <Globe className="h-4 w-4" /> {lang === "ar" ? "English" : "العربية"}
                   </button>

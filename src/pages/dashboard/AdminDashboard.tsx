@@ -4,10 +4,11 @@ import {
   LayoutDashboard, Building2, Package, CreditCard, Users, Settings, LogOut,
   BarChart3, Shield, Ticket, DollarSign, Activity, AlertTriangle, User, Bell, Menu, X,
   Eye, Trash2, Send, Gift, Ban, CheckCircle, Clock, FileText, Edit, Plus, Download, RefreshCw, Search, MessageSquare,
-  Upload, Moon, Sun, Globe, Scale, Truck, Image
+  Upload, Moon, Sun, Globe, Scale, Truck, Image, Monitor
 } from "lucide-react";
 import logo from "@/assets/logo-transparent.png";
 import { exportToPDF, exportSimplePDF } from "@/utils/pdfExport";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 
 const libyanCities = [
   "طرابلس","بنغازي","مصراتة","الزاوية","زليتن","البيضاء","الخمس","سبها","درنة","طبرق",

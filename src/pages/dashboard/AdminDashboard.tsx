@@ -85,7 +85,7 @@ const AdminDashboard = () => {
   const [currency, setCurrency] = useState(() => JSON.parse(localStorage.getItem("madar_currency") || JSON.stringify({ primary: "LYD", secondary: "USD", rate: 4.85 })));
   const [coupons, setCoupons] = useState(() => JSON.parse(localStorage.getItem("madar_coupons") || "[]"));
   const [deliveryPrices, setDeliveryPrices] = useState(() => JSON.parse(localStorage.getItem("madar_delivery_prices") || JSON.stringify(defaultDeliveryPrices)));
-  const [branding, setBranding] = useState(() => JSON.parse(localStorage.getItem("madar_branding") || JSON.stringify({ name: "مدار", primaryColor: "#2563eb", accentColor: "#c9a227" })));
+  const [branding, setBranding] = useState(() => JSON.parse(localStorage.getItem("madar_branding") || JSON.stringify({ name: "مدار", primaryColor: "#2563eb", accentColor: "#c9a227", logo: "" })));
   const [platformSettings, setPlatformSettings] = useState(() => JSON.parse(localStorage.getItem("madar_platform_settings") || JSON.stringify({ autoRegistration: true, maintenanceMode: false })));
   const [editingPlan, setEditingPlan] = useState<any>(null);
   const [newCoupon, setNewCoupon] = useState({ code: "", value: 0, type: "percent", maxUses: 10, expiresAt: "" });
@@ -95,6 +95,22 @@ const AdminDashboard = () => {
   const [lang, setLang] = useState(() => localStorage.getItem("madar_lang") || "ar");
   const [searchCompany, setSearchCompany] = useState("");
   const [fraudLogs, setFraudLogs] = useState<any[]>(() => JSON.parse(localStorage.getItem("madar_fraud_logs") || "[]"));
+  const [adminNotifications, setAdminNotifications] = useState<any[]>(() => JSON.parse(localStorage.getItem("madar_admin_notifs") || "[]"));
+  const [adminMessages, setAdminMessages] = useState<any[]>(() => JSON.parse(localStorage.getItem("madar_admin_messages") || "[]"));
+  const [terms, setTerms] = useState<any[]>(() => JSON.parse(localStorage.getItem("madar_terms") || JSON.stringify([
+    { id: "1", title: "حقوق المنصة", content: "منصة مدار تحتفظ بجميع الحقوق الفكرية والتقنية." },
+    { id: "2", title: "حقوق العميل", content: "العميل يحتفظ بملكية بياناته الكاملة." },
+    { id: "3", title: "الاشتراكات", content: "عند انتهاء الاشتراك يتم تعليق الحساب مع الاحتفاظ بالبيانات 90 يوم." },
+    { id: "4", title: "الاستخدام", content: "يُمنع استخدام المنصة لأغراض غير قانونية." },
+    { id: "5", title: "المحفظة", content: "شحن المحفظة غير قابل للاسترداد بعد القبول." },
+    { id: "6", title: "الصلاحيات", content: "كل شركة مسؤولة عن إدارة صلاحيات موظفيها." },
+    { id: "7", title: "الخصوصية", content: "لا تشارك المنصة بيانات أي شركة مع طرف ثالث." },
+    { id: "8", title: "التعليق", content: "يحق لمسؤول النظام تعليق أي حساب يخالف القوانين." },
+    { id: "9", title: "التحديثات", content: "تحتفظ المنصة بحق تعديل القوانين مع إشعار المستخدمين." },
+    { id: "10", title: "النزاعات", content: "يتم حل النزاعات وفق القانون الليبي." },
+  ])));
+  const [editingTerm, setEditingTerm] = useState<any>(null);
+  const [newMessage, setNewMessage] = useState({ company: "", type: "إشعار عام", message: "" });
 
   const t = (ar: string, en: string) => lang === "ar" ? ar : en;
 

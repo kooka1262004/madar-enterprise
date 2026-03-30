@@ -13,7 +13,6 @@ import { exportToPDF, exportSimplePDF } from "@/utils/pdfExport";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import BarcodeGenerator from "@/components/BarcodeGenerator";
 import { getDevicesForCompany, removeDevice, deactivateDevice, getDeviceIcon, generateDeviceId } from "@/utils/deviceManager";
-import BarcodeGenerator from "@/components/BarcodeGenerator";
 
 const sidebarSections = [
   { title: "الرئيسية", titleEn: "Main", items: [

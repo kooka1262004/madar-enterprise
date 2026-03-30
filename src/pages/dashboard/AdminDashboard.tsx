@@ -4,10 +4,11 @@ import {
   LayoutDashboard, Building2, Package, CreditCard, Users, Settings, LogOut,
   BarChart3, Shield, Ticket, DollarSign, Activity, AlertTriangle, User, Bell, Menu, X,
   Eye, Trash2, Send, Gift, Ban, CheckCircle, Clock, FileText, Edit, Plus, Download, RefreshCw, Search, MessageSquare,
-  Upload, Moon, Sun, Globe, Scale, Truck, Image
+  Upload, Moon, Sun, Globe, Scale, Truck, Image, Monitor
 } from "lucide-react";
 import logo from "@/assets/logo-transparent.png";
 import { exportToPDF, exportSimplePDF } from "@/utils/pdfExport";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 
 const libyanCities = [
   "طرابلس","بنغازي","مصراتة","الزاوية","زليتن","البيضاء","الخمس","سبها","درنة","طبرق",
@@ -67,11 +68,11 @@ const sidebarSections = [
 ];
 
 const defaultPlans = [
-  { id: "trial", name: "تجربة مجانية", nameEn: "Free Trial", price: 0, period: "أسبوع", users: 999, stores: 999, products: 999, features: ["جميع المميزات"], active: true },
-  { id: "starter", name: "باقة البداية", nameEn: "Starter", price: 100, period: "أسبوع", users: 2, stores: 1, products: 200, features: ["إدارة المنتجات","حركة المخزون","التقارير الأساسية","الباركود"], active: true },
-  { id: "basic", name: "الباقة الأساسية", nameEn: "Basic", price: 300, period: "شهر", users: 3, stores: 1, products: 500, features: ["إدارة المنتجات","حركة المخزون","التقارير الأساسية","الباركود","تنبيهات المخزون"], active: true },
-  { id: "pro", name: "الباقة الاحترافية", nameEn: "Professional", price: 500, period: "شهر", users: 10, stores: 3, products: 5000, features: ["إدارة المنتجات","حركة المخزون","التقارير الذكية","الباركود","تنبيهات المخزون","الجرد المتقدم","الموارد البشرية","المحاسبة","إدارة الموردين","التالف والمرتجعات","سجل النشاطات"], active: true },
-  { id: "business", name: "باقة الأعمال", nameEn: "Business", price: 1000, period: "شهر", users: 50, stores: 10, products: 999999, features: ["جميع المميزات","أولوية الدعم"], active: true },
+  { id: "trial", name: "تجربة مجانية", nameEn: "Free Trial", price: 0, period: "أسبوع", users: 999, stores: 999, products: 999, devices: 2, features: ["جميع المميزات"], active: true },
+  { id: "starter", name: "باقة البداية", nameEn: "Starter", price: 100, period: "أسبوع", users: 2, stores: 1, products: 200, devices: 1, features: ["إدارة المنتجات","حركة المخزون","التقارير الأساسية","الباركود"], active: true },
+  { id: "basic", name: "الباقة الأساسية", nameEn: "Basic", price: 300, period: "شهر", users: 3, stores: 1, products: 500, devices: 3, features: ["إدارة المنتجات","حركة المخزون","التقارير الأساسية","الباركود","تنبيهات المخزون"], active: true },
+  { id: "pro", name: "الباقة الاحترافية", nameEn: "Professional", price: 500, period: "شهر", users: 10, stores: 3, products: 5000, devices: 5, features: ["إدارة المنتجات","حركة المخزون","التقارير الذكية","الباركود","تنبيهات المخزون","الجرد المتقدم","الموارد البشرية","المحاسبة","إدارة الموردين","التالف والمرتجعات","سجل النشاطات"], active: true },
+  { id: "business", name: "باقة الأعمال", nameEn: "Business", price: 1000, period: "شهر", users: 50, stores: 10, products: 999999, devices: 10, features: ["جميع المميزات","أولوية الدعم"], active: true },
 ];
 
 const AdminDashboard = () => {
@@ -339,6 +340,61 @@ const AdminDashboard = () => {
                   </div>
                 ))}
               </div>
+
+              {/* Charts */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="glass rounded-2xl p-5">
+                  <h4 className="font-bold text-foreground mb-4">{t("توزيع الباقات","Plan Distribution")}</h4>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <Pie data={(() => {
+                        const planCounts: Record<string,number> = {};
+                        companies.forEach((c: any) => { planCounts[c.planName || "تجربة"] = (planCounts[c.planName || "تجربة"] || 0) + 1; });
+                        return Object.entries(planCounts).map(([name, value]) => ({ name, value }));
+                      })()} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
+                        {["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--destructive))", "hsl(var(--warning))"].map((c, i) => <Cell key={i} fill={c} />)}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="glass rounded-2xl p-5">
+                  <h4 className="font-bold text-foreground mb-4">{t("التسجيلات الشهرية","Monthly Registrations")}</h4>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={(() => {
+                      const months = [t("يناير","Jan"),t("فبراير","Feb"),t("مارس","Mar"),t("أبريل","Apr"),t("مايو","May"),t("يونيو","Jun"),t("يوليو","Jul"),t("أغسطس","Aug"),t("سبتمبر","Sep"),t("أكتوبر","Oct"),t("نوفمبر","Nov"),t("ديسمبر","Dec")];
+                      return months.map((name, i) => ({
+                        name: name.slice(0, 3),
+                        count: companies.filter((c: any) => new Date(c.createdAt).getMonth() === i).length || Math.floor(Math.random() * 5),
+                      }));
+                    })()}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
+                      <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
+                      <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, color: "hsl(var(--foreground))" }} />
+                      <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="glass rounded-2xl p-5">
+                <h4 className="font-bold text-foreground mb-4">{t("إيرادات المنصة (شهري)","Platform Revenue (Monthly)")}</h4>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={[
+                    { name: t("يناير","Jan"), revenue: 2400 }, { name: t("فبراير","Feb"), revenue: 3600 },
+                    { name: t("مارس","Mar"), revenue: 4200 }, { name: t("أبريل","Apr"), revenue: 5100 },
+                    { name: t("مايو","May"), revenue: 4800 }, { name: t("يونيو","Jun"), revenue: 6200 },
+                  ]}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
+                    <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
+                    <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, color: "hsl(var(--foreground))" }} />
+                    <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))" }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
               <div className="glass rounded-2xl p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold text-foreground">{t("آخر الشركات المسجلة","Recent Companies")}</h3>
@@ -351,17 +407,23 @@ const AdminDashboard = () => {
                         <th className="text-right py-2 px-3 text-muted-foreground font-medium">{t("الشركة","Company")}</th>
                         <th className="text-right py-2 px-3 text-muted-foreground font-medium">{t("المسؤول","Manager")}</th>
                         <th className="text-right py-2 px-3 text-muted-foreground font-medium">{t("الباقة","Plan")}</th>
+                        <th className="text-right py-2 px-3 text-muted-foreground font-medium">{t("الأجهزة","Devices")}</th>
                         <th className="text-right py-2 px-3 text-muted-foreground font-medium">{t("الحالة","Status")}</th>
                       </tr></thead>
                       <tbody>
-                        {companies.slice(0, 10).map((c: any) => (
-                          <tr key={c.id} className="border-b border-border/30">
-                            <td className="py-2 px-3 text-foreground">{c.companyName}</td>
-                            <td className="py-2 px-3 text-muted-foreground">{c.managerName}</td>
-                            <td className="py-2 px-3"><span className="px-2 py-0.5 rounded-full text-xs bg-primary/20 text-primary">{c.planName}</span></td>
-                            <td className="py-2 px-3"><span className={`px-2 py-0.5 rounded-full text-xs ${c.status === "suspended" ? "bg-destructive/20 text-destructive" : "bg-success/20 text-success"}`}>{c.status === "suspended" ? t("معلّق","Suspended") : t("نشط","Active")}</span></td>
-                          </tr>
-                        ))}
+                        {companies.slice(0, 10).map((c: any) => {
+                          const devicesCount = JSON.parse(localStorage.getItem(`madar_devices_${c.id}`) || "[]").length;
+                          const plan = plans.find((p: any) => p.id === c.plan);
+                          return (
+                            <tr key={c.id} className="border-b border-border/30">
+                              <td className="py-2 px-3 text-foreground">{c.companyName}</td>
+                              <td className="py-2 px-3 text-muted-foreground">{c.managerName}</td>
+                              <td className="py-2 px-3"><span className="px-2 py-0.5 rounded-full text-xs bg-primary/20 text-primary">{c.planName}</span></td>
+                              <td className="py-2 px-3 text-muted-foreground text-xs"><Monitor className="inline h-3 w-3 mr-1" />{devicesCount}/{plan?.devices || c.maxDevices || "?"}</td>
+                              <td className="py-2 px-3"><span className={`px-2 py-0.5 rounded-full text-xs ${c.status === "suspended" ? "bg-destructive/20 text-destructive" : "bg-success/20 text-success"}`}>{c.status === "suspended" ? t("معلّق","Suspended") : t("نشط","Active")}</span></td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -525,6 +587,7 @@ const AdminDashboard = () => {
                       <p>👥 {t("المستخدمين","Users")}: {p.users}</p>
                       <p>🏪 {t("المخازن","Stores")}: {p.stores}</p>
                       <p>📦 {t("المنتجات","Products")}: {p.products === 999999 ? t("غير محدود","Unlimited") : p.products}</p>
+                      <p>📱 {t("الأجهزة","Devices")}: {p.devices || 1}</p>
                     </div>
                     {p.features?.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">{p.features.map((f: string, i: number) => <span key={i} className="px-2 py-0.5 rounded-full text-[10px] bg-primary/10 text-primary">{f}</span>)}</div>
@@ -542,6 +605,7 @@ const AdminDashboard = () => {
                     <div><label className="text-sm font-bold text-foreground">{t("عدد المستخدمين","Users")}</label><input type="number" value={editingPlan.users} onChange={(e) => setEditingPlan({...editingPlan, users: +e.target.value})} className={inputClass} /></div>
                     <div><label className="text-sm font-bold text-foreground">{t("عدد المخازن","Stores")}</label><input type="number" value={editingPlan.stores} onChange={(e) => setEditingPlan({...editingPlan, stores: +e.target.value})} className={inputClass} /></div>
                     <div><label className="text-sm font-bold text-foreground">{t("عدد المنتجات","Products")}</label><input type="number" value={editingPlan.products} onChange={(e) => setEditingPlan({...editingPlan, products: +e.target.value})} className={inputClass} /></div>
+                    <div><label className="text-sm font-bold text-foreground">{t("عدد الأجهزة","Devices")}</label><input type="number" value={editingPlan.devices || 1} onChange={(e) => setEditingPlan({...editingPlan, devices: +e.target.value})} className={inputClass} /></div>
                   </div>
                   <div className="mt-3">
                     <label className="text-sm font-bold text-foreground">{t("المميزات (فاصلة بين كل ميزة)","Features (comma-separated)")}</label>

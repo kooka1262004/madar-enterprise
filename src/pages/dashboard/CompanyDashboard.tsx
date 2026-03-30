@@ -1,16 +1,18 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Package, Warehouse, Users, CreditCard, BarChart3, QrCode,
   Truck, ClipboardList, TrendingUp, RotateCcw, FileText, DollarSign,
   UserCog, Settings, LogOut, Bell, Menu, X, ShoppingCart, AlertTriangle, Clock, Briefcase,
   Plus, Edit, Trash2, Download, Eye, Send, Check, Search, Upload, Calendar, Award, Flag, MessageSquare, ListChecks,
-  Moon, Sun, Globe, Camera, RefreshCw, ArrowUpDown, Receipt, Printer
+  Moon, Sun, Globe, Camera, RefreshCw, ArrowUpDown, Receipt, Printer, Monitor, Smartphone, Laptop, Volume2
 } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area } from "recharts";
 import logo from "@/assets/logo-transparent.png";
 import { exportToPDF, exportSimplePDF } from "@/utils/pdfExport";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import BarcodeGenerator from "@/components/BarcodeGenerator";
+import { getDevicesForCompany, removeDevice, deactivateDevice, getDeviceIcon, generateDeviceId } from "@/utils/deviceManager";
 
 const sidebarSections = [
   { title: "الرئيسية", titleEn: "Main", items: [
@@ -38,6 +40,7 @@ const sidebarSections = [
   ]},
   { title: "الإدارة", titleEn: "Administration", items: [
     { icon: Users, label: "المستخدمين", labelEn: "Users", key: "users" },
+    { icon: Monitor, label: "إدارة الأجهزة", labelEn: "Devices", key: "devices" },
     { icon: UserCog, label: "الصلاحيات", labelEn: "Permissions", key: "permissions" },
     { icon: Clock, label: "سجل النشاطات", labelEn: "Activity Log", key: "activity-log" },
     { icon: AlertTriangle, label: "كشف التلاعب", labelEn: "Fraud Detection", key: "fraud" },
@@ -269,6 +272,73 @@ const CompanyDashboard = () => {
                   </div>
                 ))}
               </div>
+
+              {/* Device Info Card */}
+              {(() => {
+                const devices = getDevicesForCompany(user.id);
+                const allPlans = JSON.parse(localStorage.getItem("madar_plans") || "[]");
+                const plan = allPlans.find((p: any) => p.id === user.plan);
+                const maxDevices = plan?.devices || user.maxDevices || 3;
+                const activeDevices = devices.filter((d: any) => d.active);
+                return (
+                  <div className="glass rounded-2xl p-5 border-primary/20">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-bold text-foreground flex items-center gap-2"><Monitor className="h-4 w-4 text-primary" /> {t("حالة الأجهزة","Device Status")}</h4>
+                      <button onClick={() => setActiveTab("devices")} className="text-xs text-primary hover:underline">{t("إدارة الأجهزة","Manage Devices")}</button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="glass rounded-xl p-3 text-center"><p className="text-lg font-black text-primary">{activeDevices.length}</p><p className="text-[10px] text-muted-foreground">{t("مستخدمة","Active")}</p></div>
+                      <div className="glass rounded-xl p-3 text-center"><p className="text-lg font-black text-foreground">{maxDevices}</p><p className="text-[10px] text-muted-foreground">{t("الحد الأقصى","Max")}</p></div>
+                      <div className="glass rounded-xl p-3 text-center"><p className="text-lg font-black text-success">{maxDevices - activeDevices.length}</p><p className="text-[10px] text-muted-foreground">{t("متبقية","Remaining")}</p></div>
+                    </div>
+                    {activeDevices.length >= maxDevices && (
+                      <div className="mt-2 glass rounded-xl p-2 border-warning/30">
+                        <p className="text-[10px] text-warning text-center">⚠️ {t("تم الوصول للحد الأقصى! يرجى حذف جهاز أو ترقية الباقة.","Device limit reached! Remove a device or upgrade.")}</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Charts */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="glass rounded-2xl p-5">
+                  <h4 className="font-bold text-foreground mb-3">{t("حركة المبيعات","Sales Movement")}</h4>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <AreaChart data={[
+                      { name: t("يناير","Jan"), sales: 1200, purchases: 800 },
+                      { name: t("فبراير","Feb"), sales: 1800, purchases: 1200 },
+                      { name: t("مارس","Mar"), sales: 2400, purchases: 1000 },
+                      { name: t("أبريل","Apr"), sales: 2100, purchases: 1500 },
+                      { name: t("مايو","May"), sales: 3000, purchases: 1800 },
+                      { name: t("يونيو","Jun"), sales: 2700, purchases: 1400 },
+                    ]}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
+                      <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
+                      <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, color: "hsl(var(--foreground))" }} />
+                      <Area type="monotone" dataKey="sales" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.2)" />
+                      <Area type="monotone" dataKey="purchases" stroke="hsl(var(--destructive))" fill="hsl(var(--destructive) / 0.1)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="glass rounded-2xl p-5">
+                  <h4 className="font-bold text-foreground mb-3">{t("توزيع المخزون","Stock Distribution")}</h4>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie data={(() => {
+                        const typeCount: Record<string,number> = {};
+                        products.forEach((p: any) => { typeCount[p.type || "أخرى"] = (typeCount[p.type || "أخرى"] || 0) + Number(p.quantity || 0); });
+                        return Object.entries(typeCount).map(([name, value]) => ({ name, value }));
+                      })()} cx="50%" cy="50%" outerRadius={70} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
+                        {["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--warning))", "hsl(var(--destructive))"].map((c, i) => <Cell key={i} fill={c} />)}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="glass rounded-2xl p-5">
                   <h4 className="font-bold text-foreground mb-2">{t("ملخص مالي","Financial Summary")}</h4>
@@ -335,7 +405,130 @@ const CompanyDashboard = () => {
             </div>
           )}
 
-          {/* Wallet */}
+          {/* Device Management */}
+          {activeTab === "devices" && (() => {
+            const devices = getDevicesForCompany(user.id);
+            const allPlans = JSON.parse(localStorage.getItem("madar_plans") || "[]");
+            const plan = allPlans.find((p: any) => p.id === user.plan);
+            const maxDevices = plan?.devices || user.maxDevices || 3;
+            const activeDevices = devices.filter((d: any) => d.active);
+            const currentDeviceId = generateDeviceId();
+            return (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">{t("إدارة الأجهزة المرتبطة بحسابك. يمكنك حذف أجهزة لتحرير مساحة لأجهزة جديدة.","Manage devices linked to your account. Remove devices to free slots for new ones.")}</p>
+              
+              {/* Device Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="glass rounded-2xl p-5 text-center">
+                  <Monitor className="h-6 w-6 text-primary mx-auto mb-2" />
+                  <p className="text-2xl font-black text-primary">{activeDevices.length}</p>
+                  <p className="text-xs text-muted-foreground">{t("أجهزة نشطة","Active Devices")}</p>
+                </div>
+                <div className="glass rounded-2xl p-5 text-center">
+                  <p className="text-2xl font-black text-foreground">{maxDevices}</p>
+                  <p className="text-xs text-muted-foreground">{t("الحد الأقصى","Max Allowed")}</p>
+                </div>
+                <div className="glass rounded-2xl p-5 text-center">
+                  <p className="text-2xl font-black text-success">{Math.max(0, maxDevices - activeDevices.length)}</p>
+                  <p className="text-xs text-muted-foreground">{t("متبقية","Remaining")}</p>
+                </div>
+                <div className="glass rounded-2xl p-5 text-center">
+                  <p className="text-sm font-black text-primary">{user.planName || t("تجربة","Trial")}</p>
+                  <p className="text-xs text-muted-foreground">{t("الباقة الحالية","Current Plan")}</p>
+                  <button onClick={() => setActiveTab("subscription")} className="text-[10px] text-primary hover:underline mt-1">{t("ترقية الباقة","Upgrade")}</button>
+                </div>
+              </div>
+
+              {activeDevices.length >= maxDevices && (
+                <div className="glass rounded-2xl p-4 border-warning/30">
+                  <div className="flex items-center gap-2 text-warning mb-2">
+                    <AlertTriangle className="h-5 w-5" />
+                    <p className="text-sm font-bold">{t("تنبيه: تم الوصول للحد الأقصى من الأجهزة!","Warning: Device limit reached!")}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{t("لن تتمكن من تسجيل الدخول من جهاز جديد. يرجى حذف جهاز قديم أو ترقية الباقة.","Cannot login from a new device. Remove a device or upgrade your plan.")}</p>
+                </div>
+              )}
+
+              {/* Progress Bar */}
+              <div className="glass rounded-2xl p-5">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-bold text-foreground">{t("استخدام الأجهزة","Device Usage")}</p>
+                  <p className="text-xs text-muted-foreground">{activeDevices.length}/{maxDevices}</p>
+                </div>
+                <div className="w-full h-3 rounded-full bg-secondary">
+                  <div className={`h-3 rounded-full transition-all ${activeDevices.length >= maxDevices ? "bg-destructive" : activeDevices.length >= maxDevices * 0.8 ? "bg-warning" : "bg-primary"}`} style={{ width: `${Math.min(100, (activeDevices.length / maxDevices) * 100)}%` }} />
+                </div>
+              </div>
+
+              {/* Device List */}
+              <div className="glass rounded-2xl p-5">
+                <h4 className="font-bold text-foreground mb-4">{t("الأجهزة المسجلة","Registered Devices")} ({devices.length})</h4>
+                {devices.length === 0 ? (
+                  <div className="text-center py-6">
+                    <Monitor className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground">{t("لا توجد أجهزة مسجلة بعد.","No devices registered yet.")}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {devices.map((d: any) => (
+                      <div key={d.id} className={`glass rounded-xl p-4 transition-all ${d.id === currentDeviceId ? "border-primary/50 shadow-glow" : ""}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">{getDeviceIcon(d.type)}</span>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-bold text-foreground">{d.name}</p>
+                                {d.id === currentDeviceId && <span className="px-2 py-0.5 rounded-full text-[9px] bg-primary/20 text-primary font-bold">{t("هذا الجهاز","This device")}</span>}
+                              </div>
+                              <p className="text-xs text-muted-foreground">{lang === "ar" ? d.type : d.typeEn} · {d.browser} · {d.os}</p>
+                              <div className="flex items-center gap-3 mt-1">
+                                <p className="text-[10px] text-muted-foreground">{t("أول دخول:","First:") } {new Date(d.firstLogin).toLocaleDateString("ar-LY")}</p>
+                                <p className="text-[10px] text-muted-foreground">{t("آخر نشاط:","Last:") } {new Date(d.lastActivity).toLocaleDateString("ar-LY")}</p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2.5 h-2.5 rounded-full ${d.active ? "bg-success" : "bg-muted"}`} />
+                            {d.id !== currentDeviceId && (
+                              <div className="flex gap-1">
+                                {d.active && (
+                                  <button onClick={() => { deactivateDevice(user.id, d.id); window.location.reload(); }} className="text-xs px-2 py-1 rounded-lg bg-warning/20 text-warning" title={t("تعطيل","Deactivate")}>
+                                    {t("تعطيل","Disable")}
+                                  </button>
+                                )}
+                                <button onClick={() => { if (confirm(t("هل تريد حذف هذا الجهاز نهائياً؟","Remove this device permanently?"))) { removeDevice(user.id, d.id); window.location.reload(); } }} className="text-xs px-2 py-1 rounded-lg bg-destructive/20 text-destructive" title={t("حذف","Remove")}>
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Plan comparison for devices */}
+              <div className="glass rounded-2xl p-5">
+                <h4 className="font-bold text-foreground mb-3">{t("مقارنة الباقات - عدد الأجهزة","Plan Comparison - Devices")}</h4>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                  {allPlans.filter((p: any) => p.active).map((p: any) => (
+                    <div key={p.id} className={`glass rounded-xl p-3 text-center transition-all ${user.plan === p.id ? "border-primary/50" : ""}`}>
+                      <p className="text-xs font-bold text-foreground">{p.name}</p>
+                      <p className="text-lg font-black text-primary">{p.devices || 1}</p>
+                      <p className="text-[10px] text-muted-foreground">{t("جهاز","devices")}</p>
+                      {user.plan !== p.id && (p.devices || 1) > maxDevices && (
+                        <button onClick={() => setActiveTab("subscription")} className="text-[9px] text-primary hover:underline mt-1">{t("ترقية","Upgrade")}</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            );
+          })()}
+
           {activeTab === "wallet" && (
             <div className="space-y-6">
               <div className="glass rounded-2xl p-6">

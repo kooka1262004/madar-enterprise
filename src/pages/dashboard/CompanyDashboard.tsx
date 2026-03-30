@@ -36,6 +36,10 @@ const sidebarSections = [
   ]},
   { title: "الموارد البشرية", titleEn: "Human Resources", items: [
     { icon: Briefcase, label: "الموارد البشرية", labelEn: "HR", key: "hr" },
+    { icon: Send, label: "طلبات الموظفين", labelEn: "Employee Requests", key: "emp-requests" },
+  ]},
+  { title: "الشحن والطلبات", titleEn: "Shipping & Orders", items: [
+    { icon: Truck, label: "تتبع الطلبات", labelEn: "Order Tracking", key: "orders" },
   ]},
   { title: "الإدارة", titleEn: "Administration", items: [
     { icon: Users, label: "المستخدمين", labelEn: "Users", key: "users" },

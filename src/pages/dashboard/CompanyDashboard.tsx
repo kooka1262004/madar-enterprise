@@ -1150,15 +1150,25 @@ const CompanyDashboard = () => {
                 ))}
               </div>
               
-              {showAddEmployee && (
-                <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); saveEmployee(Object.fromEntries(fd)); }} className="glass rounded-2xl p-6 space-y-3">
+              {showAddEmployee && (() => {
+                const allPerms = [
+                  {k:"dashboard",l:"لوحة التحكم"},{k:"products",l:"المنتجات"},{k:"stock",l:"حركة المخزون"},{k:"barcode",l:"الباركود"},
+                  {k:"suppliers",l:"الموردين"},{k:"inventory",l:"الجرد"},{k:"reorder",l:"إعادة الطلب"},{k:"returns",l:"التالف والمرتجعات"},
+                  {k:"accounting",l:"المحاسبة"},{k:"profits",l:"الأرباح"},{k:"invoices",l:"الفواتير"},{k:"reports",l:"التقارير"},
+                  {k:"hr",l:"الموارد البشرية"},{k:"users",l:"المستخدمين"},{k:"activity-log",l:"سجل النشاطات"},{k:"settings",l:"الإعدادات"},
+                  {k:"notifications",l:"الإشعارات"},{k:"messages",l:"المراسلات"},
+                ];
+                const [selPerms, setSelPerms] = useState<string[]>(["dashboard","my-info","notifications","messages"]);
+                return (
+                <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); const data = Object.fromEntries(fd); data.permissions = selPerms; data.status = (data as any).accountStatus || "active"; saveEmployee(data); }} className="glass rounded-2xl p-6 space-y-3">
                   <h4 className="font-bold text-foreground">{t("إضافة موظف جديد","Add New Employee")}</h4>
-                  <p className="text-xs text-muted-foreground">{t("أدخل بيانات الموظف الكاملة لإضافته لنظام الموارد البشرية.","Enter complete employee data to add to HR system.")}</p>
+                  <p className="text-xs text-muted-foreground">{t("أدخل بيانات الموظف الكاملة. الموظف سيستخدم البريد وكلمة المرور لتسجيل الدخول.","Enter complete employee data. Employee will use email and password to login.")}</p>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div><label className="text-xs font-bold text-foreground">{t("الاسم الكامل *","Full Name *")}</label><input name="fullName" required className={inputClass} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("البريد الإلكتروني *","Email *")}</label><input name="email" type="email" required className={inputClass} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("كلمة المرور *","Password *")}</label><input name="password" type="password" required className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("الهاتف","Phone")}</label><input name="phone" className={inputClass} /></div>
-                    <div><label className="text-xs font-bold text-foreground">{t("البريد الإلكتروني","Email")}</label><input name="email" type="email" className={inputClass} /></div>
-                    <div><label className="text-xs font-bold text-foreground">{t("الوظيفة","Position")}</label><input name="position" className={inputClass} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("المسمى الوظيفي","Position")}</label><input name="position" className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("القسم","Department")}</label><input name="department" className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("الراتب الأساسي","Base Salary")}</label><input name="salary" type="number" className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("نوع العقد","Contract Type")}</label><select name="contractType" className={inputClass}><option>{t("دائم","Permanent")}</option><option>{t("مؤقت","Temporary")}</option><option>{t("جزئي","Part-time")}</option></select></div>
@@ -1167,13 +1177,29 @@ const CompanyDashboard = () => {
                     <div><label className="text-xs font-bold text-foreground">{t("المؤهل","Qualification")}</label><input name="qualification" className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("اسم المصرف","Bank Name")}</label><input name="bankName" className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("رقم الحساب","Account Number")}</label><input name="bankAccount" className={inputClass} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("حالة الحساب","Account Status")}</label>
+                      <select name="accountStatus" className={inputClass}><option value="active">{t("نشط","Active")}</option><option value="suspended">{t("موقوف","Suspended")}</option></select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-bold text-foreground mb-2 block">{t("الصلاحيات (الأقسام التي سيراها الموظف)","Permissions (sections visible to employee)")}</label>
+                    <p className="text-xs text-muted-foreground mb-2">{t("اختر الأقسام التي تريد أن يراها هذا الموظف في لوحته. الأقسام غير المحددة ستكون مخفية عنه.","Select sections you want this employee to see. Unselected sections will be hidden.")}</p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {allPerms.map(p => (
+                        <label key={p.k} className="flex items-center gap-2 glass rounded-lg p-2 cursor-pointer hover:border-primary/30 transition-all">
+                          <input type="checkbox" checked={selPerms.includes(p.k)} onChange={(e) => { if (e.target.checked) setSelPerms([...selPerms, p.k]); else setSelPerms(selPerms.filter(x => x !== p.k)); }} className="rounded accent-primary" />
+                          <span className="text-xs text-foreground">{p.l}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <button type="submit" className="px-6 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold">{t("حفظ","Save")}</button>
                     <button type="button" onClick={() => setShowAddEmployee(false)} className="px-6 py-2 rounded-xl border border-border text-foreground text-sm">{t("إلغاء","Cancel")}</button>
                   </div>
                 </form>
-              )}
+                );
+              })()}
 
               {hrTab === "overview" && (
                 <div className="space-y-4">

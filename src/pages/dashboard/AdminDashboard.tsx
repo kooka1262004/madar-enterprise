@@ -59,6 +59,7 @@ const sidebarSections = [
     { icon: Scale, label: "لوائح وقوانين", labelEn: "Terms & Conditions", key: "terms" },
     { icon: MessageSquare, label: "المراسلات", labelEn: "Messages", key: "messages" },
     { icon: Bell, label: "الإشعارات", labelEn: "Notifications", key: "notifications" },
+    { icon: Monitor, label: "تواصل معنا", labelEn: "Contact Info", key: "contact" },
   ]},
   { title: "الحساب", titleEn: "Account", items: [
     { icon: User, label: "الملف الشخصي", labelEn: "Profile", key: "profile" },
@@ -98,6 +99,7 @@ const AdminDashboard = () => {
   const [fraudLogs, setFraudLogs] = useState<any[]>(() => JSON.parse(localStorage.getItem("madar_fraud_logs") || "[]"));
   const [adminNotifications, setAdminNotifications] = useState<any[]>(() => JSON.parse(localStorage.getItem("madar_admin_notifs") || "[]"));
   const [adminMessages, setAdminMessages] = useState<any[]>(() => JSON.parse(localStorage.getItem("madar_admin_messages") || "[]"));
+  const [contactInfo, setContactInfo] = useState(() => JSON.parse(localStorage.getItem("madar_contact_info") || JSON.stringify({ email: "support@madar.ly", phone: "+218 XX XXX XXXX", address: "ليبيا - طرابلس", workDays: "الأحد - الخميس: 9:00 ص - 5:00 م", offDays: "الجمعة - السبت: مغلق" })));
   const [terms, setTerms] = useState<any[]>(() => JSON.parse(localStorage.getItem("madar_terms") || JSON.stringify([
     { id: "1", title: "حقوق المنصة", content: "منصة مدار تحتفظ بجميع الحقوق الفكرية والتقنية." },
     { id: "2", title: "حقوق العميل", content: "العميل يحتفظ بملكية بياناته الكاملة." },
@@ -1099,6 +1101,24 @@ const AdminDashboard = () => {
                     <Globe className="h-4 w-4" /> {lang === "ar" ? "English" : "العربية"}
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Contact Info Management */}
+          {activeTab === "contact" && (
+            <div className="space-y-4 max-w-lg">
+              <div className="glass rounded-2xl p-6">
+                <h3 className="font-bold text-foreground mb-4">{t("إدارة معلومات التواصل","Contact Info Management")}</h3>
+                <p className="text-sm text-muted-foreground mb-4">{t("عدّل معلومات التواصل التي تظهر في صفحة الموقع الرئيسية.","Edit contact info shown on the landing page.")}</p>
+                <div className="space-y-3">
+                  <div><label className="text-sm font-bold text-foreground">{t("البريد الإلكتروني","Email")}</label><input value={contactInfo.email} onChange={(e) => { const c = {...contactInfo, email: e.target.value}; setContactInfo(c); localStorage.setItem("madar_contact_info", JSON.stringify(c)); }} className={inputClass} /></div>
+                  <div><label className="text-sm font-bold text-foreground">{t("رقم الهاتف","Phone")}</label><input value={contactInfo.phone} onChange={(e) => { const c = {...contactInfo, phone: e.target.value}; setContactInfo(c); localStorage.setItem("madar_contact_info", JSON.stringify(c)); }} className={inputClass} /></div>
+                  <div><label className="text-sm font-bold text-foreground">{t("العنوان","Address")}</label><input value={contactInfo.address} onChange={(e) => { const c = {...contactInfo, address: e.target.value}; setContactInfo(c); localStorage.setItem("madar_contact_info", JSON.stringify(c)); }} className={inputClass} /></div>
+                  <div><label className="text-sm font-bold text-foreground">{t("أيام العمل","Work Days")}</label><input value={contactInfo.workDays} onChange={(e) => { const c = {...contactInfo, workDays: e.target.value}; setContactInfo(c); localStorage.setItem("madar_contact_info", JSON.stringify(c)); }} className={inputClass} /></div>
+                  <div><label className="text-sm font-bold text-foreground">{t("أيام الإجازة","Off Days")}</label><input value={contactInfo.offDays} onChange={(e) => { const c = {...contactInfo, offDays: e.target.value}; setContactInfo(c); localStorage.setItem("madar_contact_info", JSON.stringify(c)); }} className={inputClass} /></div>
+                </div>
+                <p className="text-xs text-success mt-3">✅ {t("التغييرات تُحفظ تلقائياً وتظهر مباشرة في صفحة الموقع.","Changes are saved automatically and appear on the website.")}</p>
               </div>
             </div>
           )}

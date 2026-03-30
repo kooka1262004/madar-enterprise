@@ -15,7 +15,6 @@ export const seedDemoData = () => {
     plan: "pro",
     planName: "الباقة الاحترافية",
     wallet: 500,
-    devices: [],
     maxDevices: 5,
     trialEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     createdAt: new Date().toISOString(),
@@ -31,6 +30,39 @@ export const seedDemoData = () => {
   ];
   localStorage.setItem(`madar_products_${DEMO_COMPANY_ID}`, JSON.stringify(demoProducts));
 
+  // Demo employees with different permissions
+  const demoEmployees = [
+    {
+      id: "emp_001", fullName: "سالم العريبي", email: "salem@najah.ly", password: "emp123",
+      phone: "0923456789", position: "مسؤول مخزن", department: "المخزون",
+      salary: 1500, contractType: "دائم", contractEnd: "", nationalId: "1234567890",
+      qualification: "بكالوريوس", bankName: "مصرف الجمهورية", bankAccount: "1234",
+      status: "active", accountStatus: "active",
+      permissions: ["dashboard", "my-info", "products", "stock", "barcode", "suppliers", "inventory", "returns"],
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: "emp_002", fullName: "فاطمة بن عامر", email: "fatma@najah.ly", password: "emp123",
+      phone: "0934567890", position: "محاسبة", department: "المالية",
+      salary: 2000, contractType: "دائم", contractEnd: "", nationalId: "0987654321",
+      qualification: "ماجستير محاسبة", bankName: "مصرف التجارة", bankAccount: "5678",
+      status: "active", accountStatus: "active",
+      permissions: ["dashboard", "my-info", "accounting", "profits", "invoices", "reports"],
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: "emp_003", fullName: "يوسف الشريف", email: "youssef@najah.ly", password: "emp123",
+      phone: "0945678901", position: "مندوب مبيعات", department: "المبيعات",
+      salary: 1200, contractType: "مؤقت", contractEnd: "2026-12-31", nationalId: "1122334455",
+      qualification: "دبلوم", bankName: "مصرف الوحدة", bankAccount: "9012",
+      status: "active", accountStatus: "active",
+      permissions: ["dashboard", "my-info", "products", "invoices"],
+      createdAt: new Date().toISOString(),
+    },
+  ];
+  localStorage.setItem(`madar_employees_${DEMO_COMPANY_ID}`, JSON.stringify(demoEmployees));
+
   console.log("✅ Demo data seeded: شركة النجاح للتجارة");
-  console.log("👤 Admin: admin@najah.ly / 123456");
+  console.log("👤 Company Admin: admin@najah.ly / 123456");
+  console.log("👤 Employees: salem@najah.ly / fatma@najah.ly / youssef@najah.ly (password: emp123)");
 };

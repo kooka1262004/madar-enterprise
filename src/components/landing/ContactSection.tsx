@@ -1,11 +1,27 @@
 import { useState } from "react";
 import { Send, Phone, Mail, MapPin } from "lucide-react";
 
+const defaultContact = {
+  email: "support@madar.ly",
+  phone: "+218 XX XXX XXXX",
+  address: "ليبيا - طرابلس",
+  workDays: "الأحد - الخميس: 9:00 ص - 5:00 م",
+  offDays: "الجمعة - السبت: مغلق",
+};
+
 const ContactSection = () => {
   const [form, setForm] = useState({ name: "", email: "", message: "" });
+  const contact = JSON.parse(localStorage.getItem("madar_contact_info") || JSON.stringify(defaultContact));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Save to admin messages
+    const msgs = JSON.parse(localStorage.getItem("madar_admin_messages") || "[]");
+    msgs.unshift({ id: Date.now().toString(), from: form.name, type: "رسالة من الموقع", message: `${form.message}\n\nالبريد: ${form.email}`, date: new Date().toISOString() });
+    localStorage.setItem("madar_admin_messages", JSON.stringify(msgs));
+    const notifs = JSON.parse(localStorage.getItem("madar_admin_notifs") || "[]");
+    notifs.unshift({ id: Date.now().toString(), message: `رسالة جديدة من الموقع: ${form.name} - ${form.message.substring(0, 50)}`, date: new Date().toISOString(), read: false });
+    localStorage.setItem("madar_admin_notifs", JSON.stringify(notifs));
     alert("تم إرسال رسالتك بنجاح! سنتواصل معك قريباً.");
     setForm({ name: "", email: "", message: "" });
   };
@@ -25,43 +41,21 @@ const ContactSection = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-bold text-foreground mb-1">الاسم الكامل</label>
-              <input
-                type="text"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="أدخل اسمك الكامل"
-                required
-                className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary text-sm"
-              />
+              <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="أدخل اسمك الكامل" required
+                className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary text-sm" />
             </div>
             <div>
               <label className="block text-sm font-bold text-foreground mb-1">البريد الإلكتروني</label>
-              <input
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                placeholder="أدخل بريدك الإلكتروني"
-                required
-                className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary text-sm"
-              />
+              <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="أدخل بريدك الإلكتروني" required
+                className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary text-sm" />
             </div>
             <div>
               <label className="block text-sm font-bold text-foreground mb-1">الرسالة</label>
-              <textarea
-                value={form.message}
-                onChange={(e) => setForm({ ...form, message: e.target.value })}
-                placeholder="اكتب رسالتك هنا..."
-                required
-                rows={4}
-                className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary text-sm resize-none"
-              />
+              <textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} placeholder="اكتب رسالتك هنا..." required rows={4}
+                className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary text-sm resize-none" />
             </div>
-            <button
-              type="submit"
-              className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-all"
-            >
-              <Send className="h-4 w-4" />
-              إرسال الرسالة
+            <button type="submit" className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-all">
+              <Send className="h-4 w-4" /> إرسال الرسالة
             </button>
           </form>
 
@@ -70,21 +64,21 @@ const ContactSection = () => {
               <h3 className="font-bold text-foreground">معلومات التواصل</h3>
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
                 <Mail className="h-5 w-5 text-primary" />
-                <span>support@madar.ly</span>
+                <span>{contact.email}</span>
               </div>
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
                 <Phone className="h-5 w-5 text-primary" />
-                <span dir="ltr">+218 XX XXX XXXX</span>
+                <span dir="ltr">{contact.phone}</span>
               </div>
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
                 <MapPin className="h-5 w-5 text-primary" />
-                <span>ليبيا - طرابلس</span>
+                <span>{contact.address}</span>
               </div>
             </div>
             <div className="glass rounded-xl p-6">
               <h3 className="font-bold text-foreground mb-2">ساعات العمل</h3>
-              <p className="text-sm text-muted-foreground">الأحد - الخميس: 9:00 ص - 5:00 م</p>
-              <p className="text-sm text-muted-foreground">الجمعة - السبت: مغلق</p>
+              <p className="text-sm text-muted-foreground">{contact.workDays}</p>
+              <p className="text-sm text-muted-foreground">{contact.offDays}</p>
             </div>
           </div>
         </div>

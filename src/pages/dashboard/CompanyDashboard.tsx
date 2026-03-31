@@ -332,6 +332,13 @@ const CompanyDashboard = () => {
       if (upData) proofUrl = supabase.storage.from("uploads").getPublicUrl(fileName).data.publicUrl;
     }
     await supabase.from("wallet_requests").insert({ company_id: companyId!, amount: Number(formData.amount) || 0, method, notes: formData.notes || "", proof_url: proofUrl });
+    // إشعار للمسؤول عند رفع إيصال جديد
+    const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+    if (admins) {
+      for (const admin of admins) {
+        await supabase.from("notifications").insert({ user_id: admin.user_id, title: t("إيصال شحن جديد 📄","New Wallet Receipt 📄"), message: `${t("شركة","Company")} ${company?.company_name} ${t("رفعت إيصال شحن بقيمة","uploaded a receipt for")} ${formData.amount} ${t("د.ل عبر","LYD via")} ${method}`, type: "wallet" });
+      }
+    }
     await refreshData("wallet");
     setChargeStep(0); setChargeMethod(""); setWalletLocation("");
     alert(t("تم إرسال طلب الشحن بنجاح! سيراجعه مسؤول النظام.", "Wallet request submitted!"));

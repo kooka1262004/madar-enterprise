@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import CompanyLogin from "./pages/auth/CompanyLogin.tsx";
@@ -17,20 +18,22 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/login/company" element={<CompanyLogin />} />
-          <Route path="/login/user" element={<UserLogin />} />
-          <Route path="/register/company" element={<CompanyRegister />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/company" element={<CompanyDashboard />} />
-          <Route path="/user" element={<UserDashboard />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <AuthProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/login/company" element={<CompanyLogin />} />
+            <Route path="/login/user" element={<UserLogin />} />
+            <Route path="/register/company" element={<CompanyRegister />} />
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/company" element={<CompanyDashboard />} />
+            <Route path="/user" element={<UserDashboard />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

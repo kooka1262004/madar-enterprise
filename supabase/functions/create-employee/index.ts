@@ -52,27 +52,54 @@ Deno.serve(async (req) => {
       throw new Error("Company not found or you don't own it");
     }
 
-    // Create auth user with admin API (won't affect caller's session)
-    const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
-      email: email.trim().toLowerCase(),
-      password,
-      email_confirm: true,
-      user_metadata: { full_name: fullName },
-    });
+    const normalizedEmail = email.trim().toLowerCase();
 
-    if (createErr) throw createErr;
+    // Check if user already exists
+    const { data: { users: existingUsers } } = await supabaseAdmin.auth.admin.listUsers();
+    let existingUser = existingUsers?.find((u: any) => u.email?.toLowerCase() === normalizedEmail);
+    
+    let userId: string;
 
-    const userId = newUser.user.id;
+    if (existingUser) {
+      userId = existingUser.id;
+      // Update password if user exists
+      await supabaseAdmin.auth.admin.updateUser(userId, { password });
+    } else {
+      // Create new auth user
+      const { data: newUser, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+        email: normalizedEmail,
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: fullName },
+      });
+      if (createErr) throw createErr;
+      userId = newUser.user.id;
+    }
 
-    // Assign employee role
-    await supabaseAdmin.from("user_roles").insert({ user_id: userId, role: "employee" });
+    // Upsert employee role
+    const { data: existingRole } = await supabaseAdmin
+      .from("user_roles")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    
+    if (!existingRole) {
+      await supabaseAdmin.from("user_roles").insert({ user_id: userId, role: "employee" });
+    }
 
-    // Create employee record
-    await supabaseAdmin.from("employees").insert({
+    // Upsert employee record
+    const { data: existingEmployee } = await supabaseAdmin
+      .from("employees")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("company_id", companyId)
+      .maybeSingle();
+
+    const employeeData = {
       company_id: companyId,
       user_id: userId,
       full_name: fullName,
-      email: email.trim().toLowerCase(),
+      email: normalizedEmail,
       position: position || "",
       department: department || "",
       permissions: permissions || ["dashboard", "my-info"],
@@ -80,17 +107,37 @@ Deno.serve(async (req) => {
       salary: salary || 0,
       phone: phone || "",
       contract_type: contractType || "دائم",
-    });
+    };
 
-    // Create profile
-    await supabaseAdmin.from("profiles").insert({
-      user_id: userId,
-      email: email.trim().toLowerCase(),
-      full_name: fullName,
-      phone: phone || "",
-    });
+    if (existingEmployee) {
+      await supabaseAdmin.from("employees").update(employeeData).eq("id", existingEmployee.id);
+    } else {
+      await supabaseAdmin.from("employees").insert(employeeData);
+    }
 
-    return new Response(JSON.stringify({ success: true, userId, email }), {
+    // Upsert profile
+    const { data: existingProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (existingProfile) {
+      await supabaseAdmin.from("profiles").update({
+        email: normalizedEmail,
+        full_name: fullName,
+        phone: phone || "",
+      }).eq("user_id", userId);
+    } else {
+      await supabaseAdmin.from("profiles").insert({
+        user_id: userId,
+        email: normalizedEmail,
+        full_name: fullName,
+        phone: phone || "",
+      });
+    }
+
+    return new Response(JSON.stringify({ success: true, userId, email: normalizedEmail }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

@@ -20,7 +20,7 @@ const UserLogin = () => {
 
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: form.email,
+        email: form.email.trim().toLowerCase(),
         password: form.password,
       });
 

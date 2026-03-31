@@ -332,6 +332,13 @@ const CompanyDashboard = () => {
       if (upData) proofUrl = supabase.storage.from("uploads").getPublicUrl(fileName).data.publicUrl;
     }
     await supabase.from("wallet_requests").insert({ company_id: companyId!, amount: Number(formData.amount) || 0, method, notes: formData.notes || "", proof_url: proofUrl });
+    // إشعار للمسؤول عند رفع إيصال جديد
+    const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+    if (admins) {
+      for (const admin of admins) {
+        await supabase.from("notifications").insert({ user_id: admin.user_id, title: t("إيصال شحن جديد 📄","New Wallet Receipt 📄"), message: `${t("شركة","Company")} ${company?.company_name} ${t("رفعت إيصال شحن بقيمة","uploaded a receipt for")} ${formData.amount} ${t("د.ل عبر","LYD via")} ${method}`, type: "wallet" });
+      }
+    }
     await refreshData("wallet");
     setChargeStep(0); setChargeMethod(""); setWalletLocation("");
     alert(t("تم إرسال طلب الشحن بنجاح! سيراجعه مسؤول النظام.", "Wallet request submitted!"));
@@ -1042,48 +1049,124 @@ const CompanyDashboard = () => {
           {/* ======= HR ======= */}
           {activeTab === "hr" && (
             <div className="space-y-4">
-              <SectionHeader title={t("الموارد البشرية", "Human Resources")} desc={t("إدارة شاملة للموظفين والعقود والحضور والرواتب والمهام والمكافآت.", "Comprehensive HR management.")} />
+              <SectionHeader title={t("الموارد البشرية", "Human Resources")} desc={t("إدارة شاملة للموظفين والعقود والحضور والرواتب والمهام والمكافآت والمخالفات.", "Comprehensive HR management.")} onPDF={() => exportToPDF(t("تقرير الموظفين","Employees Report"), employees.map(e => ({[t("الاسم","Name")]:e.full_name,[t("الوظيفة","Position")]:e.position,[t("القسم","Dept")]:e.department,[t("الراتب","Salary")]:e.salary,[t("العقد","Contract")]:e.contract_type,[t("الحالة","Status")]:e.status})), [t("الاسم","Name"),t("الوظيفة","Position"),t("القسم","Dept"),t("الراتب","Salary"),t("العقد","Contract"),t("الحالة","Status")])} />
               <div className="flex gap-2 flex-wrap">
-                {[{k:"overview",l:t("نظرة عامة","Overview")},{k:"employees",l:t("الموظفين","Employees")},{k:"attendance",l:t("الحضور","Attendance")},{k:"schedule",l:t("المواعيد","Schedule")},{k:"salaries",l:t("الرواتب","Salaries")},{k:"tasks",l:t("المهام","Tasks")},{k:"rewards",l:t("المكافآت","Rewards")},{k:"violations",l:t("المخالفات","Violations")}].map(tab => (
+                {[{k:"overview",l:t("نظرة عامة","Overview")},{k:"employees",l:t("الموظفين","Employees")},{k:"contracts",l:t("العقود","Contracts")},{k:"attendance",l:t("الحضور","Attendance")},{k:"schedule",l:t("المواعيد","Schedule")},{k:"salaries",l:t("الرواتب","Salaries")},{k:"tasks",l:t("المهام","Tasks")},{k:"rewards",l:t("المكافآت","Rewards")},{k:"violations",l:t("المخالفات","Violations")},{k:"leaves",l:t("الإجازات","Leaves")}].map(tab => (
                   <button key={tab.k} onClick={() => setHrTab(tab.k)} className={`px-3 py-1.5 rounded-xl text-xs ${hrTab === tab.k ? "gradient-primary text-primary-foreground font-bold" : "glass text-foreground"}`}>{tab.l}</button>
                 ))}
               </div>
+
               {hrTab === "overview" && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className={cardClass}><Users className="h-5 w-5 text-primary mb-2" /><p className="text-xs text-muted-foreground">{t("الموظفين","Employees")}</p><p className="text-2xl font-black">{employees.length}</p></div>
-                  <div className={cardClass}><Send className="h-5 w-5 text-warning mb-2" /><p className="text-xs text-muted-foreground">{t("طلبات معلقة","Pending")}</p><p className="text-2xl font-black text-warning">{empRequests.filter(r=>r.status==="pending").length}</p></div>
-                  <div className={cardClass}><DollarSign className="h-5 w-5 text-success mb-2" /><p className="text-xs text-muted-foreground">{t("إجمالي الرواتب","Salaries")}</p><p className="text-2xl font-black text-success">{totalSalaries.toLocaleString()}</p></div>
-                  <div className={cardClass}><ListChecks className="h-5 w-5 text-primary mb-2" /><p className="text-xs text-muted-foreground">{t("المهام","Tasks")}</p><p className="text-2xl font-black">{tasks.length}</p></div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className={cardClass}><Users className="h-5 w-5 text-primary mb-2" /><p className="text-xs text-muted-foreground">{t("الموظفين","Employees")}</p><p className="text-2xl font-black">{employees.length}</p></div>
+                    <div className={cardClass}><Send className="h-5 w-5 text-warning mb-2" /><p className="text-xs text-muted-foreground">{t("طلبات معلقة","Pending")}</p><p className="text-2xl font-black text-warning">{empRequests.filter(r=>r.status==="pending").length}</p></div>
+                    <div className={cardClass}><DollarSign className="h-5 w-5 text-success mb-2" /><p className="text-xs text-muted-foreground">{t("إجمالي الرواتب","Salaries")}</p><p className="text-2xl font-black text-success">{totalSalaries.toLocaleString()}</p></div>
+                    <div className={cardClass}><ListChecks className="h-5 w-5 text-primary mb-2" /><p className="text-xs text-muted-foreground">{t("المهام","Tasks")}</p><p className="text-2xl font-black">{tasks.length}</p></div>
+                  </div>
+                  <div className={cardClass}>
+                    <h4 className="font-bold text-foreground mb-2">{t("شرح قسم الموارد البشرية","HR Section Guide")}</h4>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{t("يتيح لك هذا القسم إدارة جميع شؤون الموظفين من إضافة موظفين جدد، طباعة عقودهم، تسجيل الحضور والانصراف مع الخصومات التلقائية، إدارة الرواتب الشهرية بالتفصيل (أساسي + إضافي - خصومات)، إرسال كشوفات الرواتب، إضافة مكافآت ومخالفات، تتبع الإجازات والطلبات. كل قسم يمكن تحميله بصيغة PDF.","This section lets you manage all employee affairs: add employees, print contracts, track attendance with auto-deductions, manage detailed salaries, send payslips, add rewards/violations, track leaves and requests. All exportable as PDF.")}</p>
+                  </div>
                 </div>
               )}
+
               {hrTab === "employees" && (
-                <div className="space-y-2">{employees.map(e => (
-                  <div key={e.id} className="glass rounded-xl p-3 flex justify-between items-center">
-                    <div><p className="text-sm font-bold text-foreground">{e.full_name}</p><p className="text-xs text-muted-foreground">{e.position} · {e.email} · {e.contract_type}</p></div>
-                    <div className="text-right"><p className="text-sm font-bold text-primary">{e.salary || 0} {t("د.ل","LYD")}</p><p className="text-[10px] text-muted-foreground">{e.department}</p></div>
-                  </div>
-                ))}</div>
-              )}
-              {hrTab === "attendance" && (
-                <div className={`${cardClass} overflow-x-auto`}>
-                  <table className="w-full text-sm"><thead><tr className="border-b border-border">{[t("الموظف","Employee"),t("التاريخ","Date"),t("الحضور","In"),t("الانصراف","Out"),t("الحالة","Status"),t("الخصم","Deduction")].map(h => <th key={h} className="text-right py-2 px-2 text-muted-foreground text-xs">{h}</th>)}</tr></thead>
-                    <tbody>{attendanceRecords.slice(0,50).map(a => { const emp = employees.find(e => e.id === a.employee_id); return (
-                      <tr key={a.id} className="border-b border-border/30"><td className="py-2 px-2 text-xs font-bold">{emp?.full_name || "-"}</td><td className="py-2 px-2 text-xs">{a.date}</td><td className="py-2 px-2 text-xs">{a.check_in || "-"}</td><td className="py-2 px-2 text-xs">{a.check_out || "-"}</td><td className="py-2 px-2 text-xs">{a.status}</td><td className="py-2 px-2 text-xs text-destructive">{a.deduction || 0}</td></tr>
-                    ); })}</tbody>
-                  </table>
+                <div className="space-y-2">
+                  <button onClick={() => exportToPDF(t("تفاصيل الموظفين","Employee Details"), employees.map(e => ({[t("الاسم","Name")]:e.full_name,[t("البريد","Email")]:e.email,[t("الهاتف","Phone")]:e.phone||"-",[t("الوظيفة","Position")]:e.position,[t("الراتب","Salary")]:e.salary,[t("نوع العقد","Contract")]:e.contract_type,[t("المؤهل","Qualification")]:e.qualification||"-"})), [t("الاسم","Name"),t("البريد","Email"),t("الهاتف","Phone"),t("الوظيفة","Position"),t("الراتب","Salary"),t("نوع العقد","Contract"),t("المؤهل","Qualification")])} className="px-3 py-2 rounded-xl border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> {t("تحميل التفاصيل PDF","Download Details PDF")}</button>
+                  {employees.map(e => (
+                    <div key={e.id} className="glass rounded-xl p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div><p className="text-sm font-bold text-foreground">{e.full_name}</p><p className="text-xs text-muted-foreground">{e.position} · {e.email} · {e.phone || "-"}</p></div>
+                        <div className="text-right"><p className="text-sm font-bold text-primary">{e.salary || 0} {t("د.ل","LYD")}</p><p className="text-[10px] text-muted-foreground">{e.department} · {e.contract_type}</p></div>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 text-[10px]">
+                        <span className="glass rounded px-2 py-1">{t("رقم وطني:","NID:")} {e.national_id||"-"}</span>
+                        <span className="glass rounded px-2 py-1">{t("مؤهل:","Qual:")} {e.qualification||"-"}</span>
+                        <span className="glass rounded px-2 py-1">{t("مصرف:","Bank:")} {e.bank_name||"-"}</span>
+                        <span className="glass rounded px-2 py-1">{t("نهاية العقد:","Contract End:")} {e.contract_end||"-"}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
-              {hrTab === "salaries" && (
-                <div className="space-y-2">{employees.map(e => (
-                  <div key={e.id} className="glass rounded-xl p-3 flex justify-between items-center">
-                    <div><p className="text-sm font-bold text-foreground">{e.full_name}</p><p className="text-xs text-muted-foreground">{e.position}</p></div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-primary">{e.salary || 0} {t("د.ل","LYD")}</p>
-                      <button onClick={async () => { if (user) { await supabase.from("notifications").insert({ user_id: e.user_id || user.id, title: t("إشعار الراتب","Salary Notice"), message: `${t("تم تجهيز راتبك:","Your salary is ready:")} ${e.salary} ${t("د.ل","LYD")}`, type: "salary" }); alert(t("تم إرسال إشعار الراتب!","Salary notification sent!")); }}} className="text-[10px] text-primary underline">{t("إرسال إشعار","Notify")}</button>
+
+              {hrTab === "contracts" && (
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">{t("عقود الموظفين. يمكنك طباعة أي عقد بالضغط على زر الطباعة.","Employee contracts. Print any contract.")}</p>
+                  {employees.map(e => (
+                    <div key={e.id} className="glass rounded-xl p-4">
+                      <div className="flex justify-between items-center mb-3">
+                        <div><p className="font-bold text-foreground">{e.full_name}</p><p className="text-xs text-muted-foreground">{e.position}</p></div>
+                        <button onClick={() => exportSimplePDF(`${t("عقد عمل","Employment Contract")} - ${e.full_name}`, `<div style="text-align:center;font-size:20px;font-weight:bold;margin-bottom:20px">${t("عقد عمل","Employment Contract")}</div><table style="width:100%;border-collapse:collapse"><tr><td style="padding:8px;border:1px solid #ccc;font-weight:bold">${t("الاسم","Name")}</td><td style="padding:8px;border:1px solid #ccc">${e.full_name}</td></tr><tr><td style="padding:8px;border:1px solid #ccc;font-weight:bold">${t("الوظيفة","Position")}</td><td style="padding:8px;border:1px solid #ccc">${e.position||"-"}</td></tr><tr><td style="padding:8px;border:1px solid #ccc;font-weight:bold">${t("القسم","Dept")}</td><td style="padding:8px;border:1px solid #ccc">${e.department||"-"}</td></tr><tr><td style="padding:8px;border:1px solid #ccc;font-weight:bold">${t("الراتب","Salary")}</td><td style="padding:8px;border:1px solid #ccc">${e.salary||0} ${t("د.ل","LYD")}</td></tr><tr><td style="padding:8px;border:1px solid #ccc;font-weight:bold">${t("نوع العقد","Type")}</td><td style="padding:8px;border:1px solid #ccc">${e.contract_type||"-"}</td></tr><tr><td style="padding:8px;border:1px solid #ccc;font-weight:bold">${t("نهاية العقد","End Date")}</td><td style="padding:8px;border:1px solid #ccc">${e.contract_end||t("غير محدد","Unspecified")}</td></tr><tr><td style="padding:8px;border:1px solid #ccc;font-weight:bold">${t("رقم وطني","NID")}</td><td style="padding:8px;border:1px solid #ccc">${e.national_id||"-"}</td></tr><tr><td style="padding:8px;border:1px solid #ccc;font-weight:bold">${t("المؤهل","Qualification")}</td><td style="padding:8px;border:1px solid #ccc">${e.qualification||"-"}</td></tr></table><p style="margin-top:40px;text-align:center;font-size:12px">${t("تاريخ الطباعة:","Print Date:")} ${new Date().toLocaleDateString("ar-LY")}</p>`)} className="flex items-center gap-1 px-3 py-2 rounded-xl border border-border text-xs text-foreground"><Printer className="h-3 w-3" /> {t("طباعة العقد","Print Contract")}</button>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                        <span className="glass rounded-xl px-3 py-2"><span className="text-muted-foreground">{t("النوع:","Type:")}</span> <span className="font-bold">{e.contract_type||"-"}</span></span>
+                        <span className="glass rounded-xl px-3 py-2"><span className="text-muted-foreground">{t("الراتب:","Salary:")}</span> <span className="font-bold text-primary">{e.salary||0}</span></span>
+                        <span className="glass rounded-xl px-3 py-2"><span className="text-muted-foreground">{t("نهاية:","End:")}</span> <span className="font-bold">{e.contract_end||t("غير محدد","N/A")}</span></span>
+                      </div>
                     </div>
-                  </div>
-                ))}</div>
+                  ))}
+                </div>
               )}
+
+              {hrTab === "attendance" && (
+                <div className="space-y-3">
+                  <button onClick={() => exportToPDF(t("سجل الحضور","Attendance Log"), attendanceRecords.slice(0,100).map(a => { const emp = employees.find(e => e.id === a.employee_id); return {[t("الموظف","Employee")]:emp?.full_name||"-",[t("التاريخ","Date")]:a.date,[t("حضور","In")]:a.check_in||"-",[t("انصراف","Out")]:a.check_out||"-",[t("الحالة","Status")]:a.status,[t("خصم","Ded")]:a.deduction||0}; }), [t("الموظف","Employee"),t("التاريخ","Date"),t("حضور","In"),t("انصراف","Out"),t("الحالة","Status"),t("خصم","Ded")])} className="px-3 py-2 rounded-xl border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button>
+                  <div className={`${cardClass} overflow-x-auto`}>
+                    <table className="w-full text-sm"><thead><tr className="border-b border-border">{[t("الموظف","Employee"),t("التاريخ","Date"),t("الحضور","In"),t("الانصراف","Out"),t("الحالة","Status"),t("الخصم","Ded")].map(h => <th key={h} className="text-right py-2 px-2 text-muted-foreground text-xs">{h}</th>)}</tr></thead>
+                      <tbody>{attendanceRecords.slice(0,50).map(a => { const emp = employees.find(e => e.id === a.employee_id); return (
+                        <tr key={a.id} className="border-b border-border/30"><td className="py-2 px-2 text-xs font-bold">{emp?.full_name || "-"}</td><td className="py-2 px-2 text-xs">{a.date}</td><td className="py-2 px-2 text-xs">{a.check_in || "-"}</td><td className="py-2 px-2 text-xs">{a.check_out || "-"}</td><td className="py-2 px-2 text-xs">{a.status}</td><td className="py-2 px-2 text-xs text-destructive font-bold">{a.deduction || 0}</td></tr>
+                      ); })}</tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {hrTab === "schedule" && (
+                <div className={cardClass}>
+                  <h4 className="font-bold text-foreground mb-3">{t("مواعيد العمل والخصومات","Work Schedule & Deductions")}</h4>
+                  <p className="text-xs text-muted-foreground mb-4">{t("مواعيد العمل الرسمية وقيم الخصومات المطبقة تلقائياً عند تسجيل الحضور.","Official work hours and automatic deduction values applied on attendance.")}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="glass rounded-xl p-3"><Clock className="h-4 w-4 text-primary mb-1" /><p className="text-xs text-muted-foreground">{t("بداية الدوام","Start")}</p><p className="text-sm font-bold">08:00 AM</p></div>
+                    <div className="glass rounded-xl p-3"><Clock className="h-4 w-4 text-primary mb-1" /><p className="text-xs text-muted-foreground">{t("نهاية الدوام","End")}</p><p className="text-sm font-bold">04:00 PM</p></div>
+                    <div className="glass rounded-xl p-3"><AlertTriangle className="h-4 w-4 text-warning mb-1" /><p className="text-xs text-muted-foreground">{t("تأخير مسموح","Late tolerance")}</p><p className="text-sm font-bold">15 {t("دقيقة","min")}</p></div>
+                    <div className="glass rounded-xl p-3"><AlertTriangle className="h-4 w-4 text-destructive mb-1" /><p className="text-xs text-muted-foreground">{t("غياب بعد","Absent after")}</p><p className="text-sm font-bold">60 {t("دقيقة","min")}</p></div>
+                  </div>
+                  <div className="mt-4 space-y-2">
+                    <h5 className="text-sm font-bold text-foreground">{t("جدول الخصومات","Deduction Table")}</h5>
+                    <div className="glass rounded-xl p-3 flex justify-between items-center"><span className="text-xs text-foreground">⚠️ {t("التأخير (15-60 دقيقة)","Late (15-60 min)")}</span><span className="text-xs font-bold text-warning">10 {t("د.ل","LYD")}</span></div>
+                    <div className="glass rounded-xl p-3 flex justify-between items-center"><span className="text-xs text-foreground">🔴 {t("غياب جزئي (+60 دقيقة)","Partial absence (+60 min)")}</span><span className="text-xs font-bold text-destructive">30 {t("د.ل","LYD")}</span></div>
+                    <div className="glass rounded-xl p-3 flex justify-between items-center"><span className="text-xs text-foreground">⛔ {t("خروج مبكر بدون إذن","Early leave w/o permission")}</span><span className="text-xs font-bold text-destructive">20 {t("د.ل","LYD")}</span></div>
+                    <div className="glass rounded-xl p-3 flex justify-between items-center"><span className="text-xs text-foreground">❌ {t("غياب كامل (لم يسجل)","Full absence (no record)")}</span><span className="text-xs font-bold text-destructive">50 {t("د.ل","LYD")}</span></div>
+                  </div>
+                </div>
+              )}
+
+              {hrTab === "salaries" && (
+                <div className="space-y-3">
+                  <button onClick={() => exportToPDF(t("كشوفات الرواتب","Payroll"), employees.map(e => { const ded = attendanceRecords.filter(a=>a.employee_id===e.id).reduce((a,r)=>a+(r.deduction||0),0); return {[t("الاسم","Name")]:e.full_name,[t("الأساسي","Base")]:e.salary||0,[t("الخصومات","Ded")]:ded,[t("الإضافي","Bonus")]:0,[t("الصافي","Net")]:(e.salary||0)-ded}; }), [t("الاسم","Name"),t("الأساسي","Base"),t("الخصومات","Ded"),t("الإضافي","Bonus"),t("الصافي","Net")])} className="px-3 py-2 rounded-xl border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> {t("تحميل كشوفات PDF","Download Payroll PDF")}</button>
+                  {employees.map(e => {
+                    const ded = attendanceRecords.filter(a => a.employee_id === e.id).reduce((a, r) => a + (r.deduction || 0), 0);
+                    const net = (e.salary || 0) - ded;
+                    return (
+                      <div key={e.id} className="glass rounded-xl p-4">
+                        <div className="flex justify-between items-center mb-3">
+                          <div><p className="font-bold text-foreground">{e.full_name}</p><p className="text-xs text-muted-foreground">{e.position}</p></div>
+                          <button onClick={async () => { if (e.user_id) { await supabase.from("notifications").insert({ user_id: e.user_id, title: t("إشعار الراتب","Salary Notice"), message: `${t("تم تجهيز راتبك الشهري:","Monthly salary ready:")} ${t("أساسي","Base")}: ${e.salary} - ${t("خصومات","Ded")}: ${ded} = ${t("صافي","Net")}: ${net} ${t("د.ل","LYD")}`, type: "salary" }); alert(t("تم إرسال إشعار الراتب!","Salary notification sent!")); }}} className="px-3 py-1.5 rounded-xl text-xs bg-success/20 text-success font-bold flex items-center gap-1"><Send className="h-3 w-3" /> {t("إرسال كشف","Send Payslip")}</button>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2">
+                          <div className="glass rounded-xl p-2 text-center"><p className="text-[10px] text-muted-foreground">{t("الأساسي","Base")}</p><p className="text-sm font-black text-foreground">{e.salary || 0}</p></div>
+                          <div className="glass rounded-xl p-2 text-center"><p className="text-[10px] text-muted-foreground">{t("الخصومات","Ded")}</p><p className="text-sm font-black text-destructive">{ded}</p></div>
+                          <div className="glass rounded-xl p-2 text-center"><p className="text-[10px] text-muted-foreground">{t("الإضافي","Bonus")}</p><p className="text-sm font-black text-success">0</p></div>
+                          <div className="glass rounded-xl p-2 text-center"><p className="text-[10px] text-muted-foreground">{t("الصافي","Net")}</p><p className="text-sm font-black text-primary">{net}</p></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               {hrTab === "tasks" && (
                 <div className="space-y-3">
                   <button onClick={() => setShowForm("task")} className={`${btnPrimary} flex items-center gap-2 text-xs`}><Plus className="h-3 w-3" />{t("إضافة مهمة","Add Task")}</button>
@@ -1100,25 +1183,63 @@ const CompanyDashboard = () => {
                     </form>
                   )}
                   {tasks.map(tk => { const emp = employees.find(e => e.id === tk.employee_id); return (
-                    <div key={tk.id} className="glass rounded-xl p-3 flex justify-between items-center">
-                      <div><p className="text-sm font-bold text-foreground">{tk.title}</p><p className="text-xs text-muted-foreground">{emp?.full_name || "-"} · {tk.due_date || "-"}</p></div>
+                    <div key={tk.id} className={`glass rounded-xl p-3 flex justify-between items-center ${tk.priority === "high" ? "border-l-4 border-l-destructive" : tk.priority === "medium" ? "border-l-4 border-l-warning" : "border-l-4 border-l-success"}`}>
+                      <div><p className="text-sm font-bold text-foreground">{tk.title}</p><p className="text-xs text-muted-foreground">{emp?.full_name || "-"} · {tk.due_date || "-"} · {tk.description?.slice(0,50) || ""}</p></div>
                       <StatusBadge status={tk.status} />
                     </div>
                   ); })}
                 </div>
               )}
-              {hrTab === "rewards" && <div className={`${cardClass} text-center`}><Award className="h-12 w-12 text-warning mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("قسم المكافآت. يمكنك إضافة مكافآت للموظفين المتميزين.","Rewards section for outstanding employees.")}</p></div>}
-              {hrTab === "violations" && <div className={`${cardClass} text-center`}><Flag className="h-12 w-12 text-destructive mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("قسم المخالفات. سجل المخالفات والخصومات.","Violations section. Record violations and deductions.")}</p></div>}
-              {hrTab === "schedule" && (
-                <div className={cardClass}>
-                  <h4 className="font-bold text-foreground mb-3">{t("مواعيد العمل","Work Schedule")}</h4>
-                  <p className="text-xs text-muted-foreground mb-4">{t("حدد مواعيد العمل والتأخير والغياب والخصومات لكل حالة.","Set work hours, late tolerance, absence, and deduction amounts.")}</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="glass rounded-xl p-3"><p className="text-xs text-muted-foreground">{t("بداية الدوام","Start")}</p><p className="text-sm font-bold">08:00 AM</p></div>
-                    <div className="glass rounded-xl p-3"><p className="text-xs text-muted-foreground">{t("نهاية الدوام","End")}</p><p className="text-sm font-bold">04:00 PM</p></div>
-                    <div className="glass rounded-xl p-3"><p className="text-xs text-muted-foreground">{t("تأخير مسموح (دقيقة)","Late tolerance (min)")}</p><p className="text-sm font-bold">15</p></div>
-                    <div className="glass rounded-xl p-3"><p className="text-xs text-muted-foreground">{t("غياب بعد (دقيقة)","Absent after (min)")}</p><p className="text-sm font-bold">60</p></div>
-                  </div>
+
+              {hrTab === "rewards" && (
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">{t("أضف مكافآت للموظفين المتميزين. تُضاف قيمة المكافأة للراتب الشهري.","Add rewards for outstanding employees. Reward value is added to monthly salary.")}</p>
+                  <button onClick={() => setShowForm("reward")} className={`${btnPrimary} flex items-center gap-2 text-xs`}><Plus className="h-3 w-3" /> {t("إضافة مكافأة","Add Reward")}</button>
+                  {showForm === "reward" && (
+                    <form onSubmit={async (e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); const d = Object.fromEntries(fd); const emp = employees.find(emp => emp.id === d.employeeId); if (emp?.user_id) { await supabase.from("notifications").insert({ user_id: emp.user_id, title: t("مكافأة جديدة! 🎉","New Reward! 🎉"), message: `${t("حصلت على مكافأة بقيمة","You received a reward of")} ${d.amount} ${t("د.ل بسبب:","LYD because:")} ${d.reason}`, type: "reward" }); } await supabase.from("activity_log").insert({ company_id: companyId!, action: "reward", details: `${t("مكافأة","Reward")} ${emp?.full_name}: ${d.amount} - ${d.reason}`, user_id: user?.id }); alert(t("تم إضافة المكافأة وإشعار الموظف!","Reward added & employee notified!")); setShowForm(""); }} className={`${cardClass} space-y-3`}>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div><label className="text-xs font-bold text-foreground">{t("الموظف *","Employee *")}</label><select name="employeeId" required className={inputClass}><option value="">{t("اختر","Select")}</option>{employees.map(e => <option key={e.id} value={e.id}>{e.full_name}</option>)}</select></div>
+                        <div><label className="text-xs font-bold text-foreground">{t("قيمة المكافأة *","Amount *")}</label><input name="amount" type="number" required className={inputClass} /></div>
+                        <div><label className="text-xs font-bold text-foreground">{t("السبب *","Reason *")}</label><input name="reason" required className={inputClass} /></div>
+                      </div>
+                      <div className="flex gap-2"><button type="submit" className={btnPrimary}>{t("حفظ","Save")}</button><button type="button" onClick={() => setShowForm("")} className={btnOutline}>{t("إلغاء","Cancel")}</button></div>
+                    </form>
+                  )}
+                </div>
+              )}
+
+              {hrTab === "violations" && (
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">{t("سجّل المخالفات والخصومات الإدارية. تُخصم من الراتب الشهري.","Record violations and admin deductions. Deducted from monthly salary.")}</p>
+                  <button onClick={() => setShowForm("violation")} className={`${btnPrimary} flex items-center gap-2 text-xs`}><Plus className="h-3 w-3" /> {t("إضافة مخالفة","Add Violation")}</button>
+                  {showForm === "violation" && (
+                    <form onSubmit={async (e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); const d = Object.fromEntries(fd); const emp = employees.find(emp => emp.id === d.employeeId); if (emp?.user_id) { await supabase.from("notifications").insert({ user_id: emp.user_id, title: t("مخالفة إدارية ⚠️","Admin Violation ⚠️"), message: `${t("تم تسجيل مخالفة بقيمة","A violation of")} ${d.amount} ${t("د.ل بسبب:","LYD for:")} ${d.reason}`, type: "violation" }); } await supabase.from("activity_log").insert({ company_id: companyId!, action: "violation", details: `${t("مخالفة","Violation")} ${emp?.full_name}: ${d.amount} - ${d.reason}`, user_id: user?.id }); alert(t("تم تسجيل المخالفة!","Violation recorded!")); setShowForm(""); }} className={`${cardClass} space-y-3`}>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div><label className="text-xs font-bold text-foreground">{t("الموظف *","Employee *")}</label><select name="employeeId" required className={inputClass}><option value="">{t("اختر","Select")}</option>{employees.map(e => <option key={e.id} value={e.id}>{e.full_name}</option>)}</select></div>
+                        <div><label className="text-xs font-bold text-foreground">{t("قيمة المخالفة *","Amount *")}</label><input name="amount" type="number" required className={inputClass} /></div>
+                        <div><label className="text-xs font-bold text-foreground">{t("السبب *","Reason *")}</label><input name="reason" required className={inputClass} /></div>
+                      </div>
+                      <div className="flex gap-2"><button type="submit" className={btnPrimary}>{t("حفظ","Save")}</button><button type="button" onClick={() => setShowForm("")} className={btnOutline}>{t("إلغاء","Cancel")}</button></div>
+                    </form>
+                  )}
+                </div>
+              )}
+
+              {hrTab === "leaves" && (
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">{t("طلبات الإجازات والسلف والسحب المبكر المرسلة من الموظفين.","Leave, advance, and early salary requests from employees.")}</p>
+                  {empRequests.length === 0 ? <p className="text-sm text-muted-foreground">{t("لا توجد طلبات.","No requests.")}</p> : empRequests.map(r => { const emp = employees.find(e => e.id === r.employee_id); return (
+                    <div key={r.id} className="glass rounded-xl p-3">
+                      <div className="flex justify-between items-start mb-2">
+                        <div><p className="text-sm font-bold text-foreground">{emp?.full_name || "-"}</p><p className="text-xs text-muted-foreground">{r.type === "leave" ? t("إجازة","Leave") : r.type === "advance" ? t("سلفة","Advance") : t("سحب راتب","Salary")} · {r.reason} · {new Date(r.created_at).toLocaleDateString("ar-LY")}</p></div>
+                        <StatusBadge status={r.status} />
+                      </div>
+                      {r.amount > 0 && <p className="text-xs text-primary font-bold mb-2">{t("المبلغ:","Amount:")} {r.amount} {t("د.ل","LYD")}</p>}
+                      {r.status === "pending" && (
+                        <div className="flex gap-2"><button onClick={() => handleEmpRequest(r.id, "approved")} className="px-3 py-1 rounded text-xs bg-success/20 text-success font-bold">{t("موافقة","Approve")}</button><button onClick={() => handleEmpRequest(r.id, "rejected")} className="px-3 py-1 rounded text-xs bg-destructive/20 text-destructive font-bold">{t("رفض","Reject")}</button></div>
+                      )}
+                    </div>
+                  ); })}
                 </div>
               )}
             </div>

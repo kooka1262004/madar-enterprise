@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Building2, AlertTriangle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo-transparent.png";
 
 const CompanyLogin = () => {
@@ -8,38 +9,68 @@ const CompanyLogin = () => {
   const [showPass, setShowPass] = useState(false);
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const lang = localStorage.getItem("madar_lang") || "ar";
   const t = (ar: string, en: string) => lang === "ar" ? ar : en;
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
-    if (form.email === "kookakooka6589@gmail.com") {
-      localStorage.setItem("madar_user", JSON.stringify({ role: "admin", email: form.email, name: "مسؤول النظام" }));
-      navigate("/admin");
-      return;
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: form.email,
+        password: form.password,
+      });
+
+      if (authError) {
+        setError(t("البريد الإلكتروني أو كلمة المرور غير صحيحة", "Invalid email or password"));
+        setLoading(false);
+        return;
+      }
+
+      if (data.user) {
+        // Check role
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", data.user.id)
+          .maybeSingle();
+
+        if (roleData?.role === "admin") {
+          navigate("/admin");
+        } else if (roleData?.role === "company") {
+          // Check if company is suspended
+          const { data: company } = await supabase
+            .from("companies")
+            .select("status")
+            .eq("owner_id", data.user.id)
+            .maybeSingle();
+
+          if (company?.status === "suspended") {
+            await supabase.auth.signOut();
+            setError(t("هذا الحساب موقوف. يرجى التواصل مع مسؤول النظام.", "Account suspended. Contact system admin."));
+            setLoading(false);
+            return;
+          }
+
+          // Update last login
+          await supabase
+            .from("companies")
+            .update({ last_login: new Date().toISOString() })
+            .eq("owner_id", data.user.id);
+
+          navigate("/company");
+        } else {
+          setError(t("هذا الحساب ليس حساب شركة. جرّب دخول الموظفين.", "This is not a company account. Try employee login."));
+          await supabase.auth.signOut();
+        }
+      }
+    } catch (err) {
+      setError(t("حدث خطأ غير متوقع", "An unexpected error occurred"));
     }
-
-    const companies = JSON.parse(localStorage.getItem("madar_companies") || "[]");
-    const company = companies.find((c: any) => c.email === form.email && c.password === form.password);
-    
-    if (!company) {
-      setError(t("البريد الإلكتروني أو كلمة المرور غير صحيحة", "Invalid email or password"));
-      return;
-    }
-
-    if (company.status === "suspended") {
-      setError(t("هذا الحساب موقوف. يرجى التواصل مع مسؤول النظام.", "Account suspended. Contact system admin."));
-      return;
-    }
-
-    // Update last login
-    const updatedCompany = { ...company, lastLogin: new Date().toISOString() };
-    const updatedCompanies = companies.map((c: any) => c.id === company.id ? updatedCompany : c);
-    localStorage.setItem("madar_companies", JSON.stringify(updatedCompanies));
-    localStorage.setItem("madar_user", JSON.stringify({ role: "company", ...updatedCompany }));
-    navigate("/company");
+    setLoading(false);
   };
 
   return (
@@ -73,8 +104,8 @@ const CompanyLogin = () => {
               </button>
             </div>
           </div>
-          <button type="submit" className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-all">
-            <Building2 className="h-4 w-4" /> {t("تسجيل الدخول", "Login")}
+          <button type="submit" disabled={loading} className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50">
+            <Building2 className="h-4 w-4" /> {loading ? t("جاري التسجيل...", "Logging in...") : t("تسجيل الدخول", "Login")}
           </button>
           <div className="flex justify-between text-xs">
             <button type="button" className="text-primary hover:underline">{t("نسيت كلمة المرور؟", "Forgot password?")}</button>

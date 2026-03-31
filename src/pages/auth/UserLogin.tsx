@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, User, AlertTriangle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo-transparent.png";
 
 const UserLogin = () => {
@@ -8,56 +9,80 @@ const UserLogin = () => {
   const [showPass, setShowPass] = useState(false);
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const lang = localStorage.getItem("madar_lang") || "ar";
   const t = (ar: string, en: string) => lang === "ar" ? ar : en;
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
-    // Search across all companies' employees
-    const companies = JSON.parse(localStorage.getItem("madar_companies") || "[]");
-    
-    for (const company of companies) {
-      const employees = JSON.parse(localStorage.getItem(`madar_employees_${company.id}`) || "[]");
-      const employee = employees.find((emp: any) => emp.email === form.email && emp.password === form.password);
-      
-      if (employee) {
-        // Check if employee account is active
-        if (employee.status === "suspended" || employee.accountStatus === "suspended") {
-          setError(t("هذا الحساب موقوف. يرجى التواصل مع مسؤول الشركة.", "Account suspended. Contact your company admin."));
-          return;
-        }
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: form.email,
+        password: form.password,
+      });
 
-        // Check if company is active
-        if (company.status === "suspended") {
-          setError(t("شركتك موقوفة حالياً. يرجى التواصل مع مسؤول النظام.", "Your company is suspended. Contact system admin."));
-          return;
-        }
-
-        // Update last login
-        const updatedEmployees = employees.map((emp: any) => 
-          emp.id === employee.id ? { ...emp, lastLogin: new Date().toISOString() } : emp
-        );
-        localStorage.setItem(`madar_employees_${company.id}`, JSON.stringify(updatedEmployees));
-
-        // Save user session
-        localStorage.setItem("madar_user", JSON.stringify({
-          role: "employee",
-          ...employee,
-          lastLogin: new Date().toISOString(),
-          companyId: company.id,
-          companyName: company.companyName,
-          managerName: company.managerName,
-          managerEmail: company.email,
-        }));
-
-        navigate("/user");
+      if (authError) {
+        setError(t("البريد الإلكتروني أو كلمة المرور غير صحيحة. تأكد من أن مسؤول شركتك قد أضاف حسابك.", "Invalid email or password. Make sure your company admin has added your account."));
+        setLoading(false);
         return;
       }
-    }
 
-    setError(t("البريد الإلكتروني أو كلمة المرور غير صحيحة. تأكد من أن مسؤول شركتك قد أضاف حسابك.", "Invalid email or password. Make sure your company admin has added your account."));
+      if (data.user) {
+        // Check role
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", data.user.id)
+          .maybeSingle();
+
+        if (roleData?.role === "employee") {
+          // Check employee status
+          const { data: emp } = await supabase
+            .from("employees")
+            .select("status, company_id")
+            .eq("user_id", data.user.id)
+            .maybeSingle();
+
+          if (emp?.status === "suspended") {
+            await supabase.auth.signOut();
+            setError(t("هذا الحساب موقوف. يرجى التواصل مع مسؤول الشركة.", "Account suspended. Contact your company admin."));
+            setLoading(false);
+            return;
+          }
+
+          // Check company status
+          if (emp) {
+            const { data: company } = await supabase
+              .from("companies")
+              .select("status")
+              .eq("id", emp.company_id)
+              .maybeSingle();
+
+            if (company?.status === "suspended") {
+              await supabase.auth.signOut();
+              setError(t("شركتك موقوفة حالياً. يرجى التواصل مع مسؤول النظام.", "Your company is suspended. Contact system admin."));
+              setLoading(false);
+              return;
+            }
+          }
+
+          navigate("/user");
+        } else if (roleData?.role === "admin") {
+          navigate("/admin");
+        } else if (roleData?.role === "company") {
+          navigate("/company");
+        } else {
+          setError(t("لا توجد صلاحيات لهذا الحساب.", "No permissions found for this account."));
+          await supabase.auth.signOut();
+        }
+      }
+    } catch (err) {
+      setError(t("حدث خطأ غير متوقع", "An unexpected error occurred"));
+    }
+    setLoading(false);
   };
 
   return (
@@ -91,8 +116,8 @@ const UserLogin = () => {
               </button>
             </div>
           </div>
-          <button type="submit" className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-all">
-            <User className="h-4 w-4" /> {t("تسجيل الدخول", "Login")}
+          <button type="submit" disabled={loading} className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50">
+            <User className="h-4 w-4" /> {loading ? t("جاري التسجيل...", "Logging in...") : t("تسجيل الدخول", "Login")}
           </button>
           <div className="text-center border-t border-border pt-3">
             <Link to="/login/company" className="text-xs text-muted-foreground hover:text-primary transition-colors">{t("← دخول الشركات", "← Company Login")}</Link>

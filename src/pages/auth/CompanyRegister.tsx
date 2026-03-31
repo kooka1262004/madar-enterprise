@@ -36,9 +36,9 @@ const CompanyRegister = () => {
     setLoading(true);
 
     try {
-      // Sign up with Supabase Auth
+      const normalizedEmail = form.email.trim().toLowerCase();
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: form.email,
+        email: normalizedEmail,
         password: form.password,
         options: {
           data: { full_name: form.managerName },

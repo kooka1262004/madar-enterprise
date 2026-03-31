@@ -548,7 +548,7 @@ const CompanyDashboard = () => {
                   {generatedBarcode && <div className="mt-4"><BarcodeGenerator value={generatedBarcode} /></div>}
                 </div>
               )}
-              {showBarcodeScanner && <BarcodeScanner onResult={r => { setScannedResult(r); setShowBarcodeScanner(false); }} onClose={() => setShowBarcodeScanner(false)} />}
+              {showBarcodeScanner && <BarcodeScanner onScan={r => { setScannedResult(r); setShowBarcodeScanner(false); }} onClose={() => setShowBarcodeScanner(false)} />}
               {scannedResult && <div className="glass rounded-2xl p-4"><p className="text-sm text-foreground">{t("نتيجة المسح:", "Scan result:")} <span className="font-bold text-primary">{scannedResult}</span></p></div>}
             </div>
           )}

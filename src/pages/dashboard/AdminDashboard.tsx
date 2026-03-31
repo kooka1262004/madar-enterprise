@@ -864,7 +864,7 @@ const AdminDashboard = () => {
                   </button>
                 </div>
                 <div className="flex items-center justify-between glass rounded-xl p-4">
-                  <p className="text-sm font-bold text-foreground">{t("رقم حساب بنكي", "Bank Account")}</label></p>
+                  <p className="text-sm font-bold text-foreground">{t("رقم حساب بنكي", "Bank Account")}</p>
                   <input value={platformSettings.bank_info?.account || ""} onChange={e => saveSetting("bank_info", {...(platformSettings.bank_info || {}), account: e.target.value})} placeholder={t("رقم الحساب", "Account number")} className="w-48 px-3 py-1.5 rounded-lg bg-secondary border border-border text-foreground text-xs" />
                 </div>
                 <div className="flex items-center justify-between glass rounded-xl p-4">

@@ -14,56 +14,61 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const adminEmail = "kookakooka6589@gmail.com";
-    const adminPassword = "Madar@Admin2024";
+    const admins = [
+      { email: "kookakooka6589@gmail.com", password: "Madar@Admin2024", name: "مسؤول النظام" },
+      { email: "kookakooka6588@gmail.com", password: "Madar@Admin2024", name: "مسؤول النظام 2" },
+    ];
 
-    // Check if admin already exists
-    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-    const existingAdmin = existingUsers?.users?.find(u => u.email === adminEmail);
+    const results = [];
 
-    let userId: string;
+    for (const admin of admins) {
+      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+      const existingAdmin = existingUsers?.users?.find(u => u.email === admin.email);
 
-    if (existingAdmin) {
-      userId = existingAdmin.id;
-    } else {
-      const { data: newUser, error } = await supabaseAdmin.auth.admin.createUser({
-        email: adminEmail,
-        password: adminPassword,
-        email_confirm: true,
-        user_metadata: { full_name: "مسؤول النظام" },
-      });
-      if (error) throw error;
-      userId = newUser.user.id;
+      let userId: string;
+
+      if (existingAdmin) {
+        userId = existingAdmin.id;
+      } else {
+        const { data: newUser, error } = await supabaseAdmin.auth.admin.createUser({
+          email: admin.email,
+          password: admin.password,
+          email_confirm: true,
+          user_metadata: { full_name: admin.name },
+        });
+        if (error) throw error;
+        userId = newUser.user.id;
+      }
+
+      const { data: existingRole } = await supabaseAdmin
+        .from("user_roles")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("role", "admin")
+        .maybeSingle();
+
+      if (!existingRole) {
+        await supabaseAdmin.from("user_roles").insert({ user_id: userId, role: "admin" });
+      }
+
+      const { data: existingProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("id")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (!existingProfile) {
+        await supabaseAdmin.from("profiles").insert({
+          user_id: userId,
+          email: admin.email,
+          full_name: admin.name,
+        });
+      }
+
+      results.push({ email: admin.email, userId });
     }
 
-    // Ensure admin role exists
-    const { data: existingRole } = await supabaseAdmin
-      .from("user_roles")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("role", "admin")
-      .maybeSingle();
-
-    if (!existingRole) {
-      await supabaseAdmin.from("user_roles").insert({ user_id: userId, role: "admin" });
-    }
-
-    // Ensure profile exists
-    const { data: existingProfile } = await supabaseAdmin
-      .from("profiles")
-      .select("id")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (!existingProfile) {
-      await supabaseAdmin.from("profiles").insert({
-        user_id: userId,
-        email: adminEmail,
-        full_name: "مسؤول النظام",
-      });
-    }
-
-    return new Response(JSON.stringify({ success: true, userId }), {
+    return new Response(JSON.stringify({ success: true, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

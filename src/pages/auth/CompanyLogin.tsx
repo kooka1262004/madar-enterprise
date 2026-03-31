@@ -108,7 +108,7 @@ const CompanyLogin = () => {
             <Building2 className="h-4 w-4" /> {loading ? t("جاري التسجيل...", "Logging in...") : t("تسجيل الدخول", "Login")}
           </button>
           <div className="flex justify-between text-xs">
-            <button type="button" className="text-primary hover:underline">{t("نسيت كلمة المرور؟", "Forgot password?")}</button>
+            <Link to="/forgot-password" className="text-primary hover:underline">{t("نسيت كلمة المرور؟", "Forgot password?")}</Link>
             <Link to="/register/company" className="text-primary hover:underline">{t("إنشاء حساب جديد", "Create account")}</Link>
           </div>
           <div className="text-center border-t border-border pt-3">

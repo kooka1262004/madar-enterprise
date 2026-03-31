@@ -4,13 +4,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard, Package, Warehouse, Users, CreditCard, BarChart3, QrCode,
-  Truck, ClipboardList, TrendingUp, RotateCcw, FileText, DollarSign,
+  Truck, ClipboardList, RotateCcw, FileText, DollarSign,
   UserCog, Settings, LogOut, Bell, Menu, X, Briefcase, Receipt,
   Moon, Sun, Globe, ShieldX, User, Clock, Calendar, Send, Check,
-  AlertTriangle, Award, Flag, ListChecks, MessageSquare, Download,
-  CheckCircle2, XCircle, AlertCircle, Wallet, Info, Plus, Trash2, Search, Upload, Printer, ShoppingCart, Edit, Eye
+  ListChecks, MessageSquare, Download, Wallet, Plus, Trash2, Search, ShoppingCart
 } from "lucide-react";
-import { exportSimplePDF, exportToPDF } from "@/utils/pdfExport";
+import { exportToPDF } from "@/utils/pdfExport";
 import logo from "@/assets/logo-transparent.png";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import BarcodeGenerator from "@/components/BarcodeGenerator";

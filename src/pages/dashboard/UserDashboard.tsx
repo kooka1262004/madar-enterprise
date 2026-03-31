@@ -466,7 +466,7 @@ const UserDashboard = () => {
                     {scannedResult && <div className="mt-3 glass rounded-xl p-3"><p className="text-xs text-muted-foreground">{t("النتيجة:","Result:")}</p><p className="font-bold text-foreground">{scannedResult}</p></div>}
                   </div>
                 </div>
-                {showBarcodeScanner && <div className="mt-4"><BarcodeScanner onResult={(r) => { setScannedResult(r); setShowBarcodeScanner(false); }} /><button onClick={() => setShowBarcodeScanner(false)} className="mt-2 text-xs text-destructive">{t("إغلاق","Close")}</button></div>}
+                {showBarcodeScanner && <div className="mt-4"><BarcodeScanner onScan={(r) => { setScannedResult(r); setShowBarcodeScanner(false); }} onClose={() => setShowBarcodeScanner(false)} /><button onClick={() => setShowBarcodeScanner(false)} className="mt-2 text-xs text-destructive">{t("إغلاق","Close")}</button></div>}
               </div>
             </div>
           )}

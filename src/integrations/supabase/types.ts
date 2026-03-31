@@ -457,6 +457,48 @@ export type Database = {
           },
         ]
       }
+      plans: {
+        Row: {
+          active: boolean | null
+          created_at: string
+          features: string[] | null
+          id: string
+          max_products: number | null
+          max_stores: number | null
+          max_users: number | null
+          name: string
+          name_en: string | null
+          period: string | null
+          price: number
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string
+          features?: string[] | null
+          id?: string
+          max_products?: number | null
+          max_stores?: number | null
+          max_users?: number | null
+          name: string
+          name_en?: string | null
+          period?: string | null
+          price?: number
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string
+          features?: string[] | null
+          id?: string
+          max_products?: number | null
+          max_stores?: number | null
+          max_users?: number | null
+          name?: string
+          name_en?: string | null
+          period?: string | null
+          price?: number
+        }
+        Relationships: []
+      }
       platform_settings: {
         Row: {
           id: string
@@ -618,6 +660,111 @@ export type Database = {
           },
         ]
       }
+      subscription_requests: {
+        Row: {
+          admin_notes: string | null
+          company_id: string
+          created_at: string
+          id: string
+          payment_method: string | null
+          plan_id: string | null
+          plan_name: string
+          price: number
+          proof_url: string | null
+          status: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          company_id: string
+          created_at?: string
+          id?: string
+          payment_method?: string | null
+          plan_id?: string | null
+          plan_name: string
+          price?: number
+          proof_url?: string | null
+          status?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          payment_method?: string | null
+          plan_id?: string | null
+          plan_name?: string
+          price?: number
+          proof_url?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_requests_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscriptions: {
+        Row: {
+          company_id: string
+          created_at: string
+          end_date: string | null
+          id: string
+          plan_id: string | null
+          plan_name: string
+          price: number
+          start_date: string
+          status: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          plan_id?: string | null
+          plan_name: string
+          price?: number
+          start_date?: string
+          status?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          plan_id?: string | null
+          plan_name?: string
+          price?: number
+          start_date?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           city: string | null
@@ -765,6 +912,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "wallet_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallet_transactions: {
+        Row: {
+          amount: number
+          company_id: string
+          created_at: string
+          description: string | null
+          id: string
+          status: string | null
+          type: string
+        }
+        Insert: {
+          amount?: number
+          company_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          status?: string | null
+          type?: string
+        }
+        Update: {
+          amount?: number
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          status?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transactions_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"

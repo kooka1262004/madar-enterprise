@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard, Package, Warehouse, Users, CreditCard, BarChart3, QrCode,
   Truck, ClipboardList, RotateCcw, FileText, DollarSign,
-  UserCog, Settings, LogOut, Bell, Menu, X, Briefcase, Receipt,
+  UserCog, Settings, LogOut, Bell, Menu, X, Briefcase, Receipt, Award,
   Moon, Sun, Globe, ShieldX, User, Clock, Calendar, Send, Check,
   ListChecks, MessageSquare, Download, Wallet, Plus, Trash2, Search, ShoppingCart
 } from "lucide-react";

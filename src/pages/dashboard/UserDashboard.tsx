@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard, Package, Warehouse, Users, CreditCard, BarChart3, QrCode,
   Truck, ClipboardList, TrendingUp, RotateCcw, FileText, DollarSign,
@@ -7,7 +9,7 @@ import {
   Moon, Sun, Globe, ShieldX, User, Clock, Calendar, Send, Check,
   AlertTriangle, Award, Flag, ListChecks, MessageSquare, Download
 } from "lucide-react";
-import { exportToPDF, exportSimplePDF } from "@/utils/pdfExport";
+import { exportSimplePDF } from "@/utils/pdfExport";
 import logo from "@/assets/logo-transparent.png";
 
 const allSections = [
@@ -20,32 +22,35 @@ const allSections = [
   { icon: Warehouse, label: "حركة المخزون", labelEn: "Stock", key: "stock" },
   { icon: QrCode, label: "الباركود", labelEn: "Barcode", key: "barcode" },
   { icon: Truck, label: "الموردين", labelEn: "Suppliers", key: "suppliers" },
-  { icon: ClipboardList, label: "الجرد", labelEn: "Inventory", key: "inventory" },
-  { icon: RotateCcw, label: "التالف والمرتجعات", labelEn: "Returns", key: "returns" },
   { icon: BarChart3, label: "المحاسبة", labelEn: "Accounting", key: "accounting" },
-  { icon: TrendingUp, label: "الأرباح", labelEn: "Profits", key: "profits" },
   { icon: Receipt, label: "الفواتير", labelEn: "Invoices", key: "invoices" },
   { icon: FileText, label: "التقارير", labelEn: "Reports", key: "reports" },
   { icon: Briefcase, label: "الموارد البشرية", labelEn: "HR", key: "hr" },
   { icon: Users, label: "المستخدمين", labelEn: "Users", key: "users" },
-  { icon: UserCog, label: "الصلاحيات", labelEn: "Permissions", key: "permissions" },
-  { icon: MessageSquare, label: "المراسلات", labelEn: "Messages", key: "messages" },
-  { icon: Bell, label: "الإشعارات", labelEn: "Notifications", key: "notifications" },
   { icon: Settings, label: "الإعدادات", labelEn: "Settings", key: "settings" },
 ];
 
 const UserDashboard = () => {
   const navigate = useNavigate();
-  const [user] = useState(() => JSON.parse(localStorage.getItem("madar_user") || "{}"));
+  const { user, role, employeeData, companyId, loading: authLoading, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem("madar_theme") || "dark");
   const [lang, setLang] = useState(() => localStorage.getItem("madar_lang") || "ar");
+  const [myData, setMyData] = useState<any>(null);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [myRequests, setMyRequests] = useState<any[]>([]);
+  const [attendance, setAttendance] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [movements, setMovements] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const t = (ar: string, en: string) => lang === "ar" ? ar : en;
+  const inputClass = "w-full px-4 py-2.5 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary text-sm";
 
   useEffect(() => {
-    if (!user || user.role !== "employee") navigate("/login/user");
-  }, [user, navigate]);
+    if (!authLoading && (!user || role !== "employee")) navigate("/login/user");
+  }, [user, role, authLoading]);
 
   useEffect(() => {
     localStorage.setItem("madar_theme", theme);
@@ -58,96 +63,94 @@ const UserDashboard = () => {
     document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
   }, [lang]);
 
-  const permissions: string[] = user.permissions || ["dashboard", "my-info"];
+  useEffect(() => {
+    if (!user || !companyId) return;
+    const loadData = async () => {
+      setLoading(true);
+      const [empRes, tasksRes, reqRes, attRes, prodsRes, movsRes] = await Promise.all([
+        supabase.from("employees").select("*, companies(company_name)").eq("user_id", user.id).maybeSingle(),
+        supabase.from("tasks").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
+        supabase.from("employee_requests").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
+        supabase.from("attendance").select("*").eq("company_id", companyId).order("date", { ascending: false }),
+        supabase.from("products").select("*").eq("company_id", companyId),
+        supabase.from("stock_movements").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
+      ]);
+      setMyData(empRes.data);
+      // Filter tasks assigned to this employee
+      const myEmployeeId = empRes.data?.id;
+      setTasks((tasksRes.data || []).filter((tk: any) => tk.employee_id === myEmployeeId));
+      setMyRequests((reqRes.data || []).filter((r: any) => r.employee_id === myEmployeeId));
+      setAttendance((attRes.data || []).filter((a: any) => a.employee_id === myEmployeeId));
+      setProducts(prodsRes.data || []);
+      setMovements(movsRes.data || []);
+      setLoading(false);
+    };
+    loadData();
+  }, [user, companyId]);
+
+  const permissions: string[] = myData?.permissions || employeeData?.permissions || ["dashboard", "my-info"];
   const visibleSections = allSections.filter(s =>
     ["my-info", "dashboard", "attendance", "requests", "my-tasks"].includes(s.key) || permissions.includes(s.key)
   );
 
-  const logout = () => { localStorage.removeItem("madar_user"); navigate("/login/user"); };
+  const logout = async () => { await signOut(); navigate("/login/user"); };
 
-  // Employee data
-  const employees = JSON.parse(localStorage.getItem(`madar_employees_${user.companyId}`) || "[]");
-  const myData = employees.find((e: any) => e.email === user.email) || user;
-  const rewards = JSON.parse(localStorage.getItem(`madar_rewards_${user.companyId}`) || "[]").filter((r: any) => r.employee === (myData.fullName || user.fullName));
-  const violations = JSON.parse(localStorage.getItem(`madar_violations_${user.companyId}`) || "[]").filter((v: any) => v.employee === (myData.fullName || user.fullName));
-  const tasks = JSON.parse(localStorage.getItem(`madar_tasks_${user.companyId}`) || "[]").filter((tk: any) => tk.employee === (myData.fullName || user.fullName));
-  const leaves = JSON.parse(localStorage.getItem(`madar_leaves_${user.companyId}`) || "[]").filter((l: any) => l.employee === (myData.fullName || user.fullName));
-  const advances = JSON.parse(localStorage.getItem(`madar_advances_${user.companyId}`) || "[]").filter((a: any) => a.employee === (myData.fullName || user.fullName));
-  const attendance = JSON.parse(localStorage.getItem(`madar_attendance_${user.companyId}_${user.email}`) || "[]");
-  const schedule = JSON.parse(localStorage.getItem(`madar_schedule_${user.companyId}`) || JSON.stringify({ start: "08:00", end: "16:00", lateMinutes: 15, absentMinutes: 120 }));
+  const baseSalary = Number(myData?.salary) || 0;
+  const companyName = myData?.companies?.company_name || employeeData?.companies?.company_name || "";
 
-  // Company data for permitted sections
-  const products = JSON.parse(localStorage.getItem(`madar_products_${user.companyId}`) || "[]");
-  const movements = JSON.parse(localStorage.getItem(`madar_movements_${user.companyId}`) || "[]");
-  const suppliers = JSON.parse(localStorage.getItem(`madar_suppliers_${user.companyId}`) || "[]");
-  const invoices = JSON.parse(localStorage.getItem(`madar_invoices_${user.companyId}`) || "[]");
-
-  const totalRewards = rewards.reduce((a: number, r: any) => a + (Number(r.amount) || 0), 0);
-  const totalViolations = violations.reduce((a: number, v: any) => a + (Number(v.deduction) || 0), 0);
-  const totalAdvances = advances.reduce((a: number, a2: any) => a + (Number(a2.amount) || 0), 0);
-  const baseSalary = Number(myData.salary) || 0;
-  const netSalary = baseSalary + totalRewards - totalViolations - totalAdvances;
-  const inputClass = "w-full px-4 py-2.5 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary text-sm";
-
-  // Attendance helpers
+  // Attendance
   const today = new Date().toISOString().split("T")[0];
-  const todayRecord = attendance.find((a: any) => a.date === today);
+  const todayRecord = attendance.find(a => a.date === today);
 
-  const recordAttendance = (type: "in" | "out") => {
+  const recordAttendance = async (type: "in" | "out") => {
     const now = new Date();
     const timeStr = now.toLocaleTimeString("ar-LY", { hour: "2-digit", minute: "2-digit" });
-    const [startH, startM] = schedule.start.split(":").map(Number);
-    const [endH, endM] = schedule.end.split(":").map(Number);
-    const scheduledStart = startH * 60 + startM;
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const status = type === "in" ? t("حضور", "Check-in") : t("انصراف", "Check-out");
 
-    let status = "";
-    let deduction = 0;
-
-    if (type === "in") {
-      const diff = currentMinutes - scheduledStart;
-      if (diff <= 0) { status = t("في الوقت ✅", "On Time ✅"); }
-      else if (diff <= (schedule.lateMinutes || 15)) { status = t("تأخير بسيط ⚠️", "Slightly Late ⚠️"); }
-      else if (diff <= (schedule.absentMinutes || 120)) { status = t(`متأخر ${diff} دقيقة ❌`, `Late ${diff} min ❌`); deduction = Math.floor(diff / 30) * 10; }
-      else { status = t("غياب 🚫", "Absent 🚫"); deduction = 50; }
+    if (todayRecord) {
+      const update: any = type === "in" ? { check_in: timeStr, status } : { check_out: timeStr, status };
+      await supabase.from("attendance").update(update).eq("id", todayRecord.id);
     } else {
-      const scheduledEnd = endH * 60 + endM;
-      if (currentMinutes < scheduledEnd - 30) { status = t("خروج مبكر بدون إذن ❌", "Early Leave Without Permission ❌"); deduction = 30; }
-      else { status = t("انصراف عادي ✅", "Normal Leave ✅"); }
+      await supabase.from("attendance").insert({
+        company_id: companyId!,
+        employee_id: myData?.id,
+        date: today,
+        check_in: type === "in" ? timeStr : "",
+        status,
+      });
     }
-
-    const record = todayRecord ? { ...todayRecord } : { date: today, checkIn: "", checkOut: "", status: "", deduction: 0 };
-    if (type === "in") { record.checkIn = timeStr; record.statusIn = status; record.deductionIn = deduction; }
-    else { record.checkOut = timeStr; record.statusOut = status; record.deductionOut = deduction; }
-    record.deduction = (record.deductionIn || 0) + (record.deductionOut || 0);
-
-    const updated = todayRecord
-      ? attendance.map((a: any) => a.date === today ? record : a)
-      : [...attendance, record];
-    localStorage.setItem(`madar_attendance_${user.companyId}_${user.email}`, JSON.stringify(updated));
-
-    const msg = type === "in"
-      ? `${t("تم تسجيل حضورك", "Attendance recorded")} - ${status}${deduction > 0 ? `\n${t("سيتم خصم", "Deduction:")} ${deduction} ${t("د.ل من راتبك", "LYD from salary")}` : ""}`
-      : `${t("تم تسجيل انصرافك", "Leave recorded")} - ${status}${deduction > 0 ? `\n${t("سيتم خصم", "Deduction:")} ${deduction} ${t("د.ل من راتبك", "LYD from salary")}` : ""}`;
-    alert(msg);
-    window.location.reload();
+    // Reload
+    const { data } = await supabase.from("attendance").select("*").eq("employee_id", myData?.id).order("date", { ascending: false });
+    setAttendance(data || []);
+    alert(`${t("تم تسجيل", "Recorded")} ${status} - ${timeStr}`);
   };
 
-  // Submit requests
-  const submitRequest = (type: string, data: any) => {
-    const key = type === "leave" ? "leaves" : type === "advance" ? "advances" : "salary_requests";
-    const existing = JSON.parse(localStorage.getItem(`madar_${key}_${user.companyId}`) || "[]");
-    existing.push({ ...data, id: Date.now().toString(), employee: myData.fullName || user.fullName, status: t("معلّقة", "Pending"), date: new Date().toISOString() });
-    localStorage.setItem(`madar_${key}_${user.companyId}`, JSON.stringify(existing));
-    // Notify company
-    const notifs = JSON.parse(localStorage.getItem(`madar_notif_company_${user.companyId}`) || "[]");
-    notifs.push({ id: Date.now().toString(), message: `${t("طلب جديد من", "New request from")} ${myData.fullName}: ${data.requestType || type}`, date: new Date().toISOString(), read: false });
-    localStorage.setItem(`madar_notif_company_${user.companyId}`, JSON.stringify(notifs));
-    alert(t("تم إرسال طلبك بنجاح! سيتم مراجعته من قبل مسؤول الشركة.", "Request submitted successfully!"));
-    window.location.reload();
+  const submitRequest = async (type: string, data: any) => {
+    await supabase.from("employee_requests").insert({
+      company_id: companyId!,
+      employee_id: myData?.id,
+      type,
+      reason: data.reason || "",
+      amount: Number(data.amount) || 0,
+      start_date: data.from || "",
+      end_date: data.to || "",
+    });
+    alert(t("تم إرسال طلبك بنجاح!", "Request submitted!"));
+    const { data: reqs } = await supabase.from("employee_requests").select("*").eq("employee_id", myData?.id).order("created_at", { ascending: false });
+    setMyRequests(reqs || []);
   };
 
-  if (!user || user.role !== "employee") return null;
+  if (authLoading || loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="text-center"><div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" /><p className="text-muted-foreground">{t("جاري التحميل...", "Loading...")}</p></div>
+    </div>
+  );
+
+  if (!myData) return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="text-center"><ShieldX className="h-16 w-16 text-destructive mx-auto mb-4" /><p className="text-foreground font-bold">{t("لم يتم العثور على بياناتك", "Employee data not found")}</p><button onClick={logout} className="mt-4 px-6 py-2 rounded-xl bg-destructive text-destructive-foreground text-sm">{t("تسجيل الخروج", "Logout")}</button></div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -156,14 +159,14 @@ const UserDashboard = () => {
           <div className="flex items-center gap-2">
             <img src={logo} alt="مدار" className="h-8" />
             <div>
-              <h2 className="font-black text-primary text-sm">{user.companyName || "مدار"}</h2>
-              <p className="text-[10px] text-muted-foreground">{myData.fullName || user.fullName}</p>
+              <h2 className="font-black text-primary text-sm">{companyName || "مدار"}</h2>
+              <p className="text-[10px] text-muted-foreground">{myData.full_name}</p>
             </div>
           </div>
           <button onClick={() => setSidebarOpen(false)} className="md:hidden text-muted-foreground"><X size={20} /></button>
         </div>
         <nav className="p-3 space-y-1 overflow-y-auto h-[calc(100vh-130px)]">
-          {visibleSections.map((item) => (
+          {visibleSections.map(item => (
             <button key={item.key} onClick={() => { setActiveTab(item.key); setSidebarOpen(false); }}
               className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all ${activeTab === item.key ? "gradient-primary text-primary-foreground font-bold" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}>
               <item.icon className="h-4 w-4" />{lang === "ar" ? item.label : item.labelEn}
@@ -180,19 +183,13 @@ const UserDashboard = () => {
       <main className={`flex-1 ${lang === "ar" ? "md:mr-64" : "md:ml-64"}`}>
         <header className="sticky top-0 z-40 glass border-b border-border/30 px-4 py-3 flex items-center justify-between">
           <button onClick={() => setSidebarOpen(true)} className="md:hidden text-foreground"><Menu size={24} /></button>
-          <h1 className="text-lg font-bold text-foreground">
-            {lang === "ar" ? visibleSections.find(s => s.key === activeTab)?.label : visibleSections.find(s => s.key === activeTab)?.labelEn}
-          </h1>
+          <h1 className="text-lg font-bold text-foreground">{lang === "ar" ? visibleSections.find(s => s.key === activeTab)?.label : visibleSections.find(s => s.key === activeTab)?.labelEn}</h1>
           <div className="flex items-center gap-2">
             <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="p-2 rounded-xl hover:bg-secondary">
               {theme === "dark" ? <Sun className="h-4 w-4 text-warning" /> : <Moon className="h-4 w-4 text-foreground" />}
             </button>
-            <button onClick={() => { setLang(lang === "ar" ? "en" : "ar"); }} className="p-2 rounded-xl hover:bg-secondary">
-              <Globe className="h-4 w-4 text-foreground" />
-            </button>
-            <div className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center text-xs font-bold text-primary-foreground">
-              <User className="h-4 w-4" />
-            </div>
+            <button onClick={() => setLang(lang === "ar" ? "en" : "ar")} className="p-2 rounded-xl hover:bg-secondary"><Globe className="h-4 w-4 text-foreground" /></button>
+            <div className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center text-xs font-bold text-primary-foreground"><User className="h-4 w-4" /></div>
           </div>
         </header>
 
@@ -202,7 +199,7 @@ const UserDashboard = () => {
             <div className="glass rounded-2xl p-12 text-center">
               <ShieldX className="h-16 w-16 text-destructive mx-auto mb-4" />
               <h3 className="text-xl font-bold text-foreground mb-2">{t("غير مصرح", "Access Denied")}</h3>
-              <p className="text-sm text-muted-foreground">{t("ليس لديك صلاحية للوصول لهذا القسم.", "You don't have permission.")}</p>
+              <p className="text-sm text-muted-foreground">{t("ليس لديك صلاحية.", "No permission.")}</p>
             </div>
           )}
 
@@ -210,166 +207,52 @@ const UserDashboard = () => {
           {activeTab === "dashboard" && (
             <div className="space-y-6">
               <div className="glass rounded-2xl p-5 border-primary/30">
-                <p className="text-sm text-foreground">{t("مرحباً", "Welcome")} <span className="font-bold text-primary">{myData.fullName || user.fullName}</span>!</p>
-                <p className="text-xs text-muted-foreground mt-1">{t("المسمى:", "Position:")} {myData.position || "-"} · {t("القسم:", "Dept:")} {myData.department || "-"} · {t("الشركة:", "Company:")} {user.companyName}</p>
+                <p className="text-sm text-foreground">{t("مرحباً", "Welcome")} <span className="font-bold text-primary">{myData.full_name}</span>!</p>
+                <p className="text-xs text-muted-foreground mt-1">{t("المسمى:", "Position:")} {myData.position || "-"} · {t("القسم:", "Dept:")} {myData.department || "-"} · {t("الشركة:", "Company:")} {companyName}</p>
               </div>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="glass rounded-2xl p-5">
-                  <DollarSign className="h-5 w-5 text-primary mb-2" />
-                  <p className="text-xs text-muted-foreground">{t("الراتب الأساسي", "Base Salary")}</p>
-                  <p className="text-xl font-black text-foreground">{baseSalary} {t("د.ل", "LYD")}</p>
-                </div>
-                <div className="glass rounded-2xl p-5">
-                  <TrendingUp className="h-5 w-5 text-success mb-2" />
-                  <p className="text-xs text-muted-foreground">{t("المكافآت", "Rewards")}</p>
-                  <p className="text-xl font-black text-success">+{totalRewards} {t("د.ل", "LYD")}</p>
-                </div>
-                <div className="glass rounded-2xl p-5">
-                  <AlertTriangle className="h-5 w-5 text-destructive mb-2" />
-                  <p className="text-xs text-muted-foreground">{t("الخصومات", "Deductions")}</p>
-                  <p className="text-xl font-black text-destructive">-{totalViolations} {t("د.ل", "LYD")}</p>
-                </div>
-                <div className="glass rounded-2xl p-5">
-                  <CreditCard className="h-5 w-5 text-primary mb-2" />
-                  <p className="text-xs text-muted-foreground">{t("صافي الراتب", "Net Salary")}</p>
-                  <p className={`text-xl font-black ${netSalary >= 0 ? "text-primary" : "text-destructive"}`}>{netSalary} {t("د.ل", "LYD")}</p>
-                </div>
+                <div className="glass rounded-2xl p-5"><DollarSign className="h-5 w-5 text-primary mb-2" /><p className="text-xs text-muted-foreground">{t("الراتب", "Salary")}</p><p className="text-xl font-black text-foreground">{baseSalary} {t("د.ل", "LYD")}</p></div>
+                <div className="glass rounded-2xl p-5"><ListChecks className="h-5 w-5 text-primary mb-2" /><p className="text-xs text-muted-foreground">{t("المهام", "Tasks")}</p><p className="text-xl font-black text-foreground">{tasks.length}</p></div>
+                <div className="glass rounded-2xl p-5"><Calendar className="h-5 w-5 text-warning mb-2" /><p className="text-xs text-muted-foreground">{t("الطلبات", "Requests")}</p><p className="text-xl font-black text-foreground">{myRequests.length}</p></div>
+                <div className="glass rounded-2xl p-5"><Clock className="h-5 w-5 text-success mb-2" /><p className="text-xs text-muted-foreground">{t("حضور اليوم", "Today")}</p><p className="text-xl font-black text-foreground">{todayRecord?.check_in || t("لم يسجّل", "N/A")}</p></div>
               </div>
-
-              {/* Today's attendance */}
-              <div className="glass rounded-2xl p-5">
-                <h4 className="font-bold text-foreground mb-3">{t("حضور اليوم", "Today's Attendance")}</h4>
-                {todayRecord ? (
+              {todayRecord && (
+                <div className="glass rounded-2xl p-5">
+                  <h4 className="font-bold text-foreground mb-3">{t("حضور اليوم", "Today's Attendance")}</h4>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="glass rounded-xl p-3">
-                      <p className="text-xs text-muted-foreground">{t("وقت الحضور", "Check-in")}</p>
-                      <p className="text-sm font-bold text-foreground">{todayRecord.checkIn || t("لم يسجّل", "Not recorded")}</p>
-                      {todayRecord.statusIn && <p className="text-xs mt-1">{todayRecord.statusIn}</p>}
-                    </div>
-                    <div className="glass rounded-xl p-3">
-                      <p className="text-xs text-muted-foreground">{t("وقت الانصراف", "Check-out")}</p>
-                      <p className="text-sm font-bold text-foreground">{todayRecord.checkOut || t("لم يسجّل", "Not recorded")}</p>
-                      {todayRecord.statusOut && <p className="text-xs mt-1">{todayRecord.statusOut}</p>}
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">{t("لم تسجل حضورك اليوم بعد.", "You haven't checked in today.")}</p>
-                )}
-                <div className="flex gap-2 mt-3">
-                  {(!todayRecord || !todayRecord.checkIn) && (
-                    <button onClick={() => recordAttendance("in")} className="px-4 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center gap-2">
-                      <Check className="h-4 w-4" /> {t("تسجيل حضور", "Check In")}
-                    </button>
-                  )}
-                  {todayRecord?.checkIn && !todayRecord?.checkOut && (
-                    <button onClick={() => recordAttendance("out")} className="px-4 py-2 rounded-xl bg-destructive text-destructive-foreground text-sm font-bold flex items-center gap-2">
-                      <LogOut className="h-4 w-4" /> {t("تسجيل انصراف", "Check Out")}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Tasks */}
-              {tasks.length > 0 && (
-                <div className="glass rounded-2xl p-5">
-                  <h4 className="font-bold text-foreground mb-3">{t("مهامي", "My Tasks")} ({tasks.length})</h4>
-                  <div className="space-y-2">
-                    {tasks.slice(0, 5).map((tk: any) => (
-                      <div key={tk.id} className="flex items-center justify-between glass rounded-xl p-3">
-                        <div>
-                          <p className="text-sm font-bold text-foreground">{tk.title}</p>
-                          <p className="text-xs text-muted-foreground">{t("التسليم:", "Due:")} {tk.deadline} · {tk.type}</p>
-                        </div>
-                        <span className="px-2 py-0.5 rounded-full text-xs bg-primary/20 text-primary">{tk.status || t("جديدة", "New")}</span>
-                      </div>
-                    ))}
+                    <div className="glass rounded-xl p-3"><p className="text-xs text-muted-foreground">{t("الحضور", "In")}</p><p className="text-sm font-bold text-foreground">{todayRecord.check_in || "-"}</p></div>
+                    <div className="glass rounded-xl p-3"><p className="text-xs text-muted-foreground">{t("الانصراف", "Out")}</p><p className="text-sm font-bold text-foreground">{todayRecord.check_out || "-"}</p></div>
                   </div>
                 </div>
               )}
             </div>
           )}
 
-          {/* My Employment Info */}
+          {/* My Info */}
           {activeTab === "my-info" && (
             <div className="space-y-4">
               <div className="glass rounded-2xl p-6">
                 <h3 className="font-bold text-foreground mb-4">{t("بياناتي الوظيفية", "My Employment Info")}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {[
-                    { l: t("الاسم الكامل", "Full Name"), v: myData.fullName },
-                    { l: t("البريد الإلكتروني", "Email"), v: myData.email },
+                    { l: t("الاسم", "Name"), v: myData.full_name },
+                    { l: t("البريد", "Email"), v: myData.email },
                     { l: t("الهاتف", "Phone"), v: myData.phone || "-" },
-                    { l: t("المسمى الوظيفي", "Position"), v: myData.position || "-" },
+                    { l: t("المسمى", "Position"), v: myData.position || "-" },
                     { l: t("القسم", "Department"), v: myData.department || "-" },
-                    { l: t("نوع العقد", "Contract"), v: myData.contractType || "-" },
-                    { l: t("نهاية العقد", "Contract End"), v: myData.contractEnd || "-" },
-                    { l: t("المؤهل", "Qualification"), v: myData.qualification || "-" },
-                    { l: t("الرقم الوطني", "National ID"), v: myData.nationalId || "-" },
-                    { l: t("اسم المصرف", "Bank"), v: myData.bankName || "-" },
-                    { l: t("رقم الحساب", "Account"), v: myData.bankAccount || "-" },
-                    { l: t("الشركة", "Company"), v: user.companyName },
+                    { l: t("نوع العقد", "Contract"), v: myData.contract_type || "-" },
+                    { l: t("الراتب", "Salary"), v: `${baseSalary} ${t("د.ل", "LYD")}` },
+                    { l: t("المصرف", "Bank"), v: myData.bank_name || "-" },
+                    { l: t("رقم الحساب", "Account"), v: myData.bank_account || "-" },
+                    { l: t("الشركة", "Company"), v: companyName },
                   ].map(item => (
                     <div key={item.l} className="glass rounded-xl p-3">
                       <p className="text-xs text-muted-foreground">{item.l}</p>
-                      <p className="text-sm font-bold text-foreground">{item.v || "-"}</p>
+                      <p className="text-sm font-bold text-foreground">{item.v}</p>
                     </div>
                   ))}
                 </div>
               </div>
-
-              {/* Salary Breakdown */}
-              <div className="glass rounded-2xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-bold text-foreground">{t("كشف الراتب", "Salary Breakdown")}</h4>
-                  <button onClick={() => exportSimplePDF(t("كشف راتب - ", "Salary - ") + (myData.fullName || ""), `<table style="width:100%;border-collapse:collapse;"><tr><td style="padding:10px;border:1px solid #ddd;font-weight:bold;">الراتب الأساسي</td><td style="padding:10px;border:1px solid #ddd;">${baseSalary} د.ل</td></tr><tr><td style="padding:10px;border:1px solid #ddd;">المكافآت</td><td style="padding:10px;border:1px solid #ddd;color:green;">+${totalRewards} د.ل</td></tr><tr><td style="padding:10px;border:1px solid #ddd;">الخصومات</td><td style="padding:10px;border:1px solid #ddd;color:red;">-${totalViolations} د.ل</td></tr><tr><td style="padding:10px;border:1px solid #ddd;">السلف</td><td style="padding:10px;border:1px solid #ddd;color:orange;">-${totalAdvances} د.ل</td></tr><tr style="background:#f0f0f0;"><td style="padding:10px;border:1px solid #ddd;font-weight:bold;">صافي الراتب</td><td style="padding:10px;border:1px solid #ddd;font-weight:bold;">${netSalary} د.ل</td></tr></table>`)} className="px-3 py-1.5 rounded-lg border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button>
-                </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-muted-foreground">{t("الراتب الأساسي", "Base Salary")}</span><span className="text-foreground font-bold">{baseSalary} {t("د.ل", "LYD")}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">{t("المكافآت", "Rewards")}</span><span className="text-success font-bold">+{totalRewards} {t("د.ل", "LYD")}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">{t("الخصومات", "Deductions")}</span><span className="text-destructive font-bold">-{totalViolations} {t("د.ل", "LYD")}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">{t("السلف", "Advances")}</span><span className="text-warning font-bold">-{totalAdvances} {t("د.ل", "LYD")}</span></div>
-                  <div className="border-t border-border pt-2 flex justify-between"><span className="font-bold text-foreground">{t("صافي الراتب", "Net Salary")}</span><span className={`font-black text-lg ${netSalary >= 0 ? "text-primary" : "text-destructive"}`}>{netSalary} {t("د.ل", "LYD")}</span></div>
-                </div>
-              </div>
-
-              {/* Rewards */}
-              {rewards.length > 0 && (
-                <div className="glass rounded-2xl p-6">
-                  <h4 className="font-bold text-foreground mb-3">{t("المكافآت", "Rewards")}</h4>
-                  <div className="space-y-2">{rewards.map((r: any) => (
-                    <div key={r.id} className="flex justify-between glass rounded-xl p-3">
-                      <span className="text-sm text-foreground">{r.reason}</span>
-                      <span className="text-sm font-bold text-success">+{r.amount} {t("د.ل", "LYD")}</span>
-                    </div>
-                  ))}</div>
-                </div>
-              )}
-
-              {/* Violations */}
-              {violations.length > 0 && (
-                <div className="glass rounded-2xl p-6">
-                  <h4 className="font-bold text-foreground mb-3">{t("المخالفات والخصومات", "Violations")}</h4>
-                  <div className="space-y-2">{violations.map((v: any) => (
-                    <div key={v.id} className="flex justify-between glass rounded-xl p-3">
-                      <div><p className="text-sm text-foreground">{v.reason}</p><p className="text-xs text-muted-foreground">{v.type}</p></div>
-                      <span className="text-sm font-bold text-destructive">-{v.deduction} {t("د.ل", "LYD")}</span>
-                    </div>
-                  ))}</div>
-                </div>
-              )}
-
-              {/* Leaves */}
-              {leaves.length > 0 && (
-                <div className="glass rounded-2xl p-6">
-                  <h4 className="font-bold text-foreground mb-3">{t("الإجازات", "Leaves")}</h4>
-                  <div className="space-y-2">{leaves.map((l: any) => (
-                    <div key={l.id} className="flex justify-between glass rounded-xl p-3">
-                      <div><p className="text-sm text-foreground">{l.type}</p><p className="text-xs text-muted-foreground">{l.from} → {l.to}</p></div>
-                      <span className={`px-2 py-0.5 rounded-full text-xs ${l.status === "مقبولة" || l.status === "Approved" ? "bg-success/20 text-success" : "bg-warning/20 text-warning"}`}>{l.status}</span>
-                    </div>
-                  ))}</div>
-                </div>
-              )}
             </div>
           )}
 
@@ -377,46 +260,35 @@ const UserDashboard = () => {
           {activeTab === "attendance" && (
             <div className="space-y-4">
               <div className="glass rounded-2xl p-6">
-                <h3 className="font-bold text-foreground mb-2">{t("الحضور والانصراف", "Attendance")}</h3>
-                <p className="text-sm text-muted-foreground mb-4">{t("سجّل حضورك وانصرافك يومياً. سيتم احتساب التأخير والغياب تلقائياً.", "Record your daily attendance. Lateness and absence will be calculated automatically.")}</p>
-                <div className="glass rounded-xl p-4 mb-4 border-primary/30">
-                  <p className="text-sm text-foreground">{t("ساعات العمل:", "Working Hours:")} <span className="font-bold text-primary">{schedule.start} - {schedule.end}</span></p>
-                  <p className="text-xs text-muted-foreground mt-1">{t("التأخير المسموح:", "Allowed Late:")} {schedule.lateMinutes || 15} {t("دقيقة", "min")} · {t("بعد", "After")} {schedule.absentMinutes || 120} {t("دقيقة يُحسب غياب", "min = absence")}</p>
-                </div>
-
+                <h3 className="font-bold text-foreground mb-4">{t("الحضور والانصراف", "Attendance")}</h3>
                 <div className="flex gap-3 mb-6">
-                  {(!todayRecord || !todayRecord.checkIn) && (
+                  {(!todayRecord || !todayRecord.check_in) && (
                     <button onClick={() => recordAttendance("in")} className="px-6 py-3 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center gap-2">
                       <Check className="h-5 w-5" /> {t("تسجيل حضور", "Check In")}
                     </button>
                   )}
-                  {todayRecord?.checkIn && !todayRecord?.checkOut && (
+                  {todayRecord?.check_in && !todayRecord?.check_out && (
                     <button onClick={() => recordAttendance("out")} className="px-6 py-3 rounded-xl bg-destructive text-destructive-foreground text-sm font-bold flex items-center gap-2">
                       <LogOut className="h-5 w-5" /> {t("تسجيل انصراف", "Check Out")}
                     </button>
                   )}
-                  {todayRecord?.checkIn && todayRecord?.checkOut && (
+                  {todayRecord?.check_in && todayRecord?.check_out && (
                     <div className="glass rounded-xl p-4 border-success/30">
                       <p className="text-sm text-success font-bold">✅ {t("تم تسجيل حضورك وانصرافك اليوم", "Today's attendance complete")}</p>
                     </div>
                   )}
                 </div>
-
                 <h4 className="font-bold text-foreground mb-3">{t("سجل الحضور", "Attendance Log")}</h4>
-                {attendance.length === 0 ? <p className="text-sm text-muted-foreground">{t("لا يوجد سجل حضور.", "No attendance records.")}</p> : (
-                  <div className="space-y-2">
-                    {[...attendance].reverse().map((a: any) => (
-                      <div key={a.date} className="glass rounded-xl p-3 flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-bold text-foreground">{a.date}</p>
-                          <p className="text-xs text-muted-foreground">{t("حضور:", "In:")} {a.checkIn || "-"} · {t("انصراف:", "Out:")} {a.checkOut || "-"}</p>
-                          {a.statusIn && <p className="text-xs">{a.statusIn}</p>}
-                          {a.statusOut && <p className="text-xs">{a.statusOut}</p>}
-                        </div>
-                        {a.deduction > 0 && <span className="text-xs font-bold text-destructive">-{a.deduction} {t("د.ل", "LYD")}</span>}
+                {attendance.length === 0 ? <p className="text-sm text-muted-foreground">{t("لا يوجد سجل.", "No records.")}</p> : (
+                  <div className="space-y-2">{attendance.map(a => (
+                    <div key={a.id} className="glass rounded-xl p-3 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-foreground">{a.date}</p>
+                        <p className="text-xs text-muted-foreground">{t("حضور:", "In:")} {a.check_in || "-"} · {t("انصراف:", "Out:")} {a.check_out || "-"}</p>
                       </div>
-                    ))}
-                  </div>
+                      <span className="text-xs text-muted-foreground">{a.status}</span>
+                    </div>
+                  ))}</div>
                 )}
               </div>
             </div>
@@ -426,114 +298,80 @@ const UserDashboard = () => {
           {activeTab === "requests" && (
             <div className="space-y-4">
               <div className="glass rounded-2xl p-6">
-                <h3 className="font-bold text-foreground mb-2">{t("طلباتي", "My Requests")}</h3>
-                <p className="text-sm text-muted-foreground mb-4">{t("أرسل طلبات الإجازة والسلف وسحب الراتب لمسؤول شركتك.", "Submit leave, advance and salary requests.")}</p>
+                <h3 className="font-bold text-foreground mb-4">{t("طلباتي", "My Requests")}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  {/* Leave */}
                   <div className="glass rounded-xl p-4">
                     <Calendar className="h-6 w-6 text-primary mb-2" />
                     <h4 className="font-bold text-foreground text-sm mb-3">{t("طلب إجازة", "Leave Request")}</h4>
-                    <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); submitRequest("leave", { ...Object.fromEntries(fd), requestType: t("إجازة", "Leave") }); }} className="space-y-2">
-                      <select name="type" required className={inputClass}>
-                        <option>{t("إجازة سنوية", "Annual Leave")}</option>
-                        <option>{t("إجازة مرضية", "Sick Leave")}</option>
-                        <option>{t("إجازة طارئة", "Emergency Leave")}</option>
-                        <option>{t("إجازة بدون راتب", "Unpaid Leave")}</option>
-                      </select>
-                      <input name="from" type="date" required className={inputClass} placeholder={t("من", "From")} />
-                      <input name="to" type="date" required className={inputClass} placeholder={t("إلى", "To")} />
+                    <form onSubmit={e => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); submitRequest("leave", Object.fromEntries(fd)); }} className="space-y-2">
+                      <select name="type" className={inputClass}><option>{t("سنوية", "Annual")}</option><option>{t("مرضية", "Sick")}</option><option>{t("طارئة", "Emergency")}</option></select>
+                      <input name="from" type="date" required className={inputClass} />
+                      <input name="to" type="date" required className={inputClass} />
                       <textarea name="reason" rows={2} className={inputClass} placeholder={t("السبب", "Reason")} />
                       <button type="submit" className="w-full px-4 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center justify-center gap-2"><Send className="h-4 w-4" /> {t("إرسال", "Submit")}</button>
                     </form>
                   </div>
-
-                  {/* Advance */}
                   <div className="glass rounded-xl p-4">
                     <DollarSign className="h-6 w-6 text-warning mb-2" />
-                    <h4 className="font-bold text-foreground text-sm mb-3">{t("طلب سلفة", "Advance Request")}</h4>
-                    <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); submitRequest("advance", { ...Object.fromEntries(fd), requestType: t("سلفة", "Advance") }); }} className="space-y-2">
-                      <input name="amount" type="number" required className={inputClass} placeholder={t("المبلغ (د.ل)", "Amount (LYD)")} />
+                    <h4 className="font-bold text-foreground text-sm mb-3">{t("طلب سلفة", "Advance")}</h4>
+                    <form onSubmit={e => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); submitRequest("advance", Object.fromEntries(fd)); }} className="space-y-2">
+                      <input name="amount" type="number" required className={inputClass} placeholder={t("المبلغ", "Amount")} />
                       <textarea name="reason" rows={2} className={inputClass} placeholder={t("السبب", "Reason")} />
                       <button type="submit" className="w-full px-4 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center justify-center gap-2"><Send className="h-4 w-4" /> {t("إرسال", "Submit")}</button>
                     </form>
                   </div>
-
-                  {/* Salary Request */}
                   <div className="glass rounded-xl p-4">
                     <CreditCard className="h-6 w-6 text-success mb-2" />
-                    <h4 className="font-bold text-foreground text-sm mb-3">{t("طلب سحب راتب", "Salary Withdrawal")}</h4>
-                    <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); submitRequest("salary_request", { ...Object.fromEntries(fd), requestType: t("سحب راتب", "Salary Withdrawal") }); }} className="space-y-2">
-                      <select name="type" required className={inputClass}>
-                        <option>{t("سحب دوري (نهاية الشهر)", "Monthly")}</option>
-                        <option>{t("سحب مبكر", "Early Withdrawal")}</option>
-                      </select>
-                      <input name="amount" type="number" className={inputClass} placeholder={t("المبلغ (اختياري)", "Amount (optional)")} />
-                      <textarea name="notes" rows={2} className={inputClass} placeholder={t("ملاحظات", "Notes")} />
+                    <h4 className="font-bold text-foreground text-sm mb-3">{t("سحب راتب", "Salary Withdrawal")}</h4>
+                    <form onSubmit={e => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); submitRequest("salary", Object.fromEntries(fd)); }} className="space-y-2">
+                      <input name="amount" type="number" className={inputClass} placeholder={t("المبلغ", "Amount")} />
+                      <textarea name="reason" rows={2} className={inputClass} placeholder={t("ملاحظات", "Notes")} />
                       <button type="submit" className="w-full px-4 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center justify-center gap-2"><Send className="h-4 w-4" /> {t("إرسال", "Submit")}</button>
                     </form>
                   </div>
                 </div>
-
-                {/* Previous requests */}
                 <h4 className="font-bold text-foreground mb-3">{t("طلباتي السابقة", "Previous Requests")}</h4>
-                {(() => {
-                  const allReqs = [
-                    ...leaves.map((l: any) => ({ ...l, reqType: t("إجازة", "Leave") })),
-                    ...advances.map((a: any) => ({ ...a, reqType: t("سلفة", "Advance") })),
-                  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                  return allReqs.length === 0 ? <p className="text-sm text-muted-foreground">{t("لا توجد طلبات سابقة.", "No previous requests.")}</p> : (
-                    <div className="space-y-2">{allReqs.map((r: any) => (
-                      <div key={r.id} className="glass rounded-xl p-3 flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-bold text-foreground">{r.reqType} {r.type ? `- ${r.type}` : ""}</p>
-                          <p className="text-xs text-muted-foreground">{r.from ? `${r.from} → ${r.to}` : r.amount ? `${r.amount} ${t("د.ل", "LYD")}` : ""} · {r.reason || ""}</p>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded-full text-xs ${r.status === "مقبولة" || r.status === "Approved" ? "bg-success/20 text-success" : r.status === "مرفوضة" || r.status === "Rejected" ? "bg-destructive/20 text-destructive" : "bg-warning/20 text-warning"}`}>{r.status}</span>
-                      </div>
-                    ))}</div>
-                  );
-                })()}
-              </div>
-            </div>
-          )}
-
-          {/* My Tasks */}
-          {activeTab === "my-tasks" && (
-            <div className="space-y-4">
-              <div className="glass rounded-2xl p-6">
-                <h3 className="font-bold text-foreground mb-2">{t("مهامي", "My Tasks")}</h3>
-                <p className="text-sm text-muted-foreground mb-4">{t("المهام المرسلة إليك من مسؤول الشركة.", "Tasks assigned to you by company admin.")}</p>
-                {tasks.length === 0 ? (
-                  <div className="glass rounded-xl p-6 text-center"><ListChecks className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لا توجد مهام حالياً.", "No tasks currently.")}</p></div>
-                ) : (
-                  <div className="space-y-3">
-                    {tasks.map((tk: any) => (
-                      <div key={tk.id} className="glass rounded-xl p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="text-sm font-bold text-foreground">{tk.title}</h4>
-                          <span className={`px-2 py-0.5 rounded-full text-xs ${tk.status === "مكتملة" || tk.status === "Done" ? "bg-success/20 text-success" : tk.status === "قيد التنفيذ" ? "bg-info/20 text-info" : "bg-primary/20 text-primary"}`}>{tk.status || t("جديدة", "New")}</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground mb-2">{t("النوع:", "Type:")} {tk.type} · {t("التسليم:", "Due:")} {tk.deadline}</p>
-                        {tk.details && <p className="text-xs text-muted-foreground">{tk.details}</p>}
-                        {tk.extraValue && <p className="text-xs text-success mt-1">{t("قيمة إضافية:", "Extra:")} {tk.extraValue} {t("د.ل", "LYD")}</p>}
-                        {tk.status !== "مكتملة" && tk.status !== "Done" && (
-                          <button onClick={() => {
-                            const allTasks = JSON.parse(localStorage.getItem(`madar_tasks_${user.companyId}`) || "[]");
-                            const updated = allTasks.map((t: any) => t.id === tk.id ? { ...t, status: t("مكتملة", "Done") } : t);
-                            localStorage.setItem(`madar_tasks_${user.companyId}`, JSON.stringify(updated));
-                            window.location.reload();
-                          }} className="mt-2 px-4 py-1.5 rounded-lg border border-success text-success text-xs font-bold flex items-center gap-1"><Check className="h-3 w-3" /> {t("تعيين كمكتملة", "Mark Done")}</button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                {myRequests.length === 0 ? <p className="text-sm text-muted-foreground">{t("لا توجد طلبات.", "No requests.")}</p> : (
+                  <div className="space-y-2">{myRequests.map(r => (
+                    <div key={r.id} className="glass rounded-xl p-3 flex items-center justify-between">
+                      <div><p className="text-sm font-bold text-foreground">{r.type} {r.reason ? `- ${r.reason}` : ""}</p><p className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString("ar-LY")}</p></div>
+                      <span className={`px-2 py-0.5 rounded-full text-xs ${r.status === "approved" ? "bg-success/20 text-success" : r.status === "rejected" ? "bg-destructive/20 text-destructive" : "bg-warning/20 text-warning"}`}>{r.status}</span>
+                    </div>
+                  ))}</div>
                 )}
               </div>
             </div>
           )}
 
-          {/* Company sections based on permissions */}
-          {permissions.includes(activeTab) && activeTab === "products" && (
+          {/* Tasks */}
+          {activeTab === "my-tasks" && (
+            <div className="space-y-4">
+              <div className="glass rounded-2xl p-6">
+                <h3 className="font-bold text-foreground mb-4">{t("مهامي", "My Tasks")}</h3>
+                {tasks.length === 0 ? (
+                  <div className="text-center py-8"><ListChecks className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لا توجد مهام.", "No tasks.")}</p></div>
+                ) : (
+                  <div className="space-y-2">{tasks.map(tk => (
+                    <div key={tk.id} className="glass rounded-xl p-3 flex items-center justify-between">
+                      <div><p className="text-sm font-bold text-foreground">{tk.title}</p><p className="text-xs text-muted-foreground">{tk.description} · {t("الأولوية:", "Priority:")} {tk.priority}</p></div>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded-full text-xs ${tk.status === "completed" ? "bg-success/20 text-success" : "bg-warning/20 text-warning"}`}>{tk.status}</span>
+                        {tk.status !== "completed" && (
+                          <button onClick={async () => {
+                            await supabase.from("tasks").update({ status: "completed" }).eq("id", tk.id);
+                            setTasks(tasks.map(t => t.id === tk.id ? { ...t, status: "completed" } : t));
+                          }} className="text-xs px-2 py-1 rounded-lg bg-success/20 text-success">{t("إنجاز", "Complete")}</button>
+                        )}
+                      </div>
+                    </div>
+                  ))}</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Products (read-only based on permissions) */}
+          {activeTab === "products" && permissions.includes("products") && (
             <div className="space-y-4">
               <h3 className="font-bold text-foreground">{t("المنتجات", "Products")} ({products.length})</h3>
               {products.length > 0 ? (
@@ -542,87 +380,41 @@ const UserDashboard = () => {
                     <thead><tr className="border-b border-border">
                       <th className="text-right py-2 px-3 text-muted-foreground">{t("المنتج", "Product")}</th>
                       <th className="text-right py-2 px-3 text-muted-foreground">{t("الكمية", "Qty")}</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground">{t("سعر البيع", "Price")}</th>
+                      <th className="text-right py-2 px-3 text-muted-foreground">{t("السعر", "Price")}</th>
                     </tr></thead>
-                    <tbody>{products.map((p: any) => (
+                    <tbody>{products.map(p => (
                       <tr key={p.id} className="border-b border-border/30">
                         <td className="py-2 px-3 text-foreground">{p.name}</td>
                         <td className="py-2 px-3 text-foreground">{p.quantity}</td>
-                        <td className="py-2 px-3 text-primary font-bold">{p.sellPrice}</td>
+                        <td className="py-2 px-3 text-primary font-bold">{p.sell_price}</td>
                       </tr>
                     ))}</tbody>
                   </table>
                 </div>
-              ) : <div className="glass rounded-2xl p-6 text-center"><p className="text-sm text-muted-foreground">{t("لا توجد منتجات.", "No products.")}</p></div>}
+              ) : (
+                <div className="glass rounded-2xl p-6 text-center"><Package className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لا توجد منتجات.", "No products.")}</p></div>
+              )}
             </div>
           )}
 
-          {permissions.includes(activeTab) && activeTab === "stock" && (
-            <div className="space-y-4">
-              <h3 className="font-bold text-foreground">{t("حركة المخزون", "Stock Movements")}</h3>
-              {movements.length > 0 ? (
-                <div className="glass rounded-2xl p-4 overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead><tr className="border-b border-border">
-                      <th className="text-right py-2 px-3 text-muted-foreground">{t("المنتج", "Product")}</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground">{t("النوع", "Type")}</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground">{t("الكمية", "Qty")}</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground">{t("التاريخ", "Date")}</th>
-                    </tr></thead>
-                    <tbody>{movements.map((m: any) => (
-                      <tr key={m.id} className="border-b border-border/30">
-                        <td className="py-2 px-3 text-foreground">{m.product}</td>
-                        <td className="py-2 px-3 text-primary">{m.movementType}</td>
-                        <td className="py-2 px-3">{m.quantity}</td>
-                        <td className="py-2 px-3 text-muted-foreground text-xs">{new Date(m.date).toLocaleDateString("ar-LY")}</td>
-                      </tr>
-                    ))}</tbody>
-                  </table>
+          {/* Settings */}
+          {activeTab === "settings" && (
+            <div className="glass rounded-2xl p-6 max-w-lg">
+              <h3 className="font-bold text-foreground mb-4">{t("الإعدادات", "Settings")}</h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between glass rounded-xl p-4">
+                  <p className="text-sm font-bold text-foreground">{t("المظهر", "Theme")}</p>
+                  <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="px-4 py-2 rounded-xl border border-border text-foreground text-sm">
+                    {theme === "dark" ? t("نهاري", "Light") : t("ليلي", "Dark")}
+                  </button>
                 </div>
-              ) : <div className="glass rounded-2xl p-6 text-center"><p className="text-sm text-muted-foreground">{t("لا توجد حركات.", "No movements.")}</p></div>}
-            </div>
-          )}
-
-          {permissions.includes(activeTab) && activeTab === "invoices" && (
-            <div className="space-y-4">
-              <h3 className="font-bold text-foreground">{t("الفواتير", "Invoices")}</h3>
-              {invoices.length > 0 ? (
-                <div className="glass rounded-2xl p-4 overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead><tr className="border-b border-border">
-                      <th className="text-right py-2 px-3 text-muted-foreground">{t("رقم الفاتورة", "Invoice #")}</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground">{t("العميل", "Client")}</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground">{t("الإجمالي", "Total")}</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground">{t("الحالة", "Status")}</th>
-                    </tr></thead>
-                    <tbody>{invoices.map((inv: any) => (
-                      <tr key={inv.id} className="border-b border-border/30">
-                        <td className="py-2 px-3 text-foreground">{inv.invoiceNumber}</td>
-                        <td className="py-2 px-3 text-muted-foreground">{inv.clientName}</td>
-                        <td className="py-2 px-3 text-primary font-bold">{inv.total} {t("د.ل", "LYD")}</td>
-                        <td className="py-2 px-3"><span className={`px-2 py-0.5 rounded-full text-xs ${inv.status === "paid" ? "bg-success/20 text-success" : "bg-warning/20 text-warning"}`}>{inv.status === "paid" ? t("مدفوعة", "Paid") : t("معلقة", "Pending")}</span></td>
-                      </tr>
-                    ))}</tbody>
-                  </table>
+                <div className="flex items-center justify-between glass rounded-xl p-4">
+                  <p className="text-sm font-bold text-foreground">{t("اللغة", "Language")}</p>
+                  <button onClick={() => setLang(lang === "ar" ? "en" : "ar")} className="px-4 py-2 rounded-xl border border-border text-foreground text-sm">
+                    {lang === "ar" ? "English" : "العربية"}
+                  </button>
                 </div>
-              ) : <div className="glass rounded-2xl p-6 text-center"><p className="text-sm text-muted-foreground">{t("لا توجد فواتير.", "No invoices.")}</p></div>}
-            </div>
-          )}
-
-          {/* Generic permitted sections */}
-          {permissions.includes(activeTab) && !["dashboard", "my-info", "attendance", "requests", "my-tasks", "products", "stock", "invoices"].includes(activeTab) && (
-            <div className="glass rounded-2xl p-8 text-center">
-              <div className="w-16 h-16 rounded-full gradient-primary flex items-center justify-center mx-auto mb-4">
-                {(() => {
-                  const section = allSections.find(s => s.key === activeTab);
-                  if (section) { const Icon = section.icon; return <Icon className="h-8 w-8 text-primary-foreground" />; }
-                  return null;
-                })()}
               </div>
-              <h3 className="text-lg font-bold text-foreground mb-2">
-                {lang === "ar" ? allSections.find(s => s.key === activeTab)?.label : allSections.find(s => s.key === activeTab)?.labelEn}
-              </h3>
-              <p className="text-sm text-muted-foreground">{t("هذا القسم متاح لك حسب صلاحياتك.", "This section is available based on your permissions.")}</p>
             </div>
           )}
         </div>

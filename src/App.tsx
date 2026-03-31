@@ -9,6 +9,8 @@ import NotFound from "./pages/NotFound.tsx";
 import CompanyLogin from "./pages/auth/CompanyLogin.tsx";
 import CompanyRegister from "./pages/auth/CompanyRegister.tsx";
 import UserLogin from "./pages/auth/UserLogin.tsx";
+import ForgotPassword from "./pages/auth/ForgotPassword.tsx";
+import ResetPassword from "./pages/auth/ResetPassword.tsx";
 import AdminDashboard from "./pages/dashboard/AdminDashboard.tsx";
 import CompanyDashboard from "./pages/dashboard/CompanyDashboard.tsx";
 import UserDashboard from "./pages/dashboard/UserDashboard.tsx";

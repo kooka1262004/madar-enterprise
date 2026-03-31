@@ -191,19 +191,35 @@ const CompanyDashboard = () => {
   };
 
   const saveUser = async (data: any) => {
-    // Create Supabase auth user for employee
-    const { data: authData, error } = await supabase.auth.signUp({ email: data.email, password: data.password, options: { data: { full_name: data.username } } });
-    if (error) { alert(error.message); return; }
-    if (authData.user) {
-      await supabase.from("user_roles").insert({ user_id: authData.user.id, role: "employee" as any });
-      const rolePermissions: Record<string, string[]> = {
-        "مسؤول مخزن": ["dashboard","my-info","products","stock","barcode","suppliers","inventory","returns"],
-        "محاسب": ["dashboard","my-info","accounting","profits","invoices","reports"],
-        "مسؤول موارد بشرية": ["dashboard","my-info","hr","users","permissions"],
-        "موظف عادي": ["dashboard","my-info"],
-      };
-      const perms = rolePermissions[data.role] || ["dashboard", "my-info"];
-      await supabase.from("employees").insert({ company_id: companyId!, user_id: authData.user.id, full_name: data.username, email: data.email, position: data.role, department: data.role, permissions: perms, status: "active" });
+    const rolePermissions: Record<string, string[]> = {
+      "مسؤول مخزن": ["dashboard","my-info","products","stock","barcode","suppliers","inventory","returns"],
+      "محاسب": ["dashboard","my-info","accounting","profits","invoices","reports"],
+      "مسؤول موارد بشرية": ["dashboard","my-info","hr","users","permissions"],
+      "موظف عادي": ["dashboard","my-info"],
+    };
+    const perms = rolePermissions[data.role] || ["dashboard", "my-info"];
+    
+    try {
+      const { data: result, error } = await supabase.functions.invoke("create-employee", {
+        body: {
+          email: data.email.trim().toLowerCase(),
+          password: data.password,
+          fullName: data.username,
+          position: data.role,
+          department: data.role,
+          permissions: perms,
+          companyId: companyId,
+          salary: Number(data.salary) || 0,
+          phone: data.phone || "",
+          contractType: data.contractType || "دائم",
+        },
+      });
+      if (error) { alert(t("خطأ في إنشاء الموظف", "Error creating employee")); return; }
+      if (result?.error) { alert(result.error); return; }
+      alert(t("تم إضافة الموظف بنجاح!", "Employee added successfully!"));
+    } catch (err: any) {
+      alert(err.message || t("خطأ غير متوقع", "Unexpected error"));
+      return;
     }
     const { data: emps } = await supabase.from("employees").select("*").eq("company_id", companyId).order("created_at", { ascending: false });
     setEmployees(emps || []);

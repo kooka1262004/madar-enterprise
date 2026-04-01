@@ -57,7 +57,8 @@ const statusMap: Record<string, { ar: string; en: string; color: string }> = {
   pending: { ar: "معلق", en: "Pending", color: "bg-warning/20 text-warning" },
   processing: { ar: "قيد التنفيذ", en: "Processing", color: "bg-primary/20 text-primary" },
   accepted: { ar: "تم القبول", en: "Accepted", color: "bg-success/20 text-success" },
-  shipped: { ar: "تم الشحن", en: "Shipped", color: "bg-primary/20 text-primary" },
+  courier_sent: { ar: "تم إرسال مندوب", en: "Courier Sent", color: "bg-primary/20 text-primary" },
+  shipped: { ar: "تم الشحن", en: "Shipped", color: "bg-success/20 text-success" },
   delivered: { ar: "تم التسليم", en: "Delivered", color: "bg-success/20 text-success" },
   cancelled: { ar: "ملغي", en: "Cancelled", color: "bg-destructive/20 text-destructive" },
   approved: { ar: "موافق", en: "Approved", color: "bg-success/20 text-success" },
@@ -346,12 +347,23 @@ const CompanyDashboard = () => {
 
   const subscribeToplan = async (plan: any) => {
     if (walletBalance < plan.price) {
-      alert(t("رصيدك غير كافي! الرجاء شحن المحفظة أولاً.", "Insufficient balance! Please charge your wallet first."));
+      alert(t("رصيدك غير كافٍ! الرجاء شحن المحفظة أولاً.", "Insufficient balance! Please charge your wallet first."));
+      setActiveTab("wallet");
       return;
     }
-    if (!confirm(t(`سوف يتم خصم ${plan.price} د.ل من محفظتك تلقائياً. هل توافق؟`, `${plan.price} LYD will be deducted. Confirm?`))) return;
-    await supabase.from("subscription_requests").insert({ company_id: companyId!, plan_id: plan.id, plan_name: plan.name, price: plan.price, payment_method: "محفظة" });
-    alert(t("تم إرسال طلب الاشتراك! سيراجعه مسؤول النظام.", "Subscription request sent!"));
+    if (!confirm(t(`سوف يتم خصم ${plan.price} د.ل من محفظتك تلقائياً وتفعيل الباقة مباشرة. هل توافق؟`, `${plan.price} LYD will be deducted and plan activated immediately. Confirm?`))) return;
+    // خصم تلقائي من المحفظة
+    const newBalance = walletBalance - plan.price;
+    await supabase.from("companies").update({ wallet: newBalance, plan: plan.id, plan_name: plan.name }).eq("id", companyId);
+    // إنشاء اشتراك نشط
+    const endDate = new Date(); endDate.setMonth(endDate.getMonth() + (plan.period === "سنة" ? 12 : plan.period === "6 أشهر" ? 6 : 1));
+    await supabase.from("subscriptions").insert({ company_id: companyId!, plan_id: plan.id, plan_name: plan.name, price: plan.price, start_date: new Date().toISOString(), end_date: endDate.toISOString(), status: "active" });
+    // تسجيل حركة مالية
+    await supabase.from("wallet_transactions").insert({ company_id: companyId!, amount: plan.price, type: "payment", description: `اشتراك باقة ${plan.name}` });
+    setCompany({ ...company, wallet: newBalance, plan: plan.id, plan_name: plan.name });
+    const { data: sub } = await supabase.from("subscriptions").select("*").eq("company_id", companyId).eq("status", "active").order("created_at", { ascending: false }).limit(1);
+    setSubscription(sub?.[0] || null);
+    alert(t("✅ تم الاشتراك بنجاح وخصم المبلغ من محفظتك!", "✅ Subscription activated and amount deducted!"));
   };
 
   const handleEmpRequest = async (id: string, status: string, notes?: string) => {
@@ -502,7 +514,7 @@ const CompanyDashboard = () => {
               </div>
               <div className={cardClass}>
                 <h3 className="font-bold text-foreground mb-4">{t("الباقات المتاحة", "Available Plans")}</h3>
-                <p className="text-xs text-muted-foreground mb-4">{t("اختر الباقة المناسبة لك. سيتم الخصم من محفظتك تلقائياً عند الموافقة.", "Choose a plan. Amount will be deducted from your wallet upon approval.")}</p>
+                <p className="text-xs text-muted-foreground mb-4">{t("اختر الباقة المناسبة لك. سيتم الخصم تلقائياً من محفظتك فوراً عند الاشتراك.", "Choose a plan. Amount will be auto-deducted from your wallet immediately.")}</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {plans.map(plan => (
                     <div key={plan.id} className={`${cardClass} border ${company?.plan_name === plan.name ? "border-primary" : "border-border/50"}`}>
@@ -714,13 +726,69 @@ const CompanyDashboard = () => {
               <div className={cardClass}>
                 <h3 className="font-bold text-foreground mb-3">{t("سجل عمليات الشحن", "Charge History")}</h3>
                 {walletRequests.length === 0 ? <p className="text-sm text-muted-foreground">{t("لا توجد عمليات.", "No transactions.")}</p> : (
-                  <div className="space-y-2">{walletRequests.map(wr => (
-                    <div key={wr.id} className="glass rounded-xl p-3 flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-bold text-foreground">{wr.method} - {wr.amount} {t("د.ل", "LYD")}</p>
-                        <p className="text-xs text-muted-foreground">{new Date(wr.created_at).toLocaleDateString("ar-LY")}</p>
+                  <div className="space-y-3">{walletRequests.map(wr => (
+                    <div key={wr.id} className="glass rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <p className="text-sm font-bold text-foreground">{wr.method} - {wr.amount} {t("د.ل", "LYD")}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(wr.created_at).toLocaleDateString("ar-LY")}</p>
+                        </div>
+                        <StatusBadge status={wr.status} />
                       </div>
-                      <StatusBadge status={wr.status} />
+                      {/* شريط تتبع حالة الطلب */}
+                      {wr.method === "كاش" && (
+                        <div className="flex items-center gap-1 mb-3 mt-2">
+                          {["pending","accepted","courier_sent","shipped"].map((s, i) => (
+                            <div key={s} className="flex-1">
+                              <div className={`h-1.5 rounded-full ${["pending","accepted","courier_sent","shipped"].indexOf(wr.status) >= i ? (wr.status === "cancelled" ? "bg-destructive" : "bg-primary") : "bg-border"}`} />
+                              <p className="text-[8px] text-center text-muted-foreground mt-1">{statusMap[s]?.ar}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {/* إذا تم إرسال مندوب - نطلب رفع الواصل */}
+                      {wr.status === "courier_sent" && !wr.proof_url && (
+                        <div className="bg-warning/10 border border-warning/30 rounded-xl p-3 mt-2">
+                          <p className="text-sm text-warning font-bold mb-2">📄 {t("الرجاء رفع واصل وصورة تثبت الدفع لشحن المحفظة", "Please upload receipt and payment proof to charge wallet")}</p>
+                          <form onSubmit={async (e) => {
+                            e.preventDefault();
+                            const fd = new FormData(e.target as HTMLFormElement);
+                            const proofFile = fd.get("proof") as File;
+                            if (!proofFile || proofFile.size === 0) { alert(t("يجب رفع صورة الإثبات!", "Proof image required!")); return; }
+                            const fileName = `wallet/${companyId}/${Date.now()}_${proofFile.name}`;
+                            const { data: upData } = await supabase.storage.from("uploads").upload(fileName, proofFile);
+                            if (upData) {
+                              const proofUrl = supabase.storage.from("uploads").getPublicUrl(fileName).data.publicUrl;
+                              await supabase.from("wallet_requests").update({ proof_url: proofUrl, receipt_uploaded_at: new Date().toISOString() }).eq("id", wr.id);
+                              // إشعار للمسؤول
+                              const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+                              if (admins) {
+                                for (const admin of admins) {
+                                  await supabase.from("notifications").insert({ user_id: admin.user_id, title: t("تم رفع إيصال 📄","Receipt Uploaded 📄"), message: `${company?.company_name} ${t("رفعت إيصال شحن كاش بقيمة","uploaded cash receipt for")} ${wr.amount} ${t("د.ل","LYD")}`, type: "wallet" });
+                                }
+                              }
+                              await refreshData("wallet");
+                              alert(t("✅ تم رفع الإيصال بنجاح! سيراجعه مسؤول النظام.", "✅ Receipt uploaded! Admin will review."));
+                            }
+                          }} className="space-y-2">
+                            <input name="proof" type="file" accept="image/*" required className={inputClass} />
+                            <button type="submit" className={btnPrimary}>{t("إرسال الإثبات", "Upload Proof")}</button>
+                          </form>
+                        </div>
+                      )}
+                      {wr.status === "courier_sent" && wr.proof_url && (
+                        <div className="bg-success/10 border border-success/30 rounded-xl p-3 mt-2">
+                          <p className="text-sm text-success font-bold">✅ {t("تم رفع الإيصال - في انتظار مراجعة المسؤول", "Receipt uploaded - awaiting admin review")}</p>
+                        </div>
+                      )}
+                      {/* سبب الإلغاء */}
+                      {wr.status === "cancelled" && wr.cancel_reason && (
+                        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-3 mt-2">
+                          <p className="text-xs text-destructive font-bold">❌ {t("سبب الإلغاء:", "Cancel reason:")} {wr.cancel_reason}</p>
+                          {wr.admin_notes && <p className="text-xs text-muted-foreground mt-1">{t("ملاحظات المسؤول:", "Admin notes:")} {wr.admin_notes}</p>}
+                        </div>
+                      )}
+                      {wr.proof_url && <a href={wr.proof_url} target="_blank" className="text-xs text-primary underline mt-1 block">📎 {t("عرض الإثبات", "View Proof")}</a>}
                     </div>
                   ))}</div>
                 )}
@@ -806,10 +874,11 @@ const CompanyDashboard = () => {
           {/* ======= BARCODE ======= */}
           {activeTab === "barcode" && (
             <div className="space-y-4">
-              <div className={cardClass}><p className="text-xs text-muted-foreground">{t("استخدم الباركود لتسريع عملية البيع والجرد. يمكنك إنشاء باركود جديد أو مسح باركود موجود بكاميرا الهاتف.", "Use barcode to speed up sales and inventory.")}</p></div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className={cardClass}><p className="text-xs text-muted-foreground">{t("استخدم الباركود لتسريع عملية البيع والجرد. يمكنك إنشاء باركود جديد، مسح باركود بالكاميرا، أو رفع صورة باركود.", "Use barcode to speed up sales and inventory. Generate, scan with camera, or upload barcode image.")}</p></div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <button onClick={() => setBarcodeMode("generate")} className={`${cardClass} hover:border-primary/50 text-center`}><QrCode className="h-10 w-10 text-primary mx-auto mb-3" /><h4 className="font-bold text-foreground">{t("إنشاء باركود", "Generate")}</h4></button>
                 <button onClick={() => setShowBarcodeScanner(true)} className={`${cardClass} hover:border-primary/50 text-center`}><Camera className="h-10 w-10 text-primary mx-auto mb-3" /><h4 className="font-bold text-foreground">{t("مسح باركود", "Scan")}</h4></button>
+                <button onClick={() => setBarcodeMode("upload")} className={`${cardClass} hover:border-primary/50 text-center`}><Upload className="h-10 w-10 text-warning mx-auto mb-3" /><h4 className="font-bold text-foreground">{t("رفع صورة باركود", "Upload Image")}</h4></button>
               </div>
               {barcodeMode === "generate" && (
                 <div className={cardClass}>
@@ -818,8 +887,47 @@ const CompanyDashboard = () => {
                   {generatedBarcode && <div className="mt-4"><BarcodeGenerator value={generatedBarcode} /></div>}
                 </div>
               )}
-              {showBarcodeScanner && <BarcodeScanner onScan={r => { setScannedResult(r); setShowBarcodeScanner(false); }} onClose={() => setShowBarcodeScanner(false)} />}
-              {scannedResult && <div className={cardClass}><p className="text-sm text-foreground">{t("نتيجة المسح:", "Result:")} <span className="font-bold text-primary">{scannedResult}</span></p></div>}
+              {barcodeMode === "upload" && (
+                <div className={cardClass}>
+                  <h4 className="font-bold text-foreground mb-2">{t("رفع صورة باركود للبحث عن المنتج", "Upload barcode image to find product")}</h4>
+                  <input type="file" accept="image/*" onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    // استخدام HTML5 QR Code scanner لقراءة الباركود من الصورة
+                    try {
+                      const { Html5Qrcode } = await import("html5-qrcode");
+                      const scanner = new Html5Qrcode("barcode-upload-reader");
+                      const result = await scanner.scanFile(file, true);
+                      setScannedResult(result);
+                      // بحث عن المنتج
+                      const found = products.find(p => p.barcode === result || p.code === result);
+                      if (found) {
+                        alert(t(`✅ تم العثور على المنتج: ${found.name}\nالكمية: ${found.quantity}\nسعر البيع: ${found.sell_price}`, `✅ Found: ${found.name}\nQty: ${found.quantity}\nPrice: ${found.sell_price}`));
+                      } else {
+                        alert(t(`لم يتم العثور على منتج بهذا الباركود: ${result}`, `No product found for barcode: ${result}`));
+                      }
+                    } catch (err) {
+                      alert(t("تعذر قراءة الباركود من الصورة. تأكد من وضوح الصورة.", "Could not read barcode from image."));
+                    }
+                  }} className={inputClass} />
+                  <div id="barcode-upload-reader" style={{ display: "none" }} />
+                  {scannedResult && (() => { const found = products.find(p => p.barcode === scannedResult || p.code === scannedResult); return found ? (
+                    <div className="mt-3 glass rounded-xl p-4 border-success/30">
+                      <h4 className="font-bold text-success mb-2">✅ {t("تم العثور على المنتج", "Product Found")}</h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div><span className="text-muted-foreground">{t("الاسم:","Name:")}</span> <span className="font-bold">{found.name}</span></div>
+                        <div><span className="text-muted-foreground">{t("الكود:","Code:")}</span> <span className="font-bold">{found.code || "-"}</span></div>
+                        <div><span className="text-muted-foreground">{t("الكمية:","Qty:")}</span> <span className="font-bold">{found.quantity}</span></div>
+                        <div><span className="text-muted-foreground">{t("سعر البيع:","Sell:")}</span> <span className="font-bold text-primary">{found.sell_price}</span></div>
+                        <div><span className="text-muted-foreground">{t("سعر الشراء:","Buy:")}</span> <span className="font-bold">{found.buy_price}</span></div>
+                        <div><span className="text-muted-foreground">{t("النوع:","Type:")}</span> <span className="font-bold">{found.type || "-"}</span></div>
+                      </div>
+                    </div>
+                  ) : <div className="mt-3 glass rounded-xl p-3"><p className="text-sm">{t("نتيجة المسح:","Result:")} <span className="font-bold text-primary">{scannedResult}</span></p><p className="text-xs text-destructive mt-1">{t("لم يتم العثور على منتج بهذا الباركود","No product found")}</p></div>; })()}
+                </div>
+              )}
+              {showBarcodeScanner && <BarcodeScanner onScan={r => { setScannedResult(r); setShowBarcodeScanner(false); const found = products.find(p => p.barcode === r || p.code === r); if (found) alert(t(`✅ المنتج: ${found.name} - الكمية: ${found.quantity} - السعر: ${found.sell_price}`,`✅ ${found.name} - Qty: ${found.quantity} - Price: ${found.sell_price}`)); else alert(t(`لم يتم العثور على منتج: ${r}`,`No product: ${r}`)); }} onClose={() => setShowBarcodeScanner(false)} />}
+              {scannedResult && barcodeMode !== "upload" && <div className={cardClass}><p className="text-sm text-foreground">{t("نتيجة المسح:", "Result:")} <span className="font-bold text-primary">{scannedResult}</span></p>{(() => { const found = products.find(p => p.barcode === scannedResult || p.code === scannedResult); return found ? <p className="text-xs text-success mt-1">✅ {found.name} - {t("الكمية:","Qty:")} {found.quantity} - {t("السعر:","Price:")} {found.sell_price}</p> : <p className="text-xs text-destructive mt-1">{t("لم يتم العثور على منتج","No product found")}</p>; })()}</div>}
             </div>
           )}
 
@@ -865,18 +973,59 @@ const CompanyDashboard = () => {
           {/* ======= INVENTORY (JARD) ======= */}
           {activeTab === "inventory" && (
             <div className="space-y-4">
-              <SectionHeader title={t("الجرد", "Inventory Count")} desc={t("قم بجرد مخزونك بشكل دوري. اختر بين الجرد اليدوي (بشري) أو بالذكاء الاصطناعي.", "Count your inventory periodically.")} onPDF={() => exportToPDF(t("تقرير الجرد", "Inventory Report"), products.map(p => ({ [t("الاسم","Name")]: p.name, [t("الكمية","Qty")]: p.quantity, [t("سعر الشراء","Buy")]: p.buy_price, [t("سعر البيع","Sell")]: p.sell_price, [t("القيمة","Value")]: (p.quantity || 0) * (p.sell_price || 0) })), [t("الاسم","Name"), t("الكمية","Qty"), t("سعر الشراء","Buy"), t("سعر البيع","Sell"), t("القيمة","Value")])} />
+              <SectionHeader title={t("الجرد", "Inventory Count")} desc={t("قم بجرد مخزونك بشكل دوري. اختر نوع الجرد وابدأ العملية.", "Count your inventory periodically.")} onAdd={() => setShowForm("inventory")} addLabel={t("بدء جرد جديد","Start Inventory")} onPDF={() => exportToPDF(t("تقرير الجرد", "Inventory Report"), products.map(p => ({ [t("الاسم","Name")]: p.name, [t("الكمية","Qty")]: p.quantity, [t("سعر الشراء","Buy")]: p.buy_price, [t("سعر البيع","Sell")]: p.sell_price, [t("القيمة","Value")]: (p.quantity || 0) * (p.sell_price || 0) })), [t("الاسم","Name"), t("الكمية","Qty"), t("سعر الشراء","Buy"), t("سعر البيع","Sell"), t("القيمة","Value")])} />
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {[{l: t("كامل","Full"), d: t("جرد جميع المنتجات","All products")}, {l: t("جزئي","Partial"), d: t("منتجات مختارة","Selected")}, {l: t("مفاجئ","Surprise"), d: t("عشوائي","Random")}, {l: t("دوري","Periodic"), d: t("أسبوعي/شهري","Weekly/Monthly")}].map(type => (
-                  <div key={type.l} className={`${cardClass} text-center`}><ClipboardList className="h-6 w-6 text-primary mx-auto mb-2" /><p className="text-sm font-bold text-foreground">{type.l}</p><p className="text-[10px] text-muted-foreground">{type.d}</p></div>
+                {[{l: t("كامل","Full"), d: t("جرد جميع المنتجات","All products"), k:"full"}, {l: t("جزئي","Partial"), d: t("منتجات مختارة","Selected"), k:"partial"}, {l: t("مفاجئ","Surprise"), d: t("عشوائي","Random"), k:"surprise"}, {l: t("دوري","Periodic"), d: t("أسبوعي/شهري","Weekly/Monthly"), k:"periodic"}].map(type => (
+                  <button key={type.l} onClick={() => setShowForm(`inventory-${type.k}`)} className={`${cardClass} text-center hover:border-primary/50`}><ClipboardList className="h-6 w-6 text-primary mx-auto mb-2" /><p className="text-sm font-bold text-foreground">{type.l}</p><p className="text-[10px] text-muted-foreground">{type.d}</p></button>
                 ))}
               </div>
+              {showForm.startsWith("inventory") && (
+                <div className={cardClass}>
+                  <h4 className="font-bold text-foreground mb-3">{t("بدء جرد","Start Inventory")} - {showForm.includes("full") ? t("كامل","Full") : showForm.includes("partial") ? t("جزئي","Partial") : showForm.includes("surprise") ? t("مفاجئ","Surprise") : t("دوري","Periodic")}</h4>
+                  <p className="text-xs text-muted-foreground mb-4">{t("راجع كميات المنتجات الفعلية وقارنها بالنظام. عدّل الكميات إذا وجدت فرق.","Review actual product quantities and compare with system. Adjust if different.")}</p>
+                  <div className={`overflow-x-auto`}>
+                    <table className="w-full text-sm"><thead><tr className="border-b border-border"><th className="text-right py-2 px-2 text-muted-foreground text-xs">{t("المنتج","Product")}</th><th className="text-right py-2 px-2 text-muted-foreground text-xs">{t("الكمية بالنظام","System Qty")}</th><th className="text-right py-2 px-2 text-muted-foreground text-xs">{t("الكمية الفعلية","Actual Qty")}</th><th className="text-right py-2 px-2 text-muted-foreground text-xs">{t("الفرق","Diff")}</th><th className="text-right py-2 px-2 text-muted-foreground text-xs">{t("تحديث","Update")}</th></tr></thead>
+                      <tbody>{products.map(p => {
+                        const inputId = `inv-${p.id}`;
+                        return (
+                          <tr key={p.id} className="border-b border-border/30">
+                            <td className="py-2 px-2 text-xs font-bold">{p.name}</td>
+                            <td className="py-2 px-2 text-xs text-center">{p.quantity}</td>
+                            <td className="py-2 px-2"><input id={inputId} type="number" defaultValue={p.quantity} className="w-20 px-2 py-1 rounded border border-border bg-secondary text-foreground text-xs text-center" /></td>
+                            <td className="py-2 px-2 text-xs text-center" id={`diff-${p.id}`}>0</td>
+                            <td className="py-2 px-2"><button onClick={async () => {
+                              const el = document.getElementById(inputId) as HTMLInputElement;
+                              const newQty = Number(el?.value) || 0;
+                              const diff = newQty - (p.quantity || 0);
+                              if (diff !== 0) {
+                                await supabase.from("products").update({ quantity: newQty }).eq("id", p.id);
+                                await supabase.from("stock_movements").insert({ company_id: companyId!, product_id: p.id, type: diff > 0 ? "add" : "remove", quantity: Math.abs(diff), reason: t("تعديل جرد","Inventory adjustment"), notes: `${t("جرد","Inventory")} ${showForm.replace("inventory-","")}`, created_by: user?.id });
+                                await refreshData("products"); await refreshData("movements");
+                                alert(t("✅ تم تحديث الكمية","✅ Quantity updated"));
+                              }
+                            }} className="px-2 py-1 rounded text-[10px] bg-primary/20 text-primary font-bold">{t("حفظ","Save")}</button></td>
+                          </tr>
+                        );
+                      })}</tbody>
+                    </table>
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <button onClick={async () => { await supabase.from("activity_log").insert({ company_id: companyId!, action: "inventory", details: `${t("تم إجراء جرد","Inventory done")} ${showForm.replace("inventory-","")} - ${products.length} ${t("منتج","products")}`, user_id: user?.id }); alert(t("✅ تم حفظ الجرد بنجاح!","✅ Inventory saved!")); setShowForm(""); }} className={btnPrimary}>{t("إنهاء الجرد","Finish Inventory")}</button>
+                    <button onClick={() => setShowForm("")} className={btnOutline}>{t("إلغاء","Cancel")}</button>
+                  </div>
+                </div>
+              )}
               <div className={cardClass}>
                 <h4 className="font-bold text-foreground mb-3">{t("ملخص المخزون الحالي", "Current Inventory Summary")}</h4>
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   <div className="glass rounded-xl p-3 text-center"><p className="text-xs text-muted-foreground">{t("إجمالي المنتجات", "Total Products")}</p><p className="text-xl font-black text-foreground">{products.length}</p></div>
                   <div className="glass rounded-xl p-3 text-center"><p className="text-xs text-muted-foreground">{t("إجمالي الكميات", "Total Qty")}</p><p className="text-xl font-black text-primary">{products.reduce((a, p) => a + (p.quantity || 0), 0)}</p></div>
                   <div className="glass rounded-xl p-3 text-center"><p className="text-xs text-muted-foreground">{t("منتجات منخفضة", "Low Stock")}</p><p className="text-xl font-black text-destructive">{products.filter(p => (p.quantity || 0) <= (p.min_stock || 5)).length}</p></div>
+                </div>
+                <div className={`overflow-x-auto`}>
+                  <table className="w-full text-sm"><thead><tr className="border-b border-border">{[t("المنتج","Product"),t("الكمية","Qty"),t("سعر الشراء","Buy"),t("سعر البيع","Sell"),t("القيمة","Value"),t("الحالة","Status")].map(h => <th key={h} className="text-right py-2 px-2 text-muted-foreground text-xs">{h}</th>)}</tr></thead>
+                    <tbody>{products.map(p => (<tr key={p.id} className="border-b border-border/30"><td className="py-2 px-2 text-xs font-bold">{p.name}</td><td className="py-2 px-2 text-xs text-center">{p.quantity}</td><td className="py-2 px-2 text-xs">{p.buy_price}</td><td className="py-2 px-2 text-xs text-primary">{p.sell_price}</td><td className="py-2 px-2 text-xs font-bold">{((p.quantity || 0) * (p.sell_price || 0)).toLocaleString()}</td><td className="py-2 px-2">{(p.quantity || 0) <= (p.min_stock || 5) ? <span className="text-destructive text-[10px]">⚠️</span> : <span className="text-success text-[10px]">✅</span>}</td></tr>))}</tbody>
+                  </table>
                 </div>
               </div>
             </div>

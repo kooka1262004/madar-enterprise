@@ -97,7 +97,7 @@ const UserDashboard = () => {
     if (!user || !companyId) return;
     const loadData = async () => {
       setLoading(true);
-      const [empRes, tasksRes, reqRes, attRes, prodsRes, movsRes, supRes, ordRes, invRes, notifRes] = await Promise.all([
+      const [empRes, tasksRes, reqRes, attRes, prodsRes, movsRes, supRes, ordRes, invRes, notifRes, msgsRes] = await Promise.all([
         supabase.from("employees").select("*, companies(company_name, manager_name)").eq("user_id", user.id).maybeSingle(),
         supabase.from("tasks").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
         supabase.from("employee_requests").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),

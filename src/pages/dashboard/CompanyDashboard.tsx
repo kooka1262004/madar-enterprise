@@ -491,7 +491,7 @@ const CompanyDashboard = () => {
           </div>
           <button onClick={() => setSidebarOpen(false)} className="md:hidden text-muted-foreground"><X size={20} /></button>
         </div>
-        <nav className="p-2 space-y-2 overflow-y-auto h-[calc(100vh-130px)]">
+        <nav className="p-2 space-y-2 overflow-y-auto h-[calc(100vh-180px)]">
           {sidebarSections.map(section => (
             <div key={section.title}>
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-3 mb-1 mt-2">{lang === "ar" ? section.title : section.titleEn}</p>
@@ -504,7 +504,7 @@ const CompanyDashboard = () => {
             </div>
           ))}
         </nav>
-        <div className="absolute bottom-0 right-0 left-0 p-3 border-t border-border">
+        <div className="p-3 border-t border-border">
           <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-destructive hover:bg-destructive/10"><LogOut className="h-4 w-4" /> {t("تسجيل الخروج", "Logout")}</button>
         </div>
       </aside>

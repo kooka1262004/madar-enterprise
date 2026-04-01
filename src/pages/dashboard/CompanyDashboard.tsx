@@ -326,7 +326,14 @@ const CompanyDashboard = () => {
     e.preventDefault();
     const fd = new FormData(e.target as HTMLFormElement);
     const d = Object.fromEntries(fd);
-    await supabase.from("products").insert({ company_id: companyId, name: d.name as string, code: d.code as string, type: d.type as string, quantity: Number(d.quantity) || 0, buy_price: Number(d.buyPrice) || 0, sell_price: Number(d.sellPrice) || 0, barcode: d.barcode as string, min_stock: Number(d.minStock) || 5 });
+    // Check plan limits
+    const currentPlan = plans.find(p => p.id === company?.plan || p.name === company?.plan_name);
+    const maxProducts = currentPlan?.max_products || 50;
+    if (products.length >= maxProducts && maxProducts < 999999) {
+      alert(t(`لقد وصلت إلى الحد المسموح في باقتك (${maxProducts} منتج). يرجى ترقية الباقة للحصول على سعة أكبر.`, `You've reached your plan limit (${maxProducts} products). Please upgrade your plan.`));
+      return;
+    }
+    await supabase.from("products").insert({ company_id: companyId, name: d.name as string, code: d.code as string, type: d.type as string, quantity: Number(d.quantity) || 0, buy_price: Number(d.buyPrice) || 0, sell_price: Number(d.sellPrice) || 0, barcode: d.barcode as string, min_stock: Number(d.minStock) || 5, warehouse_id: (d.warehouseId as string) || null });
     await refreshData("products");
     setShowForm("");
   };
@@ -345,7 +352,7 @@ const CompanyDashboard = () => {
     const fd = new FormData(e.target as HTMLFormElement);
     const d = Object.fromEntries(fd);
     const product = products.find(p => p.id === d.productId);
-    await supabase.from("stock_movements").insert({ company_id: companyId!, product_id: d.productId as string, type: d.movementType as string, quantity: Number(d.quantity) || 0, reason: d.reason as string, notes: d.notes as string, created_by: user?.id });
+    await supabase.from("stock_movements").insert({ company_id: companyId!, product_id: d.productId as string, type: d.movementType as string, quantity: Number(d.quantity) || 0, reason: d.reason as string, notes: d.notes as string, created_by: user?.id, warehouse_id: (d.warehouseId as string) || null });
     if (product) {
       const qty = Number(d.quantity) || 0;
       const newQty = ["buy", "add", "return"].includes(d.movementType as string) ? (product.quantity || 0) + qty : Math.max(0, (product.quantity || 0) - qty);
@@ -360,6 +367,13 @@ const CompanyDashboard = () => {
     e.preventDefault();
     const fd = new FormData(e.target as HTMLFormElement);
     const d = Object.fromEntries(fd);
+    // Check employee limit
+    const currentPlan = plans.find(p => p.id === company?.plan || p.name === company?.plan_name);
+    const maxEmps = currentPlan?.max_employees || currentPlan?.max_users || 2;
+    if (employees.length >= maxEmps) {
+      alert(t(`لقد وصلت إلى الحد المسموح في باقتك (${maxEmps} موظف). يرجى ترقية الباقة.`, `Employee limit reached (${maxEmps}). Please upgrade.`));
+      return;
+    }
     const rolePerms: Record<string, string[]> = {
       "مسؤول مخزن": ["dashboard","my-info","products","stock","barcode","suppliers","inventory","returns","attendance","requests","my-tasks"],
       "محاسب": ["dashboard","my-info","accounting","invoices","reports","attendance","requests","my-tasks"],
@@ -590,7 +604,16 @@ const CompanyDashboard = () => {
           )}
 
           {/* ======= SUBSCRIPTION ======= */}
-          {activeTab === "subscription" && (
+          {activeTab === "subscription" && (() => {
+            const currentPlan = plans.find(p => p.id === company?.plan || p.name === company?.plan_name);
+            const quotas = [
+              { label: t("المنتجات", "Products"), used: products.length, max: currentPlan?.max_products || 50, icon: "📦" },
+              { label: t("الموظفين", "Employees"), used: employees.length, max: currentPlan?.max_employees || 2, icon: "👷" },
+              { label: t("المخازن", "Warehouses"), used: warehouses.length, max: currentPlan?.max_stores || 1, icon: "🏪" },
+              { label: t("التخزين", "Storage"), used: Math.round((products.length * 0.5 + warehouses.length * 0.1) * 10) / 10, max: currentPlan?.max_storage_mb || 100, icon: "💾", unit: "MB" },
+              { label: t("قاعدة البيانات", "Database"), used: Math.round((products.length * 0.02 + employees.length * 0.01 + orders.length * 0.03) * 10) / 10, max: currentPlan?.max_db_mb || 50, icon: "🗄️", unit: "MB" },
+            ];
+            return (
             <div className="space-y-4">
               <div className={cardClass}>
                 <h3 className="font-bold text-foreground mb-2">{t("الباقة الحالية", "Current Plan")}</h3>
@@ -599,6 +622,30 @@ const CompanyDashboard = () => {
                 {!subscription && company?.trial_end && <p className="text-sm text-muted-foreground mt-2">{t("الفترة التجريبية تنتهي:", "Trial ends:")} <span className="text-warning font-bold">{new Date(company.trial_end).toLocaleDateString("ar-LY")}</span></p>}
                 {daysLeft > 0 && daysLeft <= 7 && <div className="mt-3 bg-warning/10 rounded-xl p-3 text-sm text-warning font-bold flex items-center gap-2"><AlertTriangle className="h-4 w-4" />{t("اشتراكك على وشك الانتهاء! جدد الآن.", "Subscription expiring soon!")}</div>}
               </div>
+
+              {/* Plan Quotas */}
+              <div className={cardClass}>
+                <h3 className="font-bold text-foreground mb-4">{t("استهلاك الموارد", "Resource Usage")}</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {quotas.map(q => {
+                    const pct = q.max >= 999999 ? 5 : Math.min(100, Math.round((q.used / q.max) * 100));
+                    const isNear = pct >= 80;
+                    return (
+                      <div key={q.label} className="bg-secondary/50 rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-bold text-foreground">{q.icon} {q.label}</span>
+                          <span className={`text-xs font-bold ${isNear ? "text-destructive" : "text-success"}`}>{pct}%</span>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-border">
+                          <div className={`h-full rounded-full transition-all ${isNear ? "bg-destructive" : "bg-primary"}`} style={{ width: `${pct}%` }} />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1">{q.used} / {q.max >= 999999 ? "∞" : q.max} {q.unit || ""}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className={cardClass}>
                 <h3 className="font-bold text-foreground mb-4">{t("الباقات المتاحة", "Available Plans")}</h3>
                 <p className="text-xs text-muted-foreground mb-4">{t("اختر الباقة المناسبة لك. سيتم الخصم تلقائياً من محفظتك فوراً عند الاشتراك.", "Choose a plan. Amount will be auto-deducted from your wallet immediately.")}</p>
@@ -609,10 +656,12 @@ const CompanyDashboard = () => {
                       <h4 className="font-bold text-foreground text-lg">{plan.name}</h4>
                       <p className="text-3xl font-black text-primary mt-2">{plan.price} <span className="text-xs text-muted-foreground">{t("د.ل", "LYD")}/{plan.period}</span></p>
                       <div className="mt-3 text-xs text-muted-foreground space-y-1">
-                        <p>👥 {plan.max_users} {t("مستخدم", "users")}</p>
-                        <p>📦 {plan.max_products >= 999999 ? t("غير محدود", "∞") : plan.max_products} {t("منتج", "products")}</p>
-                        <p>🏪 {plan.max_stores >= 999999 ? t("غير محدود", "∞") : plan.max_stores} {t("متجر", "stores")}</p>
-                        {(plan.features || []).map((f: string, i: number) => <p key={i}>✅ {f}</p>)}
+                        <p>👥 {plan.max_users} {t("مستخدم", "users")} · 👷 {plan.max_employees || 5} {t("موظف", "emps")}</p>
+                        <p>📦 {plan.max_products >= 999999 ? "∞" : plan.max_products} {t("منتج", "products")} · 🏪 {plan.max_stores} {t("مخزن", "stores")}</p>
+                        <p>💾 {plan.max_storage_mb || 500} MB · 🗄️ {plan.max_db_mb || 100} MB DB</p>
+                        <p>📁 {plan.max_file_uploads || 100} {t("ملف", "files")}</p>
+                        {(plan.features || []).slice(0, 5).map((f: string, i: number) => <p key={i}>✅ {f}</p>)}
+                        {(plan.features || []).length > 5 && <p className="text-primary">+{(plan.features || []).length - 5} {t("مميزات أخرى", "more")}</p>}
                       </div>
                       <button onClick={() => subscribeToplan(plan)} disabled={company?.plan_name === plan.name} className={`w-full mt-4 ${btnPrimary} ${company?.plan_name === plan.name ? "opacity-50 cursor-not-allowed" : ""}`}>
                         {company?.plan_name === plan.name ? t("مشترك حالياً", "Current") : t("اشتراك", "Subscribe")}
@@ -622,7 +671,8 @@ const CompanyDashboard = () => {
                 </div>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* ======= WALLET ======= */}
           {activeTab === "wallet" && (
@@ -902,6 +952,7 @@ const CompanyDashboard = () => {
                     <div><label className="text-xs font-bold text-foreground">{t("سعر البيع", "Sell Price")}</label><input name="sellPrice" type="number" defaultValue={0} className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("الباركود", "Barcode")}</label><input name="barcode" className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("الحد الأدنى للمخزون", "Min Stock")}</label><input name="minStock" type="number" defaultValue={5} className={inputClass} /></div>
+                    {warehouses.length > 0 && <div><label className="text-xs font-bold text-foreground">{t("المخزن", "Warehouse")}</label><select name="warehouseId" className={inputClass}><option value="">{t("-- اختر مخزن --", "-- Select --")}</option>{warehouses.map((wh: any) => <option key={wh.id} value={wh.id}>{wh.name}</option>)}</select></div>}
                   </div>
                   <div className="flex gap-2">
                     <button type="submit" className={btnPrimary}>{t("حفظ", "Save")}</button>
@@ -946,6 +997,7 @@ const CompanyDashboard = () => {
                     <div><label className="text-xs font-bold text-foreground">{t("نوع الحركة *", "Type *")}</label><select name="movementType" required className={inputClass}><option value="buy">{t("شراء", "Buy")}</option><option value="sell">{t("بيع", "Sell")}</option><option value="add">{t("إضافة", "Add")}</option><option value="remove">{t("سحب", "Remove")}</option><option value="damage">{t("تلف", "Damage")}</option><option value="return">{t("مرتجع", "Return")}</option><option value="expired">{t("منتهي الصلاحية", "Expired")}</option></select></div>
                     <div><label className="text-xs font-bold text-foreground">{t("الكمية *", "Qty *")}</label><input name="quantity" type="number" required className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("السبب", "Reason")}</label><input name="reason" className={inputClass} /></div>
+                    {warehouses.length > 0 && <div><label className="text-xs font-bold text-foreground">{t("المخزن", "Warehouse")}</label><select name="warehouseId" className={inputClass}><option value="">{t("-- اختر مخزن --", "-- Select --")}</option>{warehouses.map((wh: any) => <option key={wh.id} value={wh.id}>{wh.name}</option>)}</select></div>}
                   </div>
                   <div><label className="text-xs font-bold text-foreground">{t("ملاحظات", "Notes")}</label><textarea name="notes" rows={2} className={inputClass} /></div>
                   <div className="flex gap-2"><button type="submit" className={btnPrimary}>{t("حفظ", "Save")}</button><button type="button" onClick={() => setShowForm("")} className={btnOutline}>{t("إلغاء", "Cancel")}</button></div>

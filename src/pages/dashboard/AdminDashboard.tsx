@@ -211,10 +211,11 @@ const AdminDashboard = () => {
   };
 
   const savePlan = async (plan: any) => {
+    const planData = { name: plan.name, name_en: plan.name_en, price: plan.price, period: plan.period, max_users: plan.max_users, max_stores: plan.max_stores, max_products: plan.max_products, max_employees: plan.max_employees || 5, max_storage_mb: plan.max_storage_mb || 500, max_db_mb: plan.max_db_mb || 100, max_file_uploads: plan.max_file_uploads || 100, max_departments: plan.max_departments || 3, features: plan.features, allowed_features: plan.allowed_features || [], active: plan.active };
     if (plan.id && plans.find(p => p.id === plan.id)) {
-      await supabase.from("plans").update({ name: plan.name, name_en: plan.name_en, price: plan.price, period: plan.period, max_users: plan.max_users, max_stores: plan.max_stores, max_products: plan.max_products, features: plan.features, active: plan.active }).eq("id", plan.id);
+      await supabase.from("plans").update(planData).eq("id", plan.id);
     } else {
-      await supabase.from("plans").insert(plan);
+      await supabase.from("plans").insert(planData);
     }
     const { data } = await supabase.from("plans").select("*").order("price", { ascending: true });
     setPlans(data || []);
@@ -498,7 +499,7 @@ const AdminDashboard = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-foreground">{t("إدارة الباقات", "Manage Plans")}</h3>
-                <button onClick={() => setEditingPlan({ name: "", name_en: "", price: 0, period: "شهر", max_users: 5, max_stores: 1, max_products: 500, features: [], active: true })} className="px-4 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center gap-2"><Plus className="h-4 w-4" /> {t("إضافة باقة", "Add Plan")}</button>
+                <button onClick={() => setEditingPlan({ name: "", name_en: "", price: 0, period: "شهر", max_users: 5, max_employees: 5, max_stores: 1, max_products: 500, max_storage_mb: 500, max_db_mb: 100, max_file_uploads: 100, max_departments: 3, features: [], allowed_features: [], active: true })} className="px-4 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center gap-2"><Plus className="h-4 w-4" /> {t("إضافة باقة", "Add Plan")}</button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {plans.map(p => (
@@ -511,10 +512,12 @@ const AdminDashboard = () => {
                       </div>
                     </div>
                     <p className="text-2xl font-black text-primary">{p.price} <span className="text-xs text-muted-foreground">{t("د.ل", "LYD")}/{p.period}</span></p>
-                    <div className="mt-2 text-xs text-muted-foreground space-y-1">
-                      <p>👥 {p.max_users} {t("مستخدم", "users")}</p>
+                    <div className="mt-3 text-xs text-muted-foreground space-y-1.5">
+                      <p>👥 {p.max_users} {t("مستخدم", "users")} · 👷 {p.max_employees || 5} {t("موظف", "employees")}</p>
                       <p>📦 {p.max_products >= 999999 ? t("غير محدود", "Unlimited") : p.max_products} {t("منتج", "products")}</p>
-                      <p>🏪 {p.max_stores} {t("مخزن", "stores")}</p>
+                      <p>🏪 {p.max_stores} {t("مخزن", "stores")} · 🏢 {p.max_departments || 3} {t("قسم", "depts")}</p>
+                      <p>💾 {p.max_storage_mb || 500} MB {t("تخزين", "storage")} · 🗄️ {p.max_db_mb || 100} MB {t("قاعدة بيانات", "DB")}</p>
+                      <p>📁 {p.max_file_uploads || 100} {t("ملف", "files")}</p>
                     </div>
                     {p.features?.length > 0 && <div className="mt-2 flex flex-wrap gap-1">{p.features.map((f: string, i: number) => <span key={i} className="px-2 py-0.5 rounded-full text-[10px] bg-primary/10 text-primary">{f}</span>)}</div>}
                   </div>
@@ -529,10 +532,30 @@ const AdminDashboard = () => {
                     <div><label className="text-sm font-bold text-foreground">{t("السعر", "Price")}</label><input type="number" value={editingPlan.price} onChange={e => setEditingPlan({...editingPlan, price: +e.target.value})} className={inputClass} /></div>
                     <div><label className="text-sm font-bold text-foreground">{t("المدة", "Period")}</label><select value={editingPlan.period} onChange={e => setEditingPlan({...editingPlan, period: e.target.value})} className={inputClass}><option>أسبوع</option><option>شهر</option><option>سنة</option></select></div>
                     <div><label className="text-sm font-bold text-foreground">{t("المستخدمين", "Users")}</label><input type="number" value={editingPlan.max_users} onChange={e => setEditingPlan({...editingPlan, max_users: +e.target.value})} className={inputClass} /></div>
+                    <div><label className="text-sm font-bold text-foreground">{t("الموظفين", "Employees")}</label><input type="number" value={editingPlan.max_employees || 5} onChange={e => setEditingPlan({...editingPlan, max_employees: +e.target.value})} className={inputClass} /></div>
                     <div><label className="text-sm font-bold text-foreground">{t("المنتجات", "Products")}</label><input type="number" value={editingPlan.max_products} onChange={e => setEditingPlan({...editingPlan, max_products: +e.target.value})} className={inputClass} /></div>
+                    <div><label className="text-sm font-bold text-foreground">{t("المخازن", "Stores")}</label><input type="number" value={editingPlan.max_stores} onChange={e => setEditingPlan({...editingPlan, max_stores: +e.target.value})} className={inputClass} /></div>
+                    <div><label className="text-sm font-bold text-foreground">{t("الأقسام", "Departments")}</label><input type="number" value={editingPlan.max_departments || 3} onChange={e => setEditingPlan({...editingPlan, max_departments: +e.target.value})} className={inputClass} /></div>
+                    <div><label className="text-sm font-bold text-foreground">{t("التخزين (MB)", "Storage (MB)")}</label><input type="number" value={editingPlan.max_storage_mb || 500} onChange={e => setEditingPlan({...editingPlan, max_storage_mb: +e.target.value})} className={inputClass} /></div>
+                    <div><label className="text-sm font-bold text-foreground">{t("قاعدة البيانات (MB)", "DB (MB)")}</label><input type="number" value={editingPlan.max_db_mb || 100} onChange={e => setEditingPlan({...editingPlan, max_db_mb: +e.target.value})} className={inputClass} /></div>
+                    <div><label className="text-sm font-bold text-foreground">{t("عدد الملفات", "File Uploads")}</label><input type="number" value={editingPlan.max_file_uploads || 100} onChange={e => setEditingPlan({...editingPlan, max_file_uploads: +e.target.value})} className={inputClass} /></div>
                   </div>
                   <div className="mt-3"><label className="text-sm font-bold text-foreground">{t("المميزات (فاصل بينها فاصلة)", "Features (comma-separated)")}</label>
                     <input value={editingPlan.features?.join(",") || ""} onChange={e => setEditingPlan({...editingPlan, features: e.target.value.split(",").map((f: string) => f.trim()).filter(Boolean)})} className={inputClass} />
+                  </div>
+                  <div className="mt-3">
+                    <label className="text-sm font-bold text-foreground">{t("الأقسام المسموحة (مفاتيح)", "Allowed Feature Keys")}</label>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {["dashboard","products","stock","barcode","suppliers","invoices","reports","accounting","inventory","hr","orders","messages","reorder","returns","settings","users","attendance","requests","my-tasks","my-info"].map(key => (
+                        <label key={key} className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <input type="checkbox" checked={(editingPlan.allowed_features || []).includes(key)} onChange={e => {
+                            const af = editingPlan.allowed_features || [];
+                            setEditingPlan({...editingPlan, allowed_features: e.target.checked ? [...af, key] : af.filter((k: string) => k !== key)});
+                          }} className="rounded border-border" />
+                          {key}
+                        </label>
+                      ))}
+                    </div>
                   </div>
                   <div className="flex gap-2 mt-4">
                     <button onClick={() => savePlan(editingPlan)} className="px-6 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold">{t("حفظ", "Save")}</button>

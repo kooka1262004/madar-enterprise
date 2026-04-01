@@ -520,10 +520,16 @@ export type Database = {
       plans: {
         Row: {
           active: boolean | null
+          allowed_features: string[] | null
           created_at: string
           features: string[] | null
           id: string
+          max_db_mb: number | null
+          max_departments: number | null
+          max_employees: number | null
+          max_file_uploads: number | null
           max_products: number | null
+          max_storage_mb: number | null
           max_stores: number | null
           max_users: number | null
           name: string
@@ -533,10 +539,16 @@ export type Database = {
         }
         Insert: {
           active?: boolean | null
+          allowed_features?: string[] | null
           created_at?: string
           features?: string[] | null
           id?: string
+          max_db_mb?: number | null
+          max_departments?: number | null
+          max_employees?: number | null
+          max_file_uploads?: number | null
           max_products?: number | null
+          max_storage_mb?: number | null
           max_stores?: number | null
           max_users?: number | null
           name: string
@@ -546,10 +558,16 @@ export type Database = {
         }
         Update: {
           active?: boolean | null
+          allowed_features?: string[] | null
           created_at?: string
           features?: string[] | null
           id?: string
+          max_db_mb?: number | null
+          max_departments?: number | null
+          max_employees?: number | null
+          max_file_uploads?: number | null
           max_products?: number | null
+          max_storage_mb?: number | null
           max_stores?: number | null
           max_users?: number | null
           name?: string
@@ -595,6 +613,7 @@ export type Database = {
           sell_price: number | null
           type: string | null
           updated_at: string
+          warehouse_id: string | null
         }
         Insert: {
           barcode?: string | null
@@ -610,6 +629,7 @@ export type Database = {
           sell_price?: number | null
           type?: string | null
           updated_at?: string
+          warehouse_id?: string | null
         }
         Update: {
           barcode?: string | null
@@ -625,6 +645,7 @@ export type Database = {
           sell_price?: number | null
           type?: string | null
           updated_at?: string
+          warehouse_id?: string | null
         }
         Relationships: [
           {
@@ -632,6 +653,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
             referencedColumns: ["id"]
           },
         ]
@@ -680,6 +708,7 @@ export type Database = {
           quantity: number
           reason: string | null
           type: string
+          warehouse_id: string | null
         }
         Insert: {
           company_id: string
@@ -691,6 +720,7 @@ export type Database = {
           quantity?: number
           reason?: string | null
           type: string
+          warehouse_id?: string | null
         }
         Update: {
           company_id?: string
@@ -702,6 +732,7 @@ export type Database = {
           quantity?: number
           reason?: string | null
           type?: string
+          warehouse_id?: string | null
         }
         Relationships: [
           {
@@ -716,6 +747,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_warehouse_id_fkey"
+            columns: ["warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
             referencedColumns: ["id"]
           },
         ]
@@ -1022,6 +1060,41 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "wallet_transactions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      warehouses: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          is_default: boolean | null
+          location: string | null
+          name: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          location?: string | null
+          name: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          location?: string | null
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warehouses_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"

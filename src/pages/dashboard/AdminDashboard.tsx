@@ -140,7 +140,7 @@ const AdminDashboard = () => {
   };
 
   const updateWalletRequest = async (id: string, status: string, notes?: string) => {
-    await supabase.from("wallet_requests").update({ status, admin_notes: notes || "" }).eq("id", id);
+    await supabase.from("wallet_requests").update({ status, admin_notes: notes || "", ...(status === "approved" ? { receipt_reviewed_at: new Date().toISOString() } : {}) }).eq("id", id);
     if (status === "approved") {
       const req = walletRequests.find(r => r.id === id);
       if (req) {
@@ -148,16 +148,16 @@ const AdminDashboard = () => {
         if (company) {
           await supabase.from("companies").update({ wallet: (company.wallet || 0) + Number(req.amount) }).eq("id", company.id);
           await supabase.from("wallet_transactions").insert({ company_id: company.id, amount: Number(req.amount), type: "deposit", description: `شحن محفظة - ${req.method}` });
-          await supabase.from("notifications").insert({ user_id: company.owner_id, title: "تم قبول طلب الشحن", message: `تم شحن محفظتك بمبلغ ${req.amount} د.ل` });
+          await supabase.from("notifications").insert({ user_id: company.owner_id, title: "تم شحن المحفظة ✅", message: `تم شحن محفظتك بمبلغ ${req.amount} د.ل بنجاح` });
         }
       }
     }
-    if (status === "rejected") {
+    if (status === "rejected" || status === "cancelled") {
       const req = walletRequests.find(r => r.id === id);
       if (req) {
         const company = companies.find(c => c.id === req.company_id);
         if (company) {
-          await supabase.from("notifications").insert({ user_id: company.owner_id, title: "تم رفض طلب الشحن", message: `تم رفض طلب شحن المحفظة. السبب: ${notes || "لم يتم تحديد سبب"}` });
+          await supabase.from("notifications").insert({ user_id: company.owner_id, title: status === "cancelled" ? "تم إلغاء طلب الشحن ❌" : "تم رفض طلب الشحن", message: `${notes || "لم يتم تحديد سبب"}` });
         }
       }
     }

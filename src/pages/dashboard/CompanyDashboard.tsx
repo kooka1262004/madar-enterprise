@@ -222,7 +222,7 @@ const CompanyDashboard = () => {
     if (!companyId || !user) return;
     const loadData = async () => {
       setLoading(true);
-      const [compRes, prodsRes, empsRes, movsRes, supRes, ordRes, invRes, walRes, reqRes, taskRes, plansRes, msgsRes, notifRes, dpRes, subRes, attRes, psRes] = await Promise.all([
+      const [compRes, prodsRes, empsRes, movsRes, supRes, ordRes, invRes, walRes, reqRes, taskRes, plansRes, msgsRes, notifRes, dpRes, subRes, attRes, psRes, whRes] = await Promise.all([
         supabase.from("companies").select("*").eq("id", companyId).single(),
         supabase.from("products").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
         supabase.from("employees").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
@@ -234,12 +234,13 @@ const CompanyDashboard = () => {
         supabase.from("employee_requests").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
         supabase.from("tasks").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
         supabase.from("plans").select("*").eq("active", true).order("price", { ascending: true }),
-        supabase.from("messages").select("*").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order("created_at", { ascending: false }),
+        supabase.from("messages").select("*").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order("created_at", { ascending: true }),
         supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
         supabase.from("delivery_prices").select("*").order("city"),
         supabase.from("subscriptions").select("*").eq("company_id", companyId).eq("status", "active").order("created_at", { ascending: false }).limit(1),
         supabase.from("attendance").select("*").eq("company_id", companyId).order("date", { ascending: false }),
         supabase.from("platform_settings").select("*"),
+        supabase.from("warehouses").select("*").eq("company_id", companyId).order("created_at", { ascending: true }),
       ]);
       setCompany(compRes.data);
       setProducts(prodsRes.data || []);
@@ -257,12 +258,25 @@ const CompanyDashboard = () => {
       setDeliveryPrices(dpRes.data || []);
       setSubscription(subRes.data?.[0] || null);
       setAttendanceRecords(attRes.data || []);
+      setWarehouses(whRes.data || []);
       const settingsObj: any = {};
       (psRes.data || []).forEach((s: any) => { settingsObj[s.key] = s.value; });
       setPlatformSettings(settingsObj);
       setLoading(false);
     };
     loadData();
+
+    // Realtime notifications
+    const channel = supabase.channel('company-notifs')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, (payload) => {
+        setNotifications(prev => [payload.new as any, ...prev]);
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${user.id}` }, (payload) => {
+        setMessagesData(prev => [...prev, payload.new as any]);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [companyId, user]);
 
   const logout = async () => { await signOut(); navigate("/"); };

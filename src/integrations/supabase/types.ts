@@ -520,10 +520,16 @@ export type Database = {
       plans: {
         Row: {
           active: boolean | null
+          allowed_features: string[] | null
           created_at: string
           features: string[] | null
           id: string
+          max_db_mb: number | null
+          max_departments: number | null
+          max_employees: number | null
+          max_file_uploads: number | null
           max_products: number | null
+          max_storage_mb: number | null
           max_stores: number | null
           max_users: number | null
           name: string
@@ -533,10 +539,16 @@ export type Database = {
         }
         Insert: {
           active?: boolean | null
+          allowed_features?: string[] | null
           created_at?: string
           features?: string[] | null
           id?: string
+          max_db_mb?: number | null
+          max_departments?: number | null
+          max_employees?: number | null
+          max_file_uploads?: number | null
           max_products?: number | null
+          max_storage_mb?: number | null
           max_stores?: number | null
           max_users?: number | null
           name: string
@@ -546,10 +558,16 @@ export type Database = {
         }
         Update: {
           active?: boolean | null
+          allowed_features?: string[] | null
           created_at?: string
           features?: string[] | null
           id?: string
+          max_db_mb?: number | null
+          max_departments?: number | null
+          max_employees?: number | null
+          max_file_uploads?: number | null
           max_products?: number | null
+          max_storage_mb?: number | null
           max_stores?: number | null
           max_users?: number | null
           name?: string

@@ -326,7 +326,14 @@ const CompanyDashboard = () => {
     e.preventDefault();
     const fd = new FormData(e.target as HTMLFormElement);
     const d = Object.fromEntries(fd);
-    await supabase.from("products").insert({ company_id: companyId, name: d.name as string, code: d.code as string, type: d.type as string, quantity: Number(d.quantity) || 0, buy_price: Number(d.buyPrice) || 0, sell_price: Number(d.sellPrice) || 0, barcode: d.barcode as string, min_stock: Number(d.minStock) || 5 });
+    // Check plan limits
+    const currentPlan = plans.find(p => p.id === company?.plan || p.name === company?.plan_name);
+    const maxProducts = currentPlan?.max_products || 50;
+    if (products.length >= maxProducts && maxProducts < 999999) {
+      alert(t(`لقد وصلت إلى الحد المسموح في باقتك (${maxProducts} منتج). يرجى ترقية الباقة للحصول على سعة أكبر.`, `You've reached your plan limit (${maxProducts} products). Please upgrade your plan.`));
+      return;
+    }
+    await supabase.from("products").insert({ company_id: companyId, name: d.name as string, code: d.code as string, type: d.type as string, quantity: Number(d.quantity) || 0, buy_price: Number(d.buyPrice) || 0, sell_price: Number(d.sellPrice) || 0, barcode: d.barcode as string, min_stock: Number(d.minStock) || 5, warehouse_id: (d.warehouseId as string) || null });
     await refreshData("products");
     setShowForm("");
   };

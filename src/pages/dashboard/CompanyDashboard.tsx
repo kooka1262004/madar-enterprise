@@ -726,13 +726,69 @@ const CompanyDashboard = () => {
               <div className={cardClass}>
                 <h3 className="font-bold text-foreground mb-3">{t("سجل عمليات الشحن", "Charge History")}</h3>
                 {walletRequests.length === 0 ? <p className="text-sm text-muted-foreground">{t("لا توجد عمليات.", "No transactions.")}</p> : (
-                  <div className="space-y-2">{walletRequests.map(wr => (
-                    <div key={wr.id} className="glass rounded-xl p-3 flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-bold text-foreground">{wr.method} - {wr.amount} {t("د.ل", "LYD")}</p>
-                        <p className="text-xs text-muted-foreground">{new Date(wr.created_at).toLocaleDateString("ar-LY")}</p>
+                  <div className="space-y-3">{walletRequests.map(wr => (
+                    <div key={wr.id} className="glass rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <p className="text-sm font-bold text-foreground">{wr.method} - {wr.amount} {t("د.ل", "LYD")}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(wr.created_at).toLocaleDateString("ar-LY")}</p>
+                        </div>
+                        <StatusBadge status={wr.status} />
                       </div>
-                      <StatusBadge status={wr.status} />
+                      {/* شريط تتبع حالة الطلب */}
+                      {wr.method === "كاش" && (
+                        <div className="flex items-center gap-1 mb-3 mt-2">
+                          {["pending","accepted","courier_sent","shipped"].map((s, i) => (
+                            <div key={s} className="flex-1">
+                              <div className={`h-1.5 rounded-full ${["pending","accepted","courier_sent","shipped"].indexOf(wr.status) >= i ? (wr.status === "cancelled" ? "bg-destructive" : "bg-primary") : "bg-border"}`} />
+                              <p className="text-[8px] text-center text-muted-foreground mt-1">{statusMap[s]?.ar}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {/* إذا تم إرسال مندوب - نطلب رفع الواصل */}
+                      {wr.status === "courier_sent" && !wr.proof_url && (
+                        <div className="bg-warning/10 border border-warning/30 rounded-xl p-3 mt-2">
+                          <p className="text-sm text-warning font-bold mb-2">📄 {t("الرجاء رفع واصل وصورة تثبت الدفع لشحن المحفظة", "Please upload receipt and payment proof to charge wallet")}</p>
+                          <form onSubmit={async (e) => {
+                            e.preventDefault();
+                            const fd = new FormData(e.target as HTMLFormElement);
+                            const proofFile = fd.get("proof") as File;
+                            if (!proofFile || proofFile.size === 0) { alert(t("يجب رفع صورة الإثبات!", "Proof image required!")); return; }
+                            const fileName = `wallet/${companyId}/${Date.now()}_${proofFile.name}`;
+                            const { data: upData } = await supabase.storage.from("uploads").upload(fileName, proofFile);
+                            if (upData) {
+                              const proofUrl = supabase.storage.from("uploads").getPublicUrl(fileName).data.publicUrl;
+                              await supabase.from("wallet_requests").update({ proof_url: proofUrl, receipt_uploaded_at: new Date().toISOString() }).eq("id", wr.id);
+                              // إشعار للمسؤول
+                              const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+                              if (admins) {
+                                for (const admin of admins) {
+                                  await supabase.from("notifications").insert({ user_id: admin.user_id, title: t("تم رفع إيصال 📄","Receipt Uploaded 📄"), message: `${company?.company_name} ${t("رفعت إيصال شحن كاش بقيمة","uploaded cash receipt for")} ${wr.amount} ${t("د.ل","LYD")}`, type: "wallet" });
+                                }
+                              }
+                              await refreshData("wallet");
+                              alert(t("✅ تم رفع الإيصال بنجاح! سيراجعه مسؤول النظام.", "✅ Receipt uploaded! Admin will review."));
+                            }
+                          }} className="space-y-2">
+                            <input name="proof" type="file" accept="image/*" required className={inputClass} />
+                            <button type="submit" className={btnPrimary}>{t("إرسال الإثبات", "Upload Proof")}</button>
+                          </form>
+                        </div>
+                      )}
+                      {wr.status === "courier_sent" && wr.proof_url && (
+                        <div className="bg-success/10 border border-success/30 rounded-xl p-3 mt-2">
+                          <p className="text-sm text-success font-bold">✅ {t("تم رفع الإيصال - في انتظار مراجعة المسؤول", "Receipt uploaded - awaiting admin review")}</p>
+                        </div>
+                      )}
+                      {/* سبب الإلغاء */}
+                      {wr.status === "cancelled" && wr.cancel_reason && (
+                        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-3 mt-2">
+                          <p className="text-xs text-destructive font-bold">❌ {t("سبب الإلغاء:", "Cancel reason:")} {wr.cancel_reason}</p>
+                          {wr.admin_notes && <p className="text-xs text-muted-foreground mt-1">{t("ملاحظات المسؤول:", "Admin notes:")} {wr.admin_notes}</p>}
+                        </div>
+                      )}
+                      {wr.proof_url && <a href={wr.proof_url} target="_blank" className="text-xs text-primary underline mt-1 block">📎 {t("عرض الإثبات", "View Proof")}</a>}
                     </div>
                   ))}</div>
                 )}

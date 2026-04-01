@@ -514,7 +514,7 @@ const CompanyDashboard = () => {
               </div>
               <div className={cardClass}>
                 <h3 className="font-bold text-foreground mb-4">{t("الباقات المتاحة", "Available Plans")}</h3>
-                <p className="text-xs text-muted-foreground mb-4">{t("اختر الباقة المناسبة لك. سيتم الخصم من محفظتك تلقائياً عند الموافقة.", "Choose a plan. Amount will be deducted from your wallet upon approval.")}</p>
+                <p className="text-xs text-muted-foreground mb-4">{t("اختر الباقة المناسبة لك. سيتم الخصم تلقائياً من محفظتك فوراً عند الاشتراك.", "Choose a plan. Amount will be auto-deducted from your wallet immediately.")}</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {plans.map(plan => (
                     <div key={plan.id} className={`${cardClass} border ${company?.plan_name === plan.name ? "border-primary" : "border-border/50"}`}>

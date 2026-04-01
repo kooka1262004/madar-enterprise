@@ -208,7 +208,7 @@ const UserDashboard = () => {
           </div>
           <button onClick={() => setSidebarOpen(false)} className="md:hidden text-muted-foreground"><X size={20} /></button>
         </div>
-        <nav className="p-2 space-y-1 overflow-y-auto h-[calc(100vh-130px)]">
+        <nav className="p-2 space-y-1 overflow-y-auto h-[calc(100vh-180px)]">
           {visibleSections.map(item => (
             <button key={item.key} onClick={() => { setActiveTab(item.key); setSidebarOpen(false); }}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${activeTab === item.key ? "gradient-primary text-primary-foreground font-bold" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}>
@@ -216,7 +216,7 @@ const UserDashboard = () => {
             </button>
           ))}
         </nav>
-        <div className="absolute bottom-0 right-0 left-0 p-3 border-t border-border">
+        <div className="p-3 border-t border-border">
           <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-destructive hover:bg-destructive/10"><LogOut className="h-4 w-4" /> {t("تسجيل الخروج", "Logout")}</button>
         </div>
       </aside>
@@ -566,13 +566,35 @@ const UserDashboard = () => {
           {/* ======= ACCOUNTING ======= */}
           {activeTab === "accounting" && permissions.includes("accounting") && (
             <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="font-bold text-foreground">{t("المحاسبة","Accounting")}</h3>
+                {canAction("accounting","export") && <button onClick={() => {
+                  const capital = products.reduce((a,p)=>a+(p.buy_price||0)*(p.quantity||0),0);
+                  const stockVal = products.reduce((a,p)=>a+(p.sell_price||0)*(p.quantity||0),0);
+                  const profit = stockVal - capital;
+                  const ordersTotal = orders.reduce((a,o)=>a+(o.total||0),0);
+                  exportToPDF(t("التقرير المالي","Financial Report"), [{[t("البند","Item")]:t("رأس المال","Capital"),[t("القيمة","Value")]:capital},{[t("البند","Item")]:t("قيمة المخزون","Stock Value"),[t("القيمة","Value")]:stockVal},{[t("البند","Item")]:t("الربح المتوقع","Expected Profit"),[t("القيمة","Value")]:profit},{[t("البند","Item")]:t("إجمالي الطلبات","Total Orders"),[t("القيمة","Value")]:ordersTotal}], [t("البند","Item"),t("القيمة","Value")]);
+                }} className="px-3 py-2 rounded-xl border border-border text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button>}
+              </div>
               <div className={cardClass}>
-                <h3 className="font-bold text-foreground mb-4">{t("المحاسبة","Accounting")}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="glass rounded-xl p-3 text-center"><p className="text-xs text-muted-foreground">{t("رأس المال","Capital")}</p><p className="text-lg font-black">{products.reduce((a,p)=>a+(p.buy_price||0)*(p.quantity||0),0).toLocaleString()}</p></div>
                   <div className="glass rounded-xl p-3 text-center"><p className="text-xs text-muted-foreground">{t("المخزون","Stock")}</p><p className="text-lg font-black text-primary">{products.reduce((a,p)=>a+(p.sell_price||0)*(p.quantity||0),0).toLocaleString()}</p></div>
                   <div className="glass rounded-xl p-3 text-center"><p className="text-xs text-muted-foreground">{t("الربح","Profit")}</p><p className="text-lg font-black text-success">{(products.reduce((a,p)=>a+(p.sell_price||0)*(p.quantity||0),0)-products.reduce((a,p)=>a+(p.buy_price||0)*(p.quantity||0),0)).toLocaleString()}</p></div>
                   <div className="glass rounded-xl p-3 text-center"><p className="text-xs text-muted-foreground">{t("الطلبات","Orders")}</p><p className="text-lg font-black">{orders.reduce((a,o)=>a+(o.total||0),0).toLocaleString()}</p></div>
+                </div>
+              </div>
+              {/* تفاصيل حسب المنتجات */}
+              <div className={cardClass}>
+                <h4 className="font-bold text-foreground mb-3">{t("تفاصيل المنتجات المالية","Product Financial Details")}</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm"><thead><tr className="border-b border-border">{[t("المنتج","Product"),t("الكمية","Qty"),t("شراء","Buy"),t("بيع","Sell"),t("رأس المال","Capital"),t("قيمة البيع","Sell Value"),t("الربح","Profit")].map(h => <th key={h} className="text-right py-2 px-2 text-muted-foreground text-xs">{h}</th>)}</tr></thead>
+                    <tbody>{products.map(p => {
+                      const cap = (p.buy_price||0)*(p.quantity||0);
+                      const sv = (p.sell_price||0)*(p.quantity||0);
+                      return (<tr key={p.id} className="border-b border-border/30"><td className="py-2 px-2 text-xs font-bold">{p.name}</td><td className="py-2 px-2 text-xs text-center">{p.quantity}</td><td className="py-2 px-2 text-xs">{p.buy_price}</td><td className="py-2 px-2 text-xs text-primary">{p.sell_price}</td><td className="py-2 px-2 text-xs">{cap.toLocaleString()}</td><td className="py-2 px-2 text-xs text-primary">{sv.toLocaleString()}</td><td className="py-2 px-2 text-xs font-bold" style={{color: sv-cap >= 0 ? 'hsl(var(--success))' : 'hsl(var(--destructive))'}}>{(sv-cap).toLocaleString()}</td></tr>);
+                    })}</tbody>
+                  </table>
                 </div>
               </div>
             </div>

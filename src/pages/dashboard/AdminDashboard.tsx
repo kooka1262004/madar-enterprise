@@ -140,7 +140,7 @@ const AdminDashboard = () => {
   };
 
   const updateWalletRequest = async (id: string, status: string, notes?: string) => {
-    await supabase.from("wallet_requests").update({ status, admin_notes: notes || "" }).eq("id", id);
+    await supabase.from("wallet_requests").update({ status, admin_notes: notes || "", ...(status === "approved" ? { receipt_reviewed_at: new Date().toISOString() } : {}) }).eq("id", id);
     if (status === "approved") {
       const req = walletRequests.find(r => r.id === id);
       if (req) {
@@ -148,16 +148,16 @@ const AdminDashboard = () => {
         if (company) {
           await supabase.from("companies").update({ wallet: (company.wallet || 0) + Number(req.amount) }).eq("id", company.id);
           await supabase.from("wallet_transactions").insert({ company_id: company.id, amount: Number(req.amount), type: "deposit", description: `شحن محفظة - ${req.method}` });
-          await supabase.from("notifications").insert({ user_id: company.owner_id, title: "تم قبول طلب الشحن", message: `تم شحن محفظتك بمبلغ ${req.amount} د.ل` });
+          await supabase.from("notifications").insert({ user_id: company.owner_id, title: "تم شحن المحفظة ✅", message: `تم شحن محفظتك بمبلغ ${req.amount} د.ل بنجاح` });
         }
       }
     }
-    if (status === "rejected") {
+    if (status === "rejected" || status === "cancelled") {
       const req = walletRequests.find(r => r.id === id);
       if (req) {
         const company = companies.find(c => c.id === req.company_id);
         if (company) {
-          await supabase.from("notifications").insert({ user_id: company.owner_id, title: "تم رفض طلب الشحن", message: `تم رفض طلب شحن المحفظة. السبب: ${notes || "لم يتم تحديد سبب"}` });
+          await supabase.from("notifications").insert({ user_id: company.owner_id, title: status === "cancelled" ? "تم إلغاء طلب الشحن ❌" : "تم رفض طلب الشحن", message: `${notes || "لم يتم تحديد سبب"}` });
         }
       }
     }
@@ -313,7 +313,7 @@ const AdminDashboard = () => {
           </div>
           <button onClick={() => setSidebarOpen(false)} className="md:hidden text-muted-foreground"><X size={20} /></button>
         </div>
-        <nav className="p-3 space-y-3 overflow-y-auto h-[calc(100vh-130px)]">
+        <nav className="p-3 space-y-3 overflow-y-auto h-[calc(100vh-180px)]">
           {sidebarSections.map((section) => (
             <div key={section.title}>
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-3 mb-1">{lang === "ar" ? section.title : section.titleEn}</p>
@@ -326,7 +326,7 @@ const AdminDashboard = () => {
             </div>
           ))}
         </nav>
-        <div className="absolute bottom-0 right-0 left-0 p-3 border-t border-border">
+        <div className="p-3 border-t border-border">
           <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-destructive hover:bg-destructive/10 transition-all">
             <LogOut className="h-4 w-4" /> {t("تسجيل الخروج", "Logout")}
           </button>
@@ -631,26 +631,86 @@ const AdminDashboard = () => {
                 <h3 className="font-bold text-foreground">{t("طلبات شحن المحافظ", "Wallet Requests")} ({walletRequests.length})</h3>
                 <button onClick={() => exportToPDF(t("طلبات شحن المحافظ","Wallet Requests"), walletRequests.map(r => ({ company: companies.find(c => c.id === r.company_id)?.company_name || "-", amount: r.amount, method: r.method, status: r.status, date: new Date(r.created_at).toLocaleDateString("ar-LY") })), [t("الشركة","Company"),t("المبلغ","Amount"),t("الطريقة","Method"),t("الحالة","Status"),t("التاريخ","Date")])} className="px-3 py-1.5 rounded-lg border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button>
               </div>
+              {/* تصفية حسب الحالة */}
+              <div className="flex gap-2 flex-wrap">
+                {[{k:"all",l:t("الكل","All")},{k:"pending",l:t("معلق","Pending")},{k:"accepted",l:t("تم القبول","Accepted")},{k:"courier_sent",l:t("تم إرسال مندوب","Courier Sent")},{k:"shipped",l:t("تم الشحن","Shipped")},{k:"cancelled",l:t("ملغي","Cancelled")}].map(f => (
+                  <button key={f.k} onClick={() => setSearchCompany(f.k === "all" ? "" : f.k)} className={`px-3 py-1.5 rounded-xl text-xs ${searchCompany === f.k || (f.k === "all" && !searchCompany) ? "gradient-primary text-primary-foreground font-bold" : "glass text-foreground"}`}>{f.l}</button>
+                ))}
+              </div>
               {walletRequests.length === 0 ? <div className="glass rounded-2xl p-6 text-center"><CreditCard className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لا توجد طلبات.", "No requests.")}</p></div> : (
-                <div className="space-y-3">{walletRequests.map(r => (
+                <div className="space-y-3">{walletRequests.filter(r => !searchCompany || r.status === searchCompany).map(r => {
+                  const companyName = companies.find(c => c.id === r.company_id)?.company_name || "";
+                  const walletStatusMap: Record<string,{ar:string,color:string}> = {
+                    pending:{ar:"معلق",color:"bg-warning/20 text-warning"},
+                    accepted:{ar:"تم القبول",color:"bg-primary/20 text-primary"},
+                    courier_sent:{ar:"تم إرسال مندوب",color:"bg-accent/20 text-accent"},
+                    shipped:{ar:"تم الشحن",color:"bg-success/20 text-success"},
+                    cancelled:{ar:"ملغي",color:"bg-destructive/20 text-destructive"},
+                    approved:{ar:"مقبول",color:"bg-success/20 text-success"},
+                    rejected:{ar:"مرفوض",color:"bg-destructive/20 text-destructive"},
+                  };
+                  const st = walletStatusMap[r.status] || {ar:r.status,color:"bg-secondary text-foreground"};
+                  return (
                   <div key={r.id} className="glass rounded-2xl p-4">
                     <div className="flex items-center justify-between mb-2">
                       <div>
-                        <p className="font-bold text-foreground">{r.amount} {t("د.ل", "LYD")} - {companies.find(c => c.id === r.company_id)?.company_name || ""}</p>
+                        <p className="font-bold text-foreground">{r.amount} {t("د.ل", "LYD")} - {companyName}</p>
                         <p className="text-xs text-muted-foreground">{t("الطريقة:", "Method:")} {r.method} · {new Date(r.created_at).toLocaleDateString("ar-LY")}</p>
                         {r.notes && <p className="text-xs text-muted-foreground mt-1">{r.notes}</p>}
-                        {r.proof_url && <a href={r.proof_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline mt-1 inline-block">{t("عرض إثبات الدفع", "View Payment Proof")}</a>}
+                        {r.proof_url && <a href={r.proof_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline mt-1 inline-flex items-center gap-1">📎 {t("عرض إثبات الدفع", "View Payment Proof")}</a>}
                       </div>
-                      <span className={`px-2 py-0.5 rounded-full text-xs ${r.status === "approved" ? "bg-success/20 text-success" : r.status === "rejected" ? "bg-destructive/20 text-destructive" : "bg-warning/20 text-warning"}`}>{r.status === "approved" ? t("مقبول", "Approved") : r.status === "rejected" ? t("مرفوض", "Rejected") : t("معلّق", "Pending")}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${st.color}`}>{st.ar}</span>
                     </div>
-                    {r.status === "pending" && (
+                    {/* شريط تتبع الكاش */}
+                    {r.method === "كاش" && (
+                      <div className="flex items-center gap-1 mb-3 mt-2">
+                        {["pending","accepted","courier_sent","shipped"].map((s, i) => (
+                          <div key={s} className="flex-1">
+                            <div className={`h-1.5 rounded-full ${["pending","accepted","courier_sent","shipped"].indexOf(r.status) >= i ? (r.status === "cancelled" ? "bg-destructive" : "bg-primary") : "bg-border"}`} />
+                            <p className="text-[8px] text-center text-muted-foreground mt-1">{walletStatusMap[s]?.ar}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {/* أزرار تغيير الحالة حسب النوع */}
+                    {r.method === "كاش" && r.status === "pending" && (
+                      <div className="flex gap-2 mt-2 flex-wrap">
+                        <button onClick={() => updateWalletRequest(r.id, "accepted")} className="px-3 py-1.5 rounded-xl bg-primary/20 text-primary text-xs font-bold">{t("تم القبول","Accept")}</button>
+                        <button onClick={() => { const reason = prompt(t("سبب الإلغاء (إجباري):","Cancel reason (required):")); if (reason) { supabase.from("wallet_requests").update({status:"cancelled",cancel_reason:reason,admin_notes:reason}).eq("id",r.id).then(() => { const comp = companies.find(c=>c.id===r.company_id); if(comp) supabase.from("notifications").insert({user_id:comp.owner_id,title:t("تم إلغاء طلب الشحن","Wallet request cancelled"),message:`${t("السبب:","Reason:")} ${reason}`,type:"wallet"}); supabase.from("wallet_requests").select("*").order("created_at",{ascending:false}).then(({data})=>setWalletRequests(data||[])); }); }}} className="px-3 py-1.5 rounded-xl bg-destructive/20 text-destructive text-xs font-bold">{t("إلغاء","Cancel")}</button>
+                      </div>
+                    )}
+                    {r.method === "كاش" && r.status === "accepted" && (
+                      <div className="flex gap-2 mt-2">
+                        <button onClick={async () => { await supabase.from("wallet_requests").update({status:"courier_sent"}).eq("id",r.id); const comp = companies.find(c=>c.id===r.company_id); if(comp) await supabase.from("notifications").insert({user_id:comp.owner_id,title:t("تم إرسال مندوب 🚗","Courier sent 🚗"),message:t("تم إرسال مندوب لاستلام المبلغ. الرجاء رفع واصل وصورة تثبت الدفع بعد التسليم.","A courier has been sent. Please upload receipt after payment."),type:"wallet"}); const {data} = await supabase.from("wallet_requests").select("*").order("created_at",{ascending:false}); setWalletRequests(data||[]); }} className="px-3 py-1.5 rounded-xl bg-accent/20 text-accent text-xs font-bold">{t("تم إرسال مندوب","Courier Sent")}</button>
+                      </div>
+                    )}
+                    {r.method === "كاش" && r.status === "courier_sent" && r.proof_url && (
+                      <div className="flex gap-2 mt-2">
+                        <button onClick={() => updateWalletRequest(r.id, "approved")} className="px-3 py-1.5 rounded-xl bg-success/20 text-success text-xs font-bold">{t("تم الشحن ✅","Charged ✅")}</button>
+                        <button onClick={() => { const reason = prompt(t("سبب الإلغاء (إجباري):","Cancel reason (required):")); if (reason) { supabase.from("wallet_requests").update({status:"cancelled",cancel_reason:reason,admin_notes:reason}).eq("id",r.id).then(() => { const comp = companies.find(c=>c.id===r.company_id); if(comp) supabase.from("notifications").insert({user_id:comp.owner_id,title:t("تم إلغاء طلب الشحن ❌","Request cancelled ❌"),message:`${t("السبب:","Reason:")} ${reason}`,type:"wallet"}); supabase.from("wallet_requests").select("*").order("created_at",{ascending:false}).then(({data})=>setWalletRequests(data||[])); }); }}} className="px-3 py-1.5 rounded-xl bg-destructive/20 text-destructive text-xs font-bold">{t("إلغاء مع سبب","Cancel with reason")}</button>
+                      </div>
+                    )}
+                    {r.method === "كاش" && r.status === "courier_sent" && !r.proof_url && (
+                      <div className="bg-warning/10 border border-warning/30 rounded-xl p-3 mt-2">
+                        <p className="text-xs text-warning font-bold">⏳ {t("في انتظار رفع الإيصال من مسؤول الشركة","Waiting for company to upload receipt")}</p>
+                      </div>
+                    )}
+                    {/* غير الكاش - تحويل مصرفي وباينس */}
+                    {r.method !== "كاش" && r.status === "pending" && (
                       <div className="flex gap-2 mt-2">
                         <button onClick={() => updateWalletRequest(r.id, "approved")} className="px-4 py-1.5 rounded-xl bg-success/20 text-success text-xs font-bold">{t("قبول وشحن المحفظة", "Approve & Charge")}</button>
-                        <button onClick={() => { const reason = prompt(t("سبب الرفض:", "Rejection reason:")); if (reason) updateWalletRequest(r.id, "rejected", reason); }} className="px-4 py-1.5 rounded-xl bg-destructive/20 text-destructive text-xs font-bold">{t("رفض", "Reject")}</button>
+                        <button onClick={() => { const reason = prompt(t("سبب الإلغاء (إجباري):","Cancel reason (required):")); if (reason) { supabase.from("wallet_requests").update({status:"cancelled",cancel_reason:reason,admin_notes:reason}).eq("id",r.id).then(() => { const comp = companies.find(c=>c.id===r.company_id); if(comp) supabase.from("notifications").insert({user_id:comp.owner_id,title:t("تم رفض طلب الشحن","Request rejected"),message:`${t("السبب:","Reason:")} ${reason}`,type:"wallet"}); supabase.from("wallet_requests").select("*").order("created_at",{ascending:false}).then(({data})=>setWalletRequests(data||[])); }); }}} className="px-4 py-1.5 rounded-xl bg-destructive/20 text-destructive text-xs font-bold">{t("رفض","Reject")}</button>
+                      </div>
+                    )}
+                    {/* سبب الإلغاء */}
+                    {r.status === "cancelled" && r.cancel_reason && (
+                      <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-3 mt-2">
+                        <p className="text-xs text-destructive font-bold">❌ {t("سبب الإلغاء:","Cancel reason:")} {r.cancel_reason}</p>
+                        {r.admin_notes && r.admin_notes !== r.cancel_reason && <p className="text-xs text-muted-foreground mt-1">{r.admin_notes}</p>}
                       </div>
                     )}
                   </div>
-                ))}</div>
+                );})}</div>
               )}
             </div>
           )}

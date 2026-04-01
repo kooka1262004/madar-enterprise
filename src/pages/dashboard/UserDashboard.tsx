@@ -482,9 +482,9 @@ const UserDashboard = () => {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="font-bold text-foreground">{t("الموردين","Suppliers")} ({suppliers.length})</h3>
-                <button onClick={() => setShowForm("supplier")} className={`${btnPrimary} flex items-center gap-2 text-xs`}><Plus className="h-3 w-3" /> {t("إضافة","Add")}</button>
+                {canAction("suppliers","create") && <button onClick={() => setShowForm("supplier")} className={`${btnPrimary} flex items-center gap-2 text-xs`}><Plus className="h-3 w-3" /> {t("إضافة","Add")}</button>}
               </div>
-              {showForm === "supplier" && (
+              {showForm === "supplier" && canAction("suppliers","create") && (
                 <form onSubmit={async (e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); const d = Object.fromEntries(fd); await supabase.from("suppliers").insert({ company_id: companyId!, name: d.name as string, phone: d.phone as string, email: d.email as string, city: d.city as string, notes: d.notes as string }); await refreshSuppliers(); setShowForm(""); }} className={`${cardClass} space-y-3`}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div><label className="text-xs font-bold text-foreground">{t("الاسم *","Name *")}</label><input name="name" required className={inputClass} /></div>
@@ -499,7 +499,7 @@ const UserDashboard = () => {
               {suppliers.map(s => (
                 <div key={s.id} className="glass rounded-xl p-3 flex justify-between items-center">
                   <div><p className="text-sm font-bold text-foreground">{s.name}</p><p className="text-xs text-muted-foreground">{s.phone||"-"} · {s.city||"-"}</p></div>
-                  <button onClick={async () => { if(confirm(t("حذف؟","Delete?"))) { await supabase.from("suppliers").delete().eq("id", s.id); await refreshSuppliers(); }}} className="text-destructive p-1"><Trash2 className="h-3 w-3" /></button>
+                  {canAction("suppliers","delete") && <button onClick={async () => { if(confirm(t("حذف؟","Delete?"))) { await supabase.from("suppliers").delete().eq("id", s.id); await refreshSuppliers(); }}} className="text-destructive p-1"><Trash2 className="h-3 w-3" /></button>}
                 </div>
               ))}
             </div>

@@ -140,8 +140,8 @@ const AdminDashboard = () => {
   };
 
   const updateWalletRequest = async (id: string, status: string, notes?: string) => {
-    await supabase.from("wallet_requests").update({ status, admin_notes: notes || "", ...(status === "approved" ? { receipt_reviewed_at: new Date().toISOString() } : {}) }).eq("id", id);
-    if (status === "approved") {
+    await supabase.from("wallet_requests").update({ status, admin_notes: notes || "", ...((status === "approved" || status === "shipped") ? { receipt_reviewed_at: new Date().toISOString() } : {}) }).eq("id", id);
+    if (status === "approved" || status === "shipped") {
       const req = walletRequests.find(r => r.id === id);
       if (req) {
         const company = companies.find(c => c.id === req.company_id);

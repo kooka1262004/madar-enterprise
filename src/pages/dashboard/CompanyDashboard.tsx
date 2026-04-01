@@ -367,6 +367,13 @@ const CompanyDashboard = () => {
     e.preventDefault();
     const fd = new FormData(e.target as HTMLFormElement);
     const d = Object.fromEntries(fd);
+    // Check employee limit
+    const currentPlan = plans.find(p => p.id === company?.plan || p.name === company?.plan_name);
+    const maxEmps = currentPlan?.max_employees || currentPlan?.max_users || 2;
+    if (employees.length >= maxEmps) {
+      alert(t(`لقد وصلت إلى الحد المسموح في باقتك (${maxEmps} موظف). يرجى ترقية الباقة.`, `Employee limit reached (${maxEmps}). Please upgrade.`));
+      return;
+    }
     const rolePerms: Record<string, string[]> = {
       "مسؤول مخزن": ["dashboard","my-info","products","stock","barcode","suppliers","inventory","returns","attendance","requests","my-tasks"],
       "محاسب": ["dashboard","my-info","accounting","invoices","reports","attendance","requests","my-tasks"],

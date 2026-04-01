@@ -324,7 +324,7 @@ const UserDashboard = () => {
                   <p className="text-xs text-muted-foreground">{t("بداية: 08:00 صباحاً · نهاية: 04:00 مساءً · تأخير مسموح: 15 دقيقة","Start: 08:00 AM · End: 04:00 PM · Late tolerance: 15 min")}</p>
                   <p className="text-xs text-warning mt-1">{t("⚠️ التأخير: خصم 10 د.ل · الغياب الجزئي: 30 د.ل · الخروج المبكر: 20 د.ل","⚠️ Late: -10 LYD · Partial absence: -30 LYD · Early leave: -20 LYD")}</p>
                 </div>
-                <div className="flex gap-3 mb-6">
+                <div className="flex gap-3 flex-wrap mb-6">
                   {(!todayRecord || !todayRecord.check_in) && <button onClick={() => recordAttendance("in")} className={`${btnPrimary} flex items-center gap-2`}><Check className="h-5 w-5" /> {t("تسجيل حضور", "Check In")}</button>}
                   {todayRecord?.check_in && !todayRecord?.check_out && <button onClick={() => recordAttendance("out")} className="px-6 py-3 rounded-xl bg-destructive text-destructive-foreground text-sm font-bold flex items-center gap-2"><LogOut className="h-5 w-5" /> {t("تسجيل انصراف", "Check Out")}</button>}
                   {todayRecord?.check_in && todayRecord?.check_out && <div className="glass rounded-xl p-4 border-success/30 w-full"><p className="text-sm text-success font-bold">✅ {t("تم تسجيل حضورك وانصرافك اليوم", "Today's attendance complete")}</p><p className="text-xs text-muted-foreground mt-1">{t("حضور:","In:")} {todayRecord.check_in} · {t("انصراف:","Out:")} {todayRecord.check_out}</p></div>}

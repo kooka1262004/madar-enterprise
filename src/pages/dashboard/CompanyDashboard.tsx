@@ -437,9 +437,11 @@ const CompanyDashboard = () => {
     setEmpRequests(empRequests.map(r => r.id === id ? { ...r, status, admin_notes: notes } : r));
   };
 
-  const updatePermissions = async (empId: string, perms: string[]) => {
-    await supabase.from("employees").update({ permissions: perms }).eq("id", empId);
-    setEmployees(employees.map(e => e.id === empId ? { ...e, permissions: perms } : e));
+  const updatePermissions = async (empId: string, perms: string[], overrides?: any) => {
+    const updateObj: any = { permissions: perms };
+    if (overrides !== undefined) updateObj.permission_overrides = overrides;
+    await supabase.from("employees").update(updateObj).eq("id", empId);
+    setEmployees(employees.map(e => e.id === empId ? { ...e, permissions: perms, ...(overrides !== undefined ? { permission_overrides: overrides } : {}) } : e));
   };
 
   const saveTask = async (e: React.FormEvent) => {

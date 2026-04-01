@@ -510,9 +510,9 @@ const UserDashboard = () => {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="font-bold text-foreground">{t("حركة المخزون","Stock Movements")}</h3>
-                <button onClick={() => setShowForm("movement")} className={`${btnPrimary} flex items-center gap-2 text-xs`}><Plus className="h-3 w-3" /> {t("إضافة حركة","Add Movement")}</button>
+                {canAction("stock","create") && <button onClick={() => setShowForm("movement")} className={`${btnPrimary} flex items-center gap-2 text-xs`}><Plus className="h-3 w-3" /> {t("إضافة حركة","Add Movement")}</button>}
               </div>
-              {showForm === "movement" && (
+              {showForm === "movement" && canAction("stock","create") && (
                 <form onSubmit={async (e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); const d = Object.fromEntries(fd); await supabase.from("stock_movements").insert({ company_id: companyId!, product_id: d.productId as string, type: d.movementType as string, quantity: Number(d.quantity)||0, reason: d.reason as string, notes: d.notes as string, created_by: user?.id }); const product = products.find(p=>p.id===d.productId); if(product) { const qty = Number(d.quantity)||0; const newQty = ["buy","add","return"].includes(d.movementType as string) ? (product.quantity||0)+qty : Math.max(0,(product.quantity||0)-qty); await supabase.from("products").update({quantity:newQty}).eq("id",product.id); } await refreshMovements(); await refreshProducts(); setShowForm(""); }} className={`${cardClass} space-y-3`}>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div><label className="text-xs font-bold text-foreground">{t("المنتج *","Product *")}</label><select name="productId" required className={inputClass}><option value="">{t("اختر","Select")}</option>{products.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></div>

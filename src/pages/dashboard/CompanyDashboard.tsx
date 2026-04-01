@@ -1516,23 +1516,96 @@ const CompanyDashboard = () => {
           {/* ======= PERMISSIONS ======= */}
           {activeTab === "permissions" && (
             <div className="space-y-4">
-              <SectionHeader title={t("الصلاحيات والتوظيف","Permissions")} desc={t("تحكم في ما يراه كل موظف في لوحته. فعّل أو أوقف ظهور أي قسم.","Control what each employee sees in their dashboard.")} />
-              {employees.map(emp => (
-                <div key={emp.id} className={cardClass}>
-                  <h4 className="font-bold text-foreground mb-3">{emp.full_name} <span className="text-xs text-muted-foreground">({emp.position})</span></h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                    {allPermissions.map(perm => {
-                      const has = (emp.permissions || []).includes(perm.key);
-                      return (
-                        <button key={perm.key} onClick={() => { const newPerms = has ? (emp.permissions || []).filter((p: string) => p !== perm.key) : [...(emp.permissions || []), perm.key]; updatePermissions(emp.id, newPerms); }}
-                          className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${has ? "gradient-primary text-primary-foreground" : "glass text-muted-foreground"}`}>
-                          {has ? "✅" : "⬜"} {lang === "ar" ? perm.ar : perm.en}
-                        </button>
-                      );
-                    })}
+              <SectionHeader title={t("الصلاحيات والتوظيف","Permissions & Access Control")} desc={t("تحكم دقيق في كل ما يراه ويفعله كل موظف. المستوى الأول: الوصول للقسم. المستوى الثاني: الإجراءات داخل كل قسم.","Granular control over what each employee can see and do. Level 1: Section access. Level 2: Actions within each section.")} />
+              <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 mb-2">
+                <p className="text-xs text-primary font-bold">💡 {t("نظام الصلاحيات يعمل على مستويين: أولاً فعّل القسم ليظهر للموظف، ثم حدد الإجراءات المسموحة داخله. الموظف لن يستطيع تنفيذ أي عملية لم تمنحها له.","Permissions work on two levels: First enable the section for the employee, then select allowed actions. Employee cannot perform any action not granted.")}</p>
+              </div>
+              {employees.length === 0 ? (
+                <div className={`${cardClass} text-center py-8`}><Users className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لا يوجد موظفين. أضف موظفين من قسم المستخدمين أولاً.","No employees. Add employees from Users section first.")}</p></div>
+              ) : employees.map(emp => {
+                const empPerms: string[] = emp.permissions || [];
+                const empOverrides: Record<string, Record<string, boolean>> = emp.permission_overrides || {};
+                return (
+                  <div key={emp.id} className={`${cardClass} border border-border/50`}>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center text-primary-foreground font-bold text-sm">{emp.full_name?.charAt(0)}</div>
+                        <div>
+                          <h4 className="font-bold text-foreground">{emp.full_name}</h4>
+                          <p className="text-xs text-muted-foreground">{emp.position || t("بدون مسمى","No title")} · {emp.email}</p>
+                        </div>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${emp.status === "active" ? "bg-success/20 text-success" : "bg-destructive/20 text-destructive"}`}>{emp.status === "active" ? t("نشط","Active") : t("معطل","Disabled")}</span>
+                    </div>
+                    
+                    {/* مستوى الأقسام */}
+                    <div className="mb-4">
+                      <h5 className="text-xs font-bold text-primary mb-2 flex items-center gap-1"><Shield className="h-3 w-3" /> {t("المستوى الأول: الأقسام المتاحة","Level 1: Available Sections")}</h5>
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                        {allPermissions.filter(p => !["dashboard","my-info"].includes(p.key)).map(perm => {
+                          const has = empPerms.includes(perm.key);
+                          return (
+                            <button key={perm.key} onClick={() => {
+                              const newPerms = has ? empPerms.filter((p: string) => p !== perm.key) : [...empPerms, perm.key];
+                              const newOverrides = { ...empOverrides };
+                              if (!has) { newOverrides[perm.key] = { view: true }; }
+                              else { delete newOverrides[perm.key]; }
+                              updatePermissions(emp.id, newPerms, newOverrides);
+                            }} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${has ? "gradient-primary text-primary-foreground" : "glass text-muted-foreground border border-border/50"}`}>
+                              {has ? "✅" : "⬜"} {lang === "ar" ? perm.ar : perm.en}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    
+                    {/* مستوى الإجراءات */}
+                    {empPerms.filter(p => sectionActions[p]).length > 0 && (
+                      <div>
+                        <h5 className="text-xs font-bold text-warning mb-2 flex items-center gap-1"><UserCog className="h-3 w-3" /> {t("المستوى الثاني: الإجراءات المسموحة داخل كل قسم","Level 2: Allowed Actions per Section")}</h5>
+                        <div className="space-y-3">
+                          {empPerms.filter(p => sectionActions[p]).map(sectionKey => {
+                            const section = allPermissions.find(p => p.key === sectionKey);
+                            const actions = sectionActions[sectionKey] || [];
+                            const sectionOverrides = empOverrides[sectionKey] || {};
+                            return (
+                              <div key={sectionKey} className="glass rounded-xl p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="text-xs font-bold text-foreground">{lang === "ar" ? section?.ar : section?.en}</p>
+                                  <button onClick={() => {
+                                    const allOn = actions.every(a => sectionOverrides[a.key]);
+                                    const newOverrides = { ...empOverrides };
+                                    const newSection: Record<string, boolean> = {};
+                                    actions.forEach(a => { newSection[a.key] = !allOn; });
+                                    newOverrides[sectionKey] = newSection;
+                                    updatePermissions(emp.id, empPerms, newOverrides);
+                                  }} className="text-[10px] text-primary font-bold">{actions.every(a => sectionOverrides[a.key]) ? t("إلغاء الكل","Deselect All") : t("تحديد الكل","Select All")}</button>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {actions.map(action => {
+                                    const enabled = !!sectionOverrides[action.key];
+                                    return (
+                                      <button key={action.key} onClick={() => {
+                                        const newOverrides = { ...empOverrides };
+                                        const newSection = { ...(newOverrides[sectionKey] || {}) };
+                                        newSection[action.key] = !enabled;
+                                        newOverrides[sectionKey] = newSection;
+                                        updatePermissions(emp.id, empPerms, newOverrides);
+                                      }} className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${enabled ? "bg-success/20 text-success border border-success/30" : "bg-secondary text-muted-foreground border border-border/50"}`}>
+                                        {enabled ? "✅" : "⬜"} {lang === "ar" ? action.ar : action.en}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

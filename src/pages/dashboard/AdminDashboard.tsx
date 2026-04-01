@@ -211,10 +211,11 @@ const AdminDashboard = () => {
   };
 
   const savePlan = async (plan: any) => {
+    const planData = { name: plan.name, name_en: plan.name_en, price: plan.price, period: plan.period, max_users: plan.max_users, max_stores: plan.max_stores, max_products: plan.max_products, max_employees: plan.max_employees || 5, max_storage_mb: plan.max_storage_mb || 500, max_db_mb: plan.max_db_mb || 100, max_file_uploads: plan.max_file_uploads || 100, max_departments: plan.max_departments || 3, features: plan.features, allowed_features: plan.allowed_features || [], active: plan.active };
     if (plan.id && plans.find(p => p.id === plan.id)) {
-      await supabase.from("plans").update({ name: plan.name, name_en: plan.name_en, price: plan.price, period: plan.period, max_users: plan.max_users, max_stores: plan.max_stores, max_products: plan.max_products, features: plan.features, active: plan.active }).eq("id", plan.id);
+      await supabase.from("plans").update(planData).eq("id", plan.id);
     } else {
-      await supabase.from("plans").insert(plan);
+      await supabase.from("plans").insert(planData);
     }
     const { data } = await supabase.from("plans").select("*").order("price", { ascending: true });
     setPlans(data || []);

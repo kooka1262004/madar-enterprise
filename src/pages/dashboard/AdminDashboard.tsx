@@ -686,7 +686,7 @@ const AdminDashboard = () => {
                     )}
                     {r.method === "كاش" && r.status === "courier_sent" && r.proof_url && (
                       <div className="flex gap-2 mt-2">
-                        <button onClick={() => updateWalletRequest(r.id, "approved")} className="px-3 py-1.5 rounded-xl bg-success/20 text-success text-xs font-bold">{t("تم الشحن ✅","Charged ✅")}</button>
+                        <button onClick={() => updateWalletRequest(r.id, "shipped")} className="px-3 py-1.5 rounded-xl bg-success/20 text-success text-xs font-bold">{t("تم الشحن ✅","Charged ✅")}</button>
                         <button onClick={() => { const reason = prompt(t("سبب الإلغاء (إجباري):","Cancel reason (required):")); if (reason) { supabase.from("wallet_requests").update({status:"cancelled",cancel_reason:reason,admin_notes:reason}).eq("id",r.id).then(() => { const comp = companies.find(c=>c.id===r.company_id); if(comp) supabase.from("notifications").insert({user_id:comp.owner_id,title:t("تم إلغاء طلب الشحن ❌","Request cancelled ❌"),message:`${t("السبب:","Reason:")} ${reason}`,type:"wallet"}); supabase.from("wallet_requests").select("*").order("created_at",{ascending:false}).then(({data})=>setWalletRequests(data||[])); }); }}} className="px-3 py-1.5 rounded-xl bg-destructive/20 text-destructive text-xs font-bold">{t("إلغاء مع سبب","Cancel with reason")}</button>
                       </div>
                     )}

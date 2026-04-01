@@ -240,7 +240,7 @@ const CompanyDashboard = () => {
         supabase.from("subscriptions").select("*").eq("company_id", companyId).eq("status", "active").order("created_at", { ascending: false }).limit(1),
         supabase.from("attendance").select("*").eq("company_id", companyId).order("date", { ascending: false }),
         supabase.from("platform_settings").select("*"),
-        supabase.from("warehouses").select("*").eq("company_id", companyId).order("created_at", { ascending: true }),
+        supabase.from("warehouses" as any).select("*").eq("company_id", companyId).order("created_at", { ascending: true }),
       ]);
       setCompany(compRes.data);
       setProducts(prodsRes.data || []);

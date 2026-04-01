@@ -318,6 +318,8 @@ const CompanyDashboard = () => {
     if (table === "tasks") { const { data } = await supabase.from("tasks").select("*").eq("company_id", companyId).order("created_at", { ascending: false }); setTasks(data || []); }
     if (table === "attendance") { const { data } = await supabase.from("attendance").select("*").eq("company_id", companyId).order("date", { ascending: false }); setAttendanceRecords(data || []); }
     if (table === "notifications" && user) { const { data } = await supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }); setNotifications(data || []); }
+    if (table === "warehouses") { const { data } = await supabase.from("warehouses" as any).select("*").eq("company_id", companyId).order("created_at", { ascending: true }); setWarehouses(data || []); }
+    if (table === "messages" && user) { const { data } = await supabase.from("messages").select("*").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order("created_at", { ascending: true }); setMessagesData(data || []); }
   };
 
   const saveProduct = async (e: React.FormEvent) => {

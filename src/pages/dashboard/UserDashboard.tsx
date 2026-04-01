@@ -423,11 +423,11 @@ const UserDashboard = () => {
               <div className="flex justify-between items-center">
                 <h3 className="font-bold text-foreground">{t("المنتجات","Products")} ({products.length})</h3>
                 <div className="flex gap-2">
-                  <button onClick={() => exportToPDF(t("المنتجات","Products"), products.map(p => ({[t("الاسم","Name")]:p.name,[t("الكود","Code")]:p.code,[t("الكمية","Qty")]:p.quantity,[t("بيع","Sell")]:p.sell_price})), [t("الاسم","Name"),t("الكود","Code"),t("الكمية","Qty"),t("بيع","Sell")])} className="px-3 py-2 rounded-xl border border-border text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button>
-                  <button onClick={() => setShowForm("product")} className={`${btnPrimary} flex items-center gap-2 text-xs`}><Plus className="h-3 w-3" /> {t("إضافة","Add")}</button>
+                  {canAction("products","export") && <button onClick={() => exportToPDF(t("المنتجات","Products"), products.map(p => ({[t("الاسم","Name")]:p.name,[t("الكود","Code")]:p.code,[t("الكمية","Qty")]:p.quantity,[t("بيع","Sell")]:p.sell_price})), [t("الاسم","Name"),t("الكود","Code"),t("الكمية","Qty"),t("بيع","Sell")])} className="px-3 py-2 rounded-xl border border-border text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button>}
+                  {canAction("products","create") && <button onClick={() => setShowForm("product")} className={`${btnPrimary} flex items-center gap-2 text-xs`}><Plus className="h-3 w-3" /> {t("إضافة","Add")}</button>}
                 </div>
               </div>
-              {showForm === "product" && (
+              {showForm === "product" && canAction("products","create") && (
                 <form onSubmit={async (e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); const d = Object.fromEntries(fd); await supabase.from("products").insert({ company_id: companyId!, name: d.name as string, code: d.code as string, type: d.type as string, quantity: Number(d.quantity)||0, buy_price: Number(d.buyPrice)||0, sell_price: Number(d.sellPrice)||0, barcode: d.barcode as string, min_stock: Number(d.minStock)||5 }); await refreshProducts(); setShowForm(""); }} className={`${cardClass} space-y-3`}>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div><label className="text-xs font-bold text-foreground">{t("اسم المنتج *","Name *")}</label><input name="name" required className={inputClass} /></div>
@@ -444,8 +444,8 @@ const UserDashboard = () => {
               )}
               {products.length > 0 ? (
                 <div className={`${cardClass} overflow-x-auto`}>
-                  <table className="w-full text-sm"><thead><tr className="border-b border-border">{[t("الاسم","Name"),t("الكود","Code"),t("النوع","Type"),t("الكمية","Qty"),t("بيع","Sell"),t("حالة","Status")].map(h => <th key={h} className="text-right py-2 px-2 text-muted-foreground text-xs">{h}</th>)}</tr></thead>
-                    <tbody>{products.map(p => (<tr key={p.id} className="border-b border-border/30"><td className="py-2 px-2 text-xs font-bold">{p.name}</td><td className="py-2 px-2 text-xs text-muted-foreground">{p.code||"-"}</td><td className="py-2 px-2 text-xs">{p.type||"-"}</td><td className="py-2 px-2 text-xs font-bold">{p.quantity}</td><td className="py-2 px-2 text-xs text-primary font-bold">{p.sell_price}</td><td className="py-2 px-2">{(p.quantity||0)<=(p.min_stock||5)?<span className="text-destructive text-[10px] font-bold">⚠️</span>:<span className="text-success text-[10px]">✅</span>}</td></tr>))}</tbody>
+                  <table className="w-full text-sm"><thead><tr className="border-b border-border">{[t("الاسم","Name"),t("الكود","Code"),t("النوع","Type"),t("الكمية","Qty"),t("بيع","Sell"),t("حالة","Status"),...(canAction("products","delete")?[t("إجراءات","Actions")]:[])].map(h => <th key={h} className="text-right py-2 px-2 text-muted-foreground text-xs">{h}</th>)}</tr></thead>
+                    <tbody>{products.map(p => (<tr key={p.id} className="border-b border-border/30"><td className="py-2 px-2 text-xs font-bold">{p.name}</td><td className="py-2 px-2 text-xs text-muted-foreground">{p.code||"-"}</td><td className="py-2 px-2 text-xs">{p.type||"-"}</td><td className="py-2 px-2 text-xs font-bold">{p.quantity}</td><td className="py-2 px-2 text-xs text-primary font-bold">{p.sell_price}</td><td className="py-2 px-2">{(p.quantity||0)<=(p.min_stock||5)?<span className="text-destructive text-[10px] font-bold">⚠️</span>:<span className="text-success text-[10px]">✅</span>}</td>{canAction("products","delete") && <td className="py-2 px-2"><button onClick={async () => { if(confirm(t("حذف؟","Delete?"))) { await supabase.from("products").delete().eq("id", p.id); await refreshProducts(); }}} className="text-destructive p-1"><Trash2 className="h-3 w-3" /></button></td>}</tr>))}</tbody>
                   </table>
                 </div>
               ) : <p className="text-sm text-muted-foreground">{t("لا توجد منتجات.","No products.")}</p>}

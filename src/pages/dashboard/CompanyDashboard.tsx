@@ -347,12 +347,23 @@ const CompanyDashboard = () => {
 
   const subscribeToplan = async (plan: any) => {
     if (walletBalance < plan.price) {
-      alert(t("رصيدك غير كافي! الرجاء شحن المحفظة أولاً.", "Insufficient balance! Please charge your wallet first."));
+      alert(t("رصيدك غير كافٍ! الرجاء شحن المحفظة أولاً.", "Insufficient balance! Please charge your wallet first."));
+      setActiveTab("wallet");
       return;
     }
-    if (!confirm(t(`سوف يتم خصم ${plan.price} د.ل من محفظتك تلقائياً. هل توافق؟`, `${plan.price} LYD will be deducted. Confirm?`))) return;
-    await supabase.from("subscription_requests").insert({ company_id: companyId!, plan_id: plan.id, plan_name: plan.name, price: plan.price, payment_method: "محفظة" });
-    alert(t("تم إرسال طلب الاشتراك! سيراجعه مسؤول النظام.", "Subscription request sent!"));
+    if (!confirm(t(`سوف يتم خصم ${plan.price} د.ل من محفظتك تلقائياً وتفعيل الباقة مباشرة. هل توافق؟`, `${plan.price} LYD will be deducted and plan activated immediately. Confirm?`))) return;
+    // خصم تلقائي من المحفظة
+    const newBalance = walletBalance - plan.price;
+    await supabase.from("companies").update({ wallet: newBalance, plan: plan.id, plan_name: plan.name }).eq("id", companyId);
+    // إنشاء اشتراك نشط
+    const endDate = new Date(); endDate.setMonth(endDate.getMonth() + (plan.period === "سنة" ? 12 : plan.period === "6 أشهر" ? 6 : 1));
+    await supabase.from("subscriptions").insert({ company_id: companyId!, plan_id: plan.id, plan_name: plan.name, price: plan.price, start_date: new Date().toISOString(), end_date: endDate.toISOString(), status: "active" });
+    // تسجيل حركة مالية
+    await supabase.from("wallet_transactions").insert({ company_id: companyId!, amount: plan.price, type: "payment", description: `اشتراك باقة ${plan.name}` });
+    setCompany({ ...company, wallet: newBalance, plan: plan.id, plan_name: plan.name });
+    const { data: sub } = await supabase.from("subscriptions").select("*").eq("company_id", companyId).eq("status", "active").order("created_at", { ascending: false }).limit(1);
+    setSubscription(sub?.[0] || null);
+    alert(t("✅ تم الاشتراك بنجاح وخصم المبلغ من محفظتك!", "✅ Subscription activated and amount deducted!"));
   };
 
   const handleEmpRequest = async (id: string, status: string, notes?: string) => {

@@ -804,14 +804,17 @@ const CompanyDashboard = () => {
                         <StatusBadge status={wr.status} />
                       </div>
                       {/* شريط تتبع حالة الطلب */}
-                      {wr.method === "كاش" && (
+                      {(wr.method === "كاش") && (
                         <div className="flex items-center gap-1 mb-3 mt-2">
-                          {["pending","accepted","courier_sent","shipped"].map((s, i) => (
+                          {["pending","accepted","courier_sent","shipped"].map((s, i) => {
+                            const wrIdx = ["pending","accepted","courier_sent","shipped"].indexOf(wr.status === "approved" ? "shipped" : wr.status);
+                            return (
                             <div key={s} className="flex-1">
-                              <div className={`h-1.5 rounded-full ${["pending","accepted","courier_sent","shipped"].indexOf(wr.status) >= i ? (wr.status === "cancelled" ? "bg-destructive" : "bg-primary") : "bg-border"}`} />
+                              <div className={`h-1.5 rounded-full ${wrIdx >= i ? (wr.status === "cancelled" ? "bg-destructive" : "bg-primary") : "bg-border"}`} />
                               <p className="text-[8px] text-center text-muted-foreground mt-1">{statusMap[s]?.ar}</p>
                             </div>
-                          ))}
+                          );
+                          })}
                         </div>
                       )}
                       {/* إذا تم إرسال مندوب - نطلب رفع الواصل */}

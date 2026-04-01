@@ -314,7 +314,19 @@ const UserDashboard = () => {
               </div>
               <div className={cardClass}>
                 <h4 className="font-bold text-foreground mb-2">{t("صلاحياتي","My Permissions")}</h4>
-                <div className="flex flex-wrap gap-2">{permissions.map(p => <span key={p} className="px-3 py-1 rounded-full text-xs gradient-primary text-primary-foreground font-bold">{allSections.find(s=>s.key===p)?.label || p}</span>)}</div>
+                <div className="space-y-2">
+                  {permissions.map(p => {
+                    const section = allSections.find(s=>s.key===p);
+                    const sectionOvr = permOverrides[p] || {};
+                    const activeActions = Object.entries(sectionOvr).filter(([,v]) => v).map(([k]) => k);
+                    return (
+                      <div key={p} className="glass rounded-xl p-2">
+                        <span className="px-3 py-1 rounded-full text-xs gradient-primary text-primary-foreground font-bold">{section?.label || p}</span>
+                        {activeActions.length > 0 && <div className="flex flex-wrap gap-1 mt-1">{activeActions.map(a => <span key={a} className="px-2 py-0.5 rounded text-[10px] bg-success/20 text-success font-bold">{a}</span>)}</div>}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}

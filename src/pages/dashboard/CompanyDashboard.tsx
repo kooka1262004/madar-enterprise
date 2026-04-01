@@ -874,10 +874,11 @@ const CompanyDashboard = () => {
           {/* ======= BARCODE ======= */}
           {activeTab === "barcode" && (
             <div className="space-y-4">
-              <div className={cardClass}><p className="text-xs text-muted-foreground">{t("استخدم الباركود لتسريع عملية البيع والجرد. يمكنك إنشاء باركود جديد أو مسح باركود موجود بكاميرا الهاتف.", "Use barcode to speed up sales and inventory.")}</p></div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className={cardClass}><p className="text-xs text-muted-foreground">{t("استخدم الباركود لتسريع عملية البيع والجرد. يمكنك إنشاء باركود جديد، مسح باركود بالكاميرا، أو رفع صورة باركود.", "Use barcode to speed up sales and inventory. Generate, scan with camera, or upload barcode image.")}</p></div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <button onClick={() => setBarcodeMode("generate")} className={`${cardClass} hover:border-primary/50 text-center`}><QrCode className="h-10 w-10 text-primary mx-auto mb-3" /><h4 className="font-bold text-foreground">{t("إنشاء باركود", "Generate")}</h4></button>
                 <button onClick={() => setShowBarcodeScanner(true)} className={`${cardClass} hover:border-primary/50 text-center`}><Camera className="h-10 w-10 text-primary mx-auto mb-3" /><h4 className="font-bold text-foreground">{t("مسح باركود", "Scan")}</h4></button>
+                <button onClick={() => setBarcodeMode("upload")} className={`${cardClass} hover:border-primary/50 text-center`}><Upload className="h-10 w-10 text-warning mx-auto mb-3" /><h4 className="font-bold text-foreground">{t("رفع صورة باركود", "Upload Image")}</h4></button>
               </div>
               {barcodeMode === "generate" && (
                 <div className={cardClass}>
@@ -886,8 +887,47 @@ const CompanyDashboard = () => {
                   {generatedBarcode && <div className="mt-4"><BarcodeGenerator value={generatedBarcode} /></div>}
                 </div>
               )}
-              {showBarcodeScanner && <BarcodeScanner onScan={r => { setScannedResult(r); setShowBarcodeScanner(false); }} onClose={() => setShowBarcodeScanner(false)} />}
-              {scannedResult && <div className={cardClass}><p className="text-sm text-foreground">{t("نتيجة المسح:", "Result:")} <span className="font-bold text-primary">{scannedResult}</span></p></div>}
+              {barcodeMode === "upload" && (
+                <div className={cardClass}>
+                  <h4 className="font-bold text-foreground mb-2">{t("رفع صورة باركود للبحث عن المنتج", "Upload barcode image to find product")}</h4>
+                  <input type="file" accept="image/*" onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    // استخدام HTML5 QR Code scanner لقراءة الباركود من الصورة
+                    try {
+                      const { Html5Qrcode } = await import("html5-qrcode");
+                      const scanner = new Html5Qrcode("barcode-upload-reader");
+                      const result = await scanner.scanFile(file, true);
+                      setScannedResult(result);
+                      // بحث عن المنتج
+                      const found = products.find(p => p.barcode === result || p.code === result);
+                      if (found) {
+                        alert(t(`✅ تم العثور على المنتج: ${found.name}\nالكمية: ${found.quantity}\nسعر البيع: ${found.sell_price}`, `✅ Found: ${found.name}\nQty: ${found.quantity}\nPrice: ${found.sell_price}`));
+                      } else {
+                        alert(t(`لم يتم العثور على منتج بهذا الباركود: ${result}`, `No product found for barcode: ${result}`));
+                      }
+                    } catch (err) {
+                      alert(t("تعذر قراءة الباركود من الصورة. تأكد من وضوح الصورة.", "Could not read barcode from image."));
+                    }
+                  }} className={inputClass} />
+                  <div id="barcode-upload-reader" style={{ display: "none" }} />
+                  {scannedResult && (() => { const found = products.find(p => p.barcode === scannedResult || p.code === scannedResult); return found ? (
+                    <div className="mt-3 glass rounded-xl p-4 border-success/30">
+                      <h4 className="font-bold text-success mb-2">✅ {t("تم العثور على المنتج", "Product Found")}</h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div><span className="text-muted-foreground">{t("الاسم:","Name:")}</span> <span className="font-bold">{found.name}</span></div>
+                        <div><span className="text-muted-foreground">{t("الكود:","Code:")}</span> <span className="font-bold">{found.code || "-"}</span></div>
+                        <div><span className="text-muted-foreground">{t("الكمية:","Qty:")}</span> <span className="font-bold">{found.quantity}</span></div>
+                        <div><span className="text-muted-foreground">{t("سعر البيع:","Sell:")}</span> <span className="font-bold text-primary">{found.sell_price}</span></div>
+                        <div><span className="text-muted-foreground">{t("سعر الشراء:","Buy:")}</span> <span className="font-bold">{found.buy_price}</span></div>
+                        <div><span className="text-muted-foreground">{t("النوع:","Type:")}</span> <span className="font-bold">{found.type || "-"}</span></div>
+                      </div>
+                    </div>
+                  ) : <div className="mt-3 glass rounded-xl p-3"><p className="text-sm">{t("نتيجة المسح:","Result:")} <span className="font-bold text-primary">{scannedResult}</span></p><p className="text-xs text-destructive mt-1">{t("لم يتم العثور على منتج بهذا الباركود","No product found")}</p></div>; })()}
+                </div>
+              )}
+              {showBarcodeScanner && <BarcodeScanner onScan={r => { setScannedResult(r); setShowBarcodeScanner(false); const found = products.find(p => p.barcode === r || p.code === r); if (found) alert(t(`✅ المنتج: ${found.name} - الكمية: ${found.quantity} - السعر: ${found.sell_price}`,`✅ ${found.name} - Qty: ${found.quantity} - Price: ${found.sell_price}`)); else alert(t(`لم يتم العثور على منتج: ${r}`,`No product: ${r}`)); }} onClose={() => setShowBarcodeScanner(false)} />}
+              {scannedResult && barcodeMode !== "upload" && <div className={cardClass}><p className="text-sm text-foreground">{t("نتيجة المسح:", "Result:")} <span className="font-bold text-primary">{scannedResult}</span></p>{(() => { const found = products.find(p => p.barcode === scannedResult || p.code === scannedResult); return found ? <p className="text-xs text-success mt-1">✅ {found.name} - {t("الكمية:","Qty:")} {found.quantity} - {t("السعر:","Price:")} {found.sell_price}</p> : <p className="text-xs text-destructive mt-1">{t("لم يتم العثور على منتج","No product found")}</p>; })()}</div>}
             </div>
           )}
 

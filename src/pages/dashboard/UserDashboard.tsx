@@ -631,8 +631,33 @@ const UserDashboard = () => {
             </div>
           )}
 
-        </div>
-      </main>
+
+          {/* ======= MESSAGES ======= */}
+          {activeTab === "messages" && (
+            <div className="space-y-4">
+              <h3 className="font-bold text-foreground">{t("المراسلات","Messages")}</h3>
+              <div className={`${cardClass} flex flex-col`} style={{ maxHeight: "60vh" }}>
+                <div className="flex-1 overflow-y-auto space-y-2 mb-4 min-h-[200px]">
+                  {messagesData.length === 0 ? (
+                    <div className="text-center py-8"><MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لا توجد رسائل.","No messages.")}</p></div>
+                  ) : messagesData.map(m => (
+                    <div key={m.id} className={`flex ${m.sender_id === user?.id ? (lang === "ar" ? "justify-start" : "justify-end") : (lang === "ar" ? "justify-end" : "justify-start")}`}>
+                      <div className={`max-w-[80%] rounded-2xl px-4 py-2 ${m.sender_id === user?.id ? "gradient-primary text-primary-foreground" : "glass border border-border"}`}>
+                        <p className="text-sm">{m.content}</p>
+                        <p className={`text-[10px] mt-1 ${m.sender_id === user?.id ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{new Date(m.created_at).toLocaleString("ar-LY")}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <form onSubmit={async (e) => { e.preventDefault(); if (!newMessageText.trim() || !user || !myData?.companies) return; const { data: companyData } = await supabase.from("companies").select("owner_id").eq("id", companyId).single(); if (companyData) { await supabase.from("messages").insert({ sender_id: user.id, receiver_id: companyData.owner_id, content: newMessageText }); await supabase.from("notifications").insert({ user_id: companyData.owner_id, title: t("رسالة من موظف","Message from employee") + " " + myData.full_name, message: newMessageText.slice(0, 100) }); setNewMessageText(""); const { data: msgs } = await supabase.from("messages").select("*").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order("created_at", { ascending: true }); setMessagesData(msgs || []); } }} className="flex gap-2">
+                  <input value={newMessageText} onChange={e => setNewMessageText(e.target.value)} className={`${inputClass} flex-1`} placeholder={t("اكتب رسالتك لمدير الشركة...","Write to company manager...")} />
+                  <button type="submit" className={`${btnPrimary} flex items-center gap-1`}><Send className="h-4 w-4" /></button>
+                </form>
+              </div>
+            </div>
+          )}
+
+
       {sidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setSidebarOpen(false)} />}
     </div>
   );

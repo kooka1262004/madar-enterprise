@@ -33,6 +33,7 @@ const allSections = [
   { icon: ShoppingCart, label: "الطلبات", labelEn: "Orders", key: "orders" },
   { icon: RotateCcw, label: "التالف والمرتجعات", labelEn: "Returns", key: "returns" },
   { icon: ClipboardList, label: "الجرد", labelEn: "Inventory", key: "inventory" },
+  { icon: MessageSquare, label: "المراسلات", labelEn: "Messages", key: "messages" },
 ];
 
 const statusMap: Record<string, { ar: string; color: string }> = {
@@ -62,6 +63,8 @@ const UserDashboard = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [messagesData, setMessagesData] = useState<any[]>([]);
+  const [newMessageText, setNewMessageText] = useState("");
   const [showForm, setShowForm] = useState("");
   const [loading, setLoading] = useState(true);
   const [barcodeMode, setBarcodeMode] = useState("");
@@ -94,7 +97,7 @@ const UserDashboard = () => {
     if (!user || !companyId) return;
     const loadData = async () => {
       setLoading(true);
-      const [empRes, tasksRes, reqRes, attRes, prodsRes, movsRes, supRes, ordRes, invRes, notifRes] = await Promise.all([
+      const [empRes, tasksRes, reqRes, attRes, prodsRes, movsRes, supRes, ordRes, invRes, notifRes, msgsRes] = await Promise.all([
         supabase.from("employees").select("*, companies(company_name, manager_name)").eq("user_id", user.id).maybeSingle(),
         supabase.from("tasks").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
         supabase.from("employee_requests").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
@@ -105,6 +108,7 @@ const UserDashboard = () => {
         supabase.from("orders").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
         supabase.from("invoices").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
         supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+        supabase.from("messages").select("*").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order("created_at", { ascending: true }),
       ]);
       setMyData(empRes.data);
       const myEmployeeId = empRes.data?.id;
@@ -117,9 +121,22 @@ const UserDashboard = () => {
       setOrders(ordRes.data || []);
       setInvoices(invRes.data || []);
       setNotifications(notifRes.data || []);
+      setMessagesData(msgsRes.data || []);
       setLoading(false);
     };
     loadData();
+
+    // Realtime notifications & messages
+    const channel = supabase.channel('emp-notifs')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, (payload) => {
+        setNotifications(prev => [payload.new as any, ...prev]);
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${user.id}` }, (payload) => {
+        setMessagesData(prev => [...prev, payload.new as any]);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [user, companyId]);
 
   const permissions: string[] = myData?.permissions || employeeData?.permissions || ["dashboard", "my-info"];
@@ -611,6 +628,32 @@ const UserDashboard = () => {
                 </div>
               ))}
               {invoices.length === 0 && <p className="text-sm text-muted-foreground">{t("لا توجد فواتير.","No invoices.")}</p>}
+            </div>
+          )}
+
+
+          {/* ======= MESSAGES ======= */}
+          {activeTab === "messages" && (
+            <div className="space-y-4">
+              <h3 className="font-bold text-foreground">{t("المراسلات","Messages")}</h3>
+              <div className={`${cardClass} flex flex-col`} style={{ maxHeight: "60vh" }}>
+                <div className="flex-1 overflow-y-auto space-y-2 mb-4 min-h-[200px]">
+                  {messagesData.length === 0 ? (
+                    <div className="text-center py-8"><MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لا توجد رسائل.","No messages.")}</p></div>
+                  ) : messagesData.map(m => (
+                    <div key={m.id} className={`flex ${m.sender_id === user?.id ? (lang === "ar" ? "justify-start" : "justify-end") : (lang === "ar" ? "justify-end" : "justify-start")}`}>
+                      <div className={`max-w-[80%] rounded-2xl px-4 py-2 ${m.sender_id === user?.id ? "gradient-primary text-primary-foreground" : "glass border border-border"}`}>
+                        <p className="text-sm">{m.content}</p>
+                        <p className={`text-[10px] mt-1 ${m.sender_id === user?.id ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{new Date(m.created_at).toLocaleString("ar-LY")}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <form onSubmit={async (e) => { e.preventDefault(); if (!newMessageText.trim() || !user || !myData?.companies) return; const { data: companyData } = await supabase.from("companies").select("owner_id").eq("id", companyId).single(); if (companyData) { await supabase.from("messages").insert({ sender_id: user.id, receiver_id: companyData.owner_id, content: newMessageText }); await supabase.from("notifications").insert({ user_id: companyData.owner_id, title: t("رسالة من موظف","Message from employee") + " " + myData.full_name, message: newMessageText.slice(0, 100) }); setNewMessageText(""); const { data: msgs } = await supabase.from("messages").select("*").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order("created_at", { ascending: true }); setMessagesData(msgs || []); } }} className="flex gap-2">
+                  <input value={newMessageText} onChange={e => setNewMessageText(e.target.value)} className={`${inputClass} flex-1`} placeholder={t("اكتب رسالتك لمدير الشركة...","Write to company manager...")} />
+                  <button type="submit" className={`${btnPrimary} flex items-center gap-1`}><Send className="h-4 w-4" /></button>
+                </form>
+              </div>
             </div>
           )}
 

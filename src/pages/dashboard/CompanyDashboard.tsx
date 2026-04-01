@@ -23,6 +23,7 @@ const sidebarSections = [
   ]},
   { title: "المخزون", titleEn: "Inventory", items: [
     { icon: Package, label: "المنتجات", labelEn: "Products", key: "products" },
+    { icon: Building2, label: "المخازن", labelEn: "Warehouses", key: "warehouses" },
     { icon: Warehouse, label: "حركة المخزون", labelEn: "Stock", key: "stock" },
     { icon: QrCode, label: "الباركود", labelEn: "Barcode", key: "barcode" },
     { icon: Truck, label: "الموردين", labelEn: "Suppliers", key: "suppliers" },
@@ -174,6 +175,8 @@ const CompanyDashboard = () => {
   const [subscription, setSubscription] = useState<any>(null);
   const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
   const [platformSettings, setPlatformSettings] = useState<any>({});
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [newMessageText, setNewMessageText] = useState("");
   const [loading, setLoading] = useState(true);
 
   // UI state
@@ -219,7 +222,7 @@ const CompanyDashboard = () => {
     if (!companyId || !user) return;
     const loadData = async () => {
       setLoading(true);
-      const [compRes, prodsRes, empsRes, movsRes, supRes, ordRes, invRes, walRes, reqRes, taskRes, plansRes, msgsRes, notifRes, dpRes, subRes, attRes, psRes] = await Promise.all([
+      const [compRes, prodsRes, empsRes, movsRes, supRes, ordRes, invRes, walRes, reqRes, taskRes, plansRes, msgsRes, notifRes, dpRes, subRes, attRes, psRes, whRes] = await Promise.all([
         supabase.from("companies").select("*").eq("id", companyId).single(),
         supabase.from("products").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
         supabase.from("employees").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
@@ -231,12 +234,13 @@ const CompanyDashboard = () => {
         supabase.from("employee_requests").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
         supabase.from("tasks").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
         supabase.from("plans").select("*").eq("active", true).order("price", { ascending: true }),
-        supabase.from("messages").select("*").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order("created_at", { ascending: false }),
+        supabase.from("messages").select("*").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order("created_at", { ascending: true }),
         supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
         supabase.from("delivery_prices").select("*").order("city"),
         supabase.from("subscriptions").select("*").eq("company_id", companyId).eq("status", "active").order("created_at", { ascending: false }).limit(1),
         supabase.from("attendance").select("*").eq("company_id", companyId).order("date", { ascending: false }),
         supabase.from("platform_settings").select("*"),
+        supabase.from("warehouses" as any).select("*").eq("company_id", companyId).order("created_at", { ascending: true }),
       ]);
       setCompany(compRes.data);
       setProducts(prodsRes.data || []);
@@ -254,12 +258,25 @@ const CompanyDashboard = () => {
       setDeliveryPrices(dpRes.data || []);
       setSubscription(subRes.data?.[0] || null);
       setAttendanceRecords(attRes.data || []);
+      setWarehouses(whRes.data || []);
       const settingsObj: any = {};
       (psRes.data || []).forEach((s: any) => { settingsObj[s.key] = s.value; });
       setPlatformSettings(settingsObj);
       setLoading(false);
     };
     loadData();
+
+    // Realtime notifications
+    const channel = supabase.channel('company-notifs')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, (payload) => {
+        setNotifications(prev => [payload.new as any, ...prev]);
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${user.id}` }, (payload) => {
+        setMessagesData(prev => [...prev, payload.new as any]);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [companyId, user]);
 
   const logout = async () => { await signOut(); navigate("/"); };
@@ -301,6 +318,8 @@ const CompanyDashboard = () => {
     if (table === "tasks") { const { data } = await supabase.from("tasks").select("*").eq("company_id", companyId).order("created_at", { ascending: false }); setTasks(data || []); }
     if (table === "attendance") { const { data } = await supabase.from("attendance").select("*").eq("company_id", companyId).order("date", { ascending: false }); setAttendanceRecords(data || []); }
     if (table === "notifications" && user) { const { data } = await supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }); setNotifications(data || []); }
+    if (table === "warehouses") { const { data } = await supabase.from("warehouses" as any).select("*").eq("company_id", companyId).order("created_at", { ascending: true }); setWarehouses(data || []); }
+    if (table === "messages" && user) { const { data } = await supabase.from("messages").select("*").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order("created_at", { ascending: true }); setMessagesData(data || []); }
   };
 
   const saveProduct = async (e: React.FormEvent) => {
@@ -1612,16 +1631,81 @@ const CompanyDashboard = () => {
             </div>
           )}
 
-          {/* ======= MESSAGES ======= */}
+          {/* ======= WAREHOUSES ======= */}
+          {activeTab === "warehouses" && (
+            <div className="space-y-4">
+              <SectionHeader title={t("إدارة المخازن","Warehouse Management")} desc={t("أنشئ وأدر مخازن متعددة لمنتجاتك.","Create and manage multiple warehouses.")} onAdd={() => setShowForm("warehouse")} addLabel={t("إضافة مخزن","Add Warehouse")} />
+              {showForm === "warehouse" && (
+                <form onSubmit={async (e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); const d = Object.fromEntries(fd); await supabase.from("warehouses" as any).insert({ company_id: companyId, name: d.name, location: d.location || "", is_default: warehouses.length === 0 }); await refreshData("warehouses"); setShowForm(""); }} className={`${cardClass} space-y-3`}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div><label className="text-xs font-bold text-foreground">{t("اسم المخزن *","Name *")}</label><input name="name" required className={inputClass} placeholder={t("المخزن الرئيسي","Main Warehouse")} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("الموقع","Location")}</label><input name="location" className={inputClass} placeholder={t("المدينة أو العنوان","City or address")} /></div>
+                  </div>
+                  <div className="flex gap-2"><button type="submit" className={btnPrimary}>{t("حفظ","Save")}</button><button type="button" onClick={() => setShowForm("")} className={btnOutline}>{t("إلغاء","Cancel")}</button></div>
+                </form>
+              )}
+              {warehouses.length === 0 ? (
+                <div className={`${cardClass} text-center py-8`}><Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لا توجد مخازن. أضف مخزنك الأول.","No warehouses. Add your first one.")}</p></div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {warehouses.map((wh: any) => {
+                    const whProducts = products.filter(p => p.warehouse_id === wh.id);
+                    const whValue = whProducts.reduce((a: number, p: any) => a + (Number(p.sell_price) || 0) * (Number(p.quantity) || 0), 0);
+                    return (
+                      <div key={wh.id} className={`${cardClass} border ${wh.is_default ? "border-primary/50" : "border-border/50"}`}>
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <h4 className="font-bold text-foreground">{wh.name}</h4>
+                            <p className="text-xs text-muted-foreground">{wh.location || t("بدون موقع","No location")}</p>
+                          </div>
+                          <div className="flex gap-1">
+                            {wh.is_default && <span className="px-2 py-0.5 rounded-full text-[10px] bg-primary/20 text-primary font-bold">{t("افتراضي","Default")}</span>}
+                            <button onClick={async () => { if(confirm(t("حذف المخزن؟","Delete warehouse?"))) { await supabase.from("warehouses" as any).delete().eq("id", wh.id); await refreshData("warehouses"); }}} className="text-destructive p-1"><Trash2 className="h-3 w-3" /></button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="glass rounded-xl p-2 text-center"><p className="text-lg font-black text-foreground">{whProducts.length}</p><p className="text-[10px] text-muted-foreground">{t("منتج","products")}</p></div>
+                          <div className="glass rounded-xl p-2 text-center"><p className="text-lg font-black text-primary">{whValue.toLocaleString()}</p><p className="text-[10px] text-muted-foreground">{t("د.ل","LYD")}</p></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ======= MESSAGES (Enhanced Chat) ======= */}
           {activeTab === "messages" && (
             <div className="space-y-4">
-              <SectionHeader title={t("المراسلات","Messages")} desc={t("تواصل مع مسؤول النظام.","Communicate with system admin.")} />
-              {messagesData.length === 0 ? <div className={`${cardClass} text-center`}><MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لا توجد رسائل.","No messages.")}</p></div> : messagesData.map(m => (
-                <div key={m.id} className={`glass rounded-xl p-3 ${m.sender_id === user?.id ? "border-l-4 border-l-primary" : "border-l-4 border-l-success"}`}>
-                  <p className="text-sm text-foreground">{m.content}</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">{new Date(m.created_at).toLocaleString("ar-LY")}</p>
+              <SectionHeader title={t("المراسلات","Messages")} desc={t("تواصل مع مسؤول النظام والموظفين.","Communicate with admin and employees.")} />
+              <div className={`${cardClass} flex flex-col`} style={{ maxHeight: "60vh" }}>
+                <div className="flex-1 overflow-y-auto space-y-2 mb-4 min-h-[200px]">
+                  {messagesData.length === 0 ? (
+                    <div className="text-center py-8"><MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لا توجد رسائل. ابدأ محادثة جديدة.","No messages. Start a conversation.")}</p></div>
+                  ) : messagesData.map(m => (
+                    <div key={m.id} className={`flex ${m.sender_id === user?.id ? (lang === "ar" ? "justify-start" : "justify-end") : (lang === "ar" ? "justify-end" : "justify-start")}`}>
+                      <div className={`max-w-[80%] rounded-2xl px-4 py-2 ${m.sender_id === user?.id ? "gradient-primary text-primary-foreground" : "glass border border-border"}`}>
+                        <p className="text-sm">{m.content}</p>
+                        <p className={`text-[10px] mt-1 ${m.sender_id === user?.id ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{new Date(m.created_at).toLocaleString("ar-LY")}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+                <form onSubmit={async (e) => { e.preventDefault(); if (!newMessageText.trim() || !user) return; const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin"); if (admins?.[0]) { await supabase.from("messages").insert({ sender_id: user.id, receiver_id: admins[0].user_id, content: newMessageText }); await supabase.from("notifications").insert({ user_id: admins[0].user_id, title: t("رسالة جديدة من","New message from") + " " + (company?.company_name || ""), message: newMessageText.slice(0, 100) }); } setNewMessageText(""); await refreshData("messages"); }} className="flex gap-2">
+                  <input value={newMessageText} onChange={e => setNewMessageText(e.target.value)} className={`${inputClass} flex-1`} placeholder={t("اكتب رسالتك لمسؤول النظام...","Write to system admin...")} />
+                  <button type="submit" className={`${btnPrimary} flex items-center gap-1`}><Send className="h-4 w-4" /></button>
+                </form>
+              </div>
+              {/* Messages with employees */}
+              <div className={cardClass}>
+                <h4 className="font-bold text-foreground mb-3">{t("مراسلة الموظفين","Message Employees")}</h4>
+                <form onSubmit={async (e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); const d = Object.fromEntries(fd); if (!d.message || !d.employeeId || !user) return; const emp = employees.find(emp => emp.id === d.employeeId); if (emp?.user_id) { await supabase.from("messages").insert({ sender_id: user.id, receiver_id: emp.user_id, content: d.message as string }); await supabase.from("notifications").insert({ user_id: emp.user_id, title: t("رسالة من المدير","Message from Manager"), message: (d.message as string).slice(0, 100) }); alert(t("تم إرسال الرسالة!","Message sent!")); (e.target as HTMLFormElement).reset(); } }} className="space-y-3">
+                  <select name="employeeId" required className={inputClass}><option value="">{t("اختر موظف","Select employee")}</option>{employees.map(emp => <option key={emp.id} value={emp.id}>{emp.full_name} - {emp.position}</option>)}</select>
+                  <textarea name="message" required rows={2} className={inputClass} placeholder={t("اكتب رسالتك...","Write message...")} />
+                  <button type="submit" className={`${btnPrimary} flex items-center gap-2`}><Send className="h-4 w-4" /> {t("إرسال","Send")}</button>
+                </form>
+              </div>
             </div>
           )}
 

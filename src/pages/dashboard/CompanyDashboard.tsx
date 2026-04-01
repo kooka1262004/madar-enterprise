@@ -175,6 +175,8 @@ const CompanyDashboard = () => {
   const [subscription, setSubscription] = useState<any>(null);
   const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
   const [platformSettings, setPlatformSettings] = useState<any>({});
+  const [warehouses, setWarehouses] = useState<any[]>([]);
+  const [newMessageText, setNewMessageText] = useState("");
   const [loading, setLoading] = useState(true);
 
   // UI state

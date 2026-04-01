@@ -284,6 +284,7 @@ export type Database = {
           full_name: string
           id: string
           national_id: string | null
+          permission_overrides: Json
           permissions: string[] | null
           phone: string | null
           position: string | null
@@ -305,6 +306,7 @@ export type Database = {
           full_name: string
           id?: string
           national_id?: string | null
+          permission_overrides?: Json
           permissions?: string[] | null
           phone?: string | null
           position?: string | null
@@ -326,6 +328,7 @@ export type Database = {
           full_name?: string
           id?: string
           national_id?: string | null
+          permission_overrides?: Json
           permissions?: string[] | null
           phone?: string | null
           position?: string | null
@@ -936,34 +939,46 @@ export type Database = {
         Row: {
           admin_notes: string | null
           amount: number
+          cancel_reason: string
           company_id: string
           created_at: string
           id: string
           method: string | null
           notes: string | null
           proof_url: string | null
+          receipt_required: boolean
+          receipt_reviewed_at: string | null
+          receipt_uploaded_at: string | null
           status: string | null
         }
         Insert: {
           admin_notes?: string | null
           amount?: number
+          cancel_reason?: string
           company_id: string
           created_at?: string
           id?: string
           method?: string | null
           notes?: string | null
           proof_url?: string | null
+          receipt_required?: boolean
+          receipt_reviewed_at?: string | null
+          receipt_uploaded_at?: string | null
           status?: string | null
         }
         Update: {
           admin_notes?: string | null
           amount?: number
+          cancel_reason?: string
           company_id?: string
           created_at?: string
           id?: string
           method?: string | null
           notes?: string | null
           proof_url?: string | null
+          receipt_required?: boolean
+          receipt_reviewed_at?: string | null
+          receipt_uploaded_at?: string | null
           status?: string | null
         }
         Relationships: [
@@ -1019,6 +1034,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      employee_belongs_to_company: {
+        Args: { _company_id: string }
+        Returns: boolean
+      }
+      employee_has_action_access: {
+        Args: { _action: string; _company_id: string; _section: string }
+        Returns: boolean
+      }
+      employee_has_section_access: {
+        Args: { _company_id: string; _section: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1026,6 +1053,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_company_owner: { Args: { _company_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "company" | "employee"

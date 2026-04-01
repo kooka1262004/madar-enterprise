@@ -208,7 +208,7 @@ const UserDashboard = () => {
           </div>
           <button onClick={() => setSidebarOpen(false)} className="md:hidden text-muted-foreground"><X size={20} /></button>
         </div>
-        <nav className="p-2 space-y-1 overflow-y-auto h-[calc(100vh-130px)]">
+        <nav className="p-2 space-y-1 overflow-y-auto h-[calc(100vh-180px)]">
           {visibleSections.map(item => (
             <button key={item.key} onClick={() => { setActiveTab(item.key); setSidebarOpen(false); }}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${activeTab === item.key ? "gradient-primary text-primary-foreground font-bold" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}>
@@ -216,7 +216,7 @@ const UserDashboard = () => {
             </button>
           ))}
         </nav>
-        <div className="absolute bottom-0 right-0 left-0 p-3 border-t border-border">
+        <div className="p-3 border-t border-border">
           <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-destructive hover:bg-destructive/10"><LogOut className="h-4 w-4" /> {t("تسجيل الخروج", "Logout")}</button>
         </div>
       </aside>

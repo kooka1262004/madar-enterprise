@@ -33,6 +33,7 @@ const allSections = [
   { icon: ShoppingCart, label: "الطلبات", labelEn: "Orders", key: "orders" },
   { icon: RotateCcw, label: "التالف والمرتجعات", labelEn: "Returns", key: "returns" },
   { icon: ClipboardList, label: "الجرد", labelEn: "Inventory", key: "inventory" },
+  { icon: MessageSquare, label: "المراسلات", labelEn: "Messages", key: "messages" },
 ];
 
 const statusMap: Record<string, { ar: string; color: string }> = {

@@ -973,18 +973,59 @@ const CompanyDashboard = () => {
           {/* ======= INVENTORY (JARD) ======= */}
           {activeTab === "inventory" && (
             <div className="space-y-4">
-              <SectionHeader title={t("الجرد", "Inventory Count")} desc={t("قم بجرد مخزونك بشكل دوري. اختر بين الجرد اليدوي (بشري) أو بالذكاء الاصطناعي.", "Count your inventory periodically.")} onPDF={() => exportToPDF(t("تقرير الجرد", "Inventory Report"), products.map(p => ({ [t("الاسم","Name")]: p.name, [t("الكمية","Qty")]: p.quantity, [t("سعر الشراء","Buy")]: p.buy_price, [t("سعر البيع","Sell")]: p.sell_price, [t("القيمة","Value")]: (p.quantity || 0) * (p.sell_price || 0) })), [t("الاسم","Name"), t("الكمية","Qty"), t("سعر الشراء","Buy"), t("سعر البيع","Sell"), t("القيمة","Value")])} />
+              <SectionHeader title={t("الجرد", "Inventory Count")} desc={t("قم بجرد مخزونك بشكل دوري. اختر نوع الجرد وابدأ العملية.", "Count your inventory periodically.")} onAdd={() => setShowForm("inventory")} addLabel={t("بدء جرد جديد","Start Inventory")} onPDF={() => exportToPDF(t("تقرير الجرد", "Inventory Report"), products.map(p => ({ [t("الاسم","Name")]: p.name, [t("الكمية","Qty")]: p.quantity, [t("سعر الشراء","Buy")]: p.buy_price, [t("سعر البيع","Sell")]: p.sell_price, [t("القيمة","Value")]: (p.quantity || 0) * (p.sell_price || 0) })), [t("الاسم","Name"), t("الكمية","Qty"), t("سعر الشراء","Buy"), t("سعر البيع","Sell"), t("القيمة","Value")])} />
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {[{l: t("كامل","Full"), d: t("جرد جميع المنتجات","All products")}, {l: t("جزئي","Partial"), d: t("منتجات مختارة","Selected")}, {l: t("مفاجئ","Surprise"), d: t("عشوائي","Random")}, {l: t("دوري","Periodic"), d: t("أسبوعي/شهري","Weekly/Monthly")}].map(type => (
-                  <div key={type.l} className={`${cardClass} text-center`}><ClipboardList className="h-6 w-6 text-primary mx-auto mb-2" /><p className="text-sm font-bold text-foreground">{type.l}</p><p className="text-[10px] text-muted-foreground">{type.d}</p></div>
+                {[{l: t("كامل","Full"), d: t("جرد جميع المنتجات","All products"), k:"full"}, {l: t("جزئي","Partial"), d: t("منتجات مختارة","Selected"), k:"partial"}, {l: t("مفاجئ","Surprise"), d: t("عشوائي","Random"), k:"surprise"}, {l: t("دوري","Periodic"), d: t("أسبوعي/شهري","Weekly/Monthly"), k:"periodic"}].map(type => (
+                  <button key={type.l} onClick={() => setShowForm(`inventory-${type.k}`)} className={`${cardClass} text-center hover:border-primary/50`}><ClipboardList className="h-6 w-6 text-primary mx-auto mb-2" /><p className="text-sm font-bold text-foreground">{type.l}</p><p className="text-[10px] text-muted-foreground">{type.d}</p></button>
                 ))}
               </div>
+              {showForm.startsWith("inventory") && (
+                <div className={cardClass}>
+                  <h4 className="font-bold text-foreground mb-3">{t("بدء جرد","Start Inventory")} - {showForm.includes("full") ? t("كامل","Full") : showForm.includes("partial") ? t("جزئي","Partial") : showForm.includes("surprise") ? t("مفاجئ","Surprise") : t("دوري","Periodic")}</h4>
+                  <p className="text-xs text-muted-foreground mb-4">{t("راجع كميات المنتجات الفعلية وقارنها بالنظام. عدّل الكميات إذا وجدت فرق.","Review actual product quantities and compare with system. Adjust if different.")}</p>
+                  <div className={`overflow-x-auto`}>
+                    <table className="w-full text-sm"><thead><tr className="border-b border-border"><th className="text-right py-2 px-2 text-muted-foreground text-xs">{t("المنتج","Product")}</th><th className="text-right py-2 px-2 text-muted-foreground text-xs">{t("الكمية بالنظام","System Qty")}</th><th className="text-right py-2 px-2 text-muted-foreground text-xs">{t("الكمية الفعلية","Actual Qty")}</th><th className="text-right py-2 px-2 text-muted-foreground text-xs">{t("الفرق","Diff")}</th><th className="text-right py-2 px-2 text-muted-foreground text-xs">{t("تحديث","Update")}</th></tr></thead>
+                      <tbody>{products.map(p => {
+                        const inputId = `inv-${p.id}`;
+                        return (
+                          <tr key={p.id} className="border-b border-border/30">
+                            <td className="py-2 px-2 text-xs font-bold">{p.name}</td>
+                            <td className="py-2 px-2 text-xs text-center">{p.quantity}</td>
+                            <td className="py-2 px-2"><input id={inputId} type="number" defaultValue={p.quantity} className="w-20 px-2 py-1 rounded border border-border bg-secondary text-foreground text-xs text-center" /></td>
+                            <td className="py-2 px-2 text-xs text-center" id={`diff-${p.id}`}>0</td>
+                            <td className="py-2 px-2"><button onClick={async () => {
+                              const el = document.getElementById(inputId) as HTMLInputElement;
+                              const newQty = Number(el?.value) || 0;
+                              const diff = newQty - (p.quantity || 0);
+                              if (diff !== 0) {
+                                await supabase.from("products").update({ quantity: newQty }).eq("id", p.id);
+                                await supabase.from("stock_movements").insert({ company_id: companyId!, product_id: p.id, type: diff > 0 ? "add" : "remove", quantity: Math.abs(diff), reason: t("تعديل جرد","Inventory adjustment"), notes: `${t("جرد","Inventory")} ${showForm.replace("inventory-","")}`, created_by: user?.id });
+                                await refreshData("products"); await refreshData("movements");
+                                alert(t("✅ تم تحديث الكمية","✅ Quantity updated"));
+                              }
+                            }} className="px-2 py-1 rounded text-[10px] bg-primary/20 text-primary font-bold">{t("حفظ","Save")}</button></td>
+                          </tr>
+                        );
+                      })}</tbody>
+                    </table>
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <button onClick={async () => { await supabase.from("activity_log").insert({ company_id: companyId!, action: "inventory", details: `${t("تم إجراء جرد","Inventory done")} ${showForm.replace("inventory-","")} - ${products.length} ${t("منتج","products")}`, user_id: user?.id }); alert(t("✅ تم حفظ الجرد بنجاح!","✅ Inventory saved!")); setShowForm(""); }} className={btnPrimary}>{t("إنهاء الجرد","Finish Inventory")}</button>
+                    <button onClick={() => setShowForm("")} className={btnOutline}>{t("إلغاء","Cancel")}</button>
+                  </div>
+                </div>
+              )}
               <div className={cardClass}>
                 <h4 className="font-bold text-foreground mb-3">{t("ملخص المخزون الحالي", "Current Inventory Summary")}</h4>
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   <div className="glass rounded-xl p-3 text-center"><p className="text-xs text-muted-foreground">{t("إجمالي المنتجات", "Total Products")}</p><p className="text-xl font-black text-foreground">{products.length}</p></div>
                   <div className="glass rounded-xl p-3 text-center"><p className="text-xs text-muted-foreground">{t("إجمالي الكميات", "Total Qty")}</p><p className="text-xl font-black text-primary">{products.reduce((a, p) => a + (p.quantity || 0), 0)}</p></div>
                   <div className="glass rounded-xl p-3 text-center"><p className="text-xs text-muted-foreground">{t("منتجات منخفضة", "Low Stock")}</p><p className="text-xl font-black text-destructive">{products.filter(p => (p.quantity || 0) <= (p.min_stock || 5)).length}</p></div>
+                </div>
+                <div className={`overflow-x-auto`}>
+                  <table className="w-full text-sm"><thead><tr className="border-b border-border">{[t("المنتج","Product"),t("الكمية","Qty"),t("سعر الشراء","Buy"),t("سعر البيع","Sell"),t("القيمة","Value"),t("الحالة","Status")].map(h => <th key={h} className="text-right py-2 px-2 text-muted-foreground text-xs">{h}</th>)}</tr></thead>
+                    <tbody>{products.map(p => (<tr key={p.id} className="border-b border-border/30"><td className="py-2 px-2 text-xs font-bold">{p.name}</td><td className="py-2 px-2 text-xs text-center">{p.quantity}</td><td className="py-2 px-2 text-xs">{p.buy_price}</td><td className="py-2 px-2 text-xs text-primary">{p.sell_price}</td><td className="py-2 px-2 text-xs font-bold">{((p.quantity || 0) * (p.sell_price || 0)).toLocaleString()}</td><td className="py-2 px-2">{(p.quantity || 0) <= (p.min_stock || 5) ? <span className="text-destructive text-[10px]">⚠️</span> : <span className="text-success text-[10px]">✅</span>}</td></tr>))}</tbody>
+                  </table>
                 </div>
               </div>
             </div>

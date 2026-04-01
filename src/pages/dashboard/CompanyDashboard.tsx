@@ -352,7 +352,7 @@ const CompanyDashboard = () => {
     const fd = new FormData(e.target as HTMLFormElement);
     const d = Object.fromEntries(fd);
     const product = products.find(p => p.id === d.productId);
-    await supabase.from("stock_movements").insert({ company_id: companyId!, product_id: d.productId as string, type: d.movementType as string, quantity: Number(d.quantity) || 0, reason: d.reason as string, notes: d.notes as string, created_by: user?.id });
+    await supabase.from("stock_movements").insert({ company_id: companyId!, product_id: d.productId as string, type: d.movementType as string, quantity: Number(d.quantity) || 0, reason: d.reason as string, notes: d.notes as string, created_by: user?.id, warehouse_id: (d.warehouseId as string) || null });
     if (product) {
       const qty = Number(d.quantity) || 0;
       const newQty = ["buy", "add", "return"].includes(d.movementType as string) ? (product.quantity || 0) + qty : Math.max(0, (product.quantity || 0) - qty);

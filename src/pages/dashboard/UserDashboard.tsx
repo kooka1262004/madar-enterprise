@@ -123,6 +123,12 @@ const UserDashboard = () => {
   }, [user, companyId]);
 
   const permissions: string[] = myData?.permissions || employeeData?.permissions || ["dashboard", "my-info"];
+  const permOverrides: Record<string, Record<string, boolean>> = myData?.permission_overrides || employeeData?.permission_overrides || {};
+  const canAction = (section: string, action: string) => {
+    const sectionOvr = permOverrides[section];
+    if (!sectionOvr) return false;
+    return !!sectionOvr[action] || !!sectionOvr["manage"];
+  };
   const visibleSections = allSections.filter(s =>
     ["my-info", "dashboard", "attendance", "requests", "my-tasks"].includes(s.key) || permissions.includes(s.key)
   );

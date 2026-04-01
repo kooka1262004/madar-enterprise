@@ -23,6 +23,7 @@ const sidebarSections = [
   ]},
   { title: "المخزون", titleEn: "Inventory", items: [
     { icon: Package, label: "المنتجات", labelEn: "Products", key: "products" },
+    { icon: Building2, label: "المخازن", labelEn: "Warehouses", key: "warehouses" },
     { icon: Warehouse, label: "حركة المخزون", labelEn: "Stock", key: "stock" },
     { icon: QrCode, label: "الباركود", labelEn: "Barcode", key: "barcode" },
     { icon: Truck, label: "الموردين", labelEn: "Suppliers", key: "suppliers" },

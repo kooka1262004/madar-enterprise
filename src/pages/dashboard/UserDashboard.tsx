@@ -108,6 +108,7 @@ const UserDashboard = () => {
         supabase.from("orders").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
         supabase.from("invoices").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
         supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+        supabase.from("messages").select("*").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order("created_at", { ascending: true }),
       ]);
       setMyData(empRes.data);
       const myEmployeeId = empRes.data?.id;
@@ -120,9 +121,22 @@ const UserDashboard = () => {
       setOrders(ordRes.data || []);
       setInvoices(invRes.data || []);
       setNotifications(notifRes.data || []);
+      setMessagesData(msgsRes.data || []);
       setLoading(false);
     };
     loadData();
+
+    // Realtime notifications & messages
+    const channel = supabase.channel('emp-notifs')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, (payload) => {
+        setNotifications(prev => [payload.new as any, ...prev]);
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${user.id}` }, (payload) => {
+        setMessagesData(prev => [...prev, payload.new as any]);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [user, companyId]);
 
   const permissions: string[] = myData?.permissions || employeeData?.permissions || ["dashboard", "my-info"];

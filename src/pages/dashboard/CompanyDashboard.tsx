@@ -84,7 +84,73 @@ const allPermissions = [
   { key: "users", ar: "المستخدمين", en: "Users" },
   { key: "settings", ar: "الإعدادات", en: "Settings" },
   { key: "orders", ar: "الطلبات", en: "Orders" },
+  { key: "messages", ar: "المراسلات", en: "Messages" },
 ];
+
+const sectionActions: Record<string, { key: string; ar: string; en: string }[]> = {
+  products: [
+    { key: "view", ar: "عرض", en: "View" }, { key: "create", ar: "إضافة", en: "Add" },
+    { key: "update", ar: "تعديل", en: "Edit" }, { key: "delete", ar: "حذف", en: "Delete" },
+    { key: "export", ar: "تصدير", en: "Export" }, { key: "print", ar: "طباعة", en: "Print" },
+  ],
+  stock: [
+    { key: "view", ar: "عرض", en: "View" }, { key: "create", ar: "إضافة حركة", en: "Add" },
+    { key: "update", ar: "تعديل", en: "Edit" }, { key: "delete", ar: "حذف", en: "Delete" },
+    { key: "export", ar: "تصدير", en: "Export" },
+  ],
+  suppliers: [
+    { key: "view", ar: "عرض", en: "View" }, { key: "create", ar: "إضافة", en: "Add" },
+    { key: "update", ar: "تعديل", en: "Edit" }, { key: "delete", ar: "حذف", en: "Delete" },
+  ],
+  orders: [
+    { key: "view", ar: "عرض", en: "View" }, { key: "create", ar: "إنشاء طلب", en: "Create" },
+    { key: "update", ar: "تعديل", en: "Edit" }, { key: "delete", ar: "حذف", en: "Delete" },
+    { key: "change_status", ar: "تغيير حالة", en: "Change Status" }, { key: "export", ar: "تصدير", en: "Export" },
+  ],
+  invoices: [
+    { key: "view", ar: "عرض", en: "View" }, { key: "create", ar: "إنشاء فاتورة", en: "Create" },
+    { key: "update", ar: "تعديل", en: "Edit" }, { key: "delete", ar: "حذف", en: "Delete" },
+    { key: "print", ar: "طباعة", en: "Print" }, { key: "export", ar: "تصدير", en: "Export" },
+  ],
+  accounting: [
+    { key: "view", ar: "عرض", en: "View" }, { key: "export", ar: "تصدير", en: "Export" },
+  ],
+  reports: [
+    { key: "view", ar: "عرض", en: "View" }, { key: "export", ar: "تصدير تقارير", en: "Export" },
+  ],
+  hr: [
+    { key: "view", ar: "عرض", en: "View" }, { key: "manage", ar: "إدارة كاملة", en: "Full Manage" },
+    { key: "approve", ar: "اعتماد طلبات", en: "Approve" }, { key: "reject", ar: "رفض طلبات", en: "Reject" },
+  ],
+  users: [
+    { key: "view", ar: "عرض", en: "View" }, { key: "create", ar: "إضافة", en: "Add" },
+    { key: "update", ar: "تعديل", en: "Edit" }, { key: "delete", ar: "حذف", en: "Delete" },
+  ],
+  inventory: [
+    { key: "view", ar: "عرض", en: "View" }, { key: "create", ar: "إجراء جرد", en: "Run Inventory" },
+    { key: "export", ar: "تصدير", en: "Export" },
+  ],
+  returns: [
+    { key: "view", ar: "عرض", en: "View" }, { key: "create", ar: "تسجيل مرتجع", en: "Record Return" },
+  ],
+  barcode: [
+    { key: "view", ar: "عرض", en: "View" }, { key: "create", ar: "إنشاء باركود", en: "Generate" },
+    { key: "upload", ar: "رفع صورة", en: "Upload" },
+  ],
+  attendance: [
+    { key: "view", ar: "عرض", en: "View" }, { key: "create", ar: "تسجيل حضور", en: "Check-in" },
+  ],
+  requests: [
+    { key: "view", ar: "عرض", en: "View" }, { key: "create", ar: "إرسال طلبات", en: "Submit" },
+    { key: "approve", ar: "اعتماد", en: "Approve" }, { key: "reject", ar: "رفض", en: "Reject" },
+  ],
+  messages: [
+    { key: "view", ar: "عرض", en: "View" }, { key: "create", ar: "إرسال رسائل", en: "Send" },
+  ],
+  settings: [
+    { key: "view", ar: "عرض", en: "View" }, { key: "update", ar: "تعديل", en: "Edit" },
+  ],
+};
 
 const CompanyDashboard = () => {
   const navigate = useNavigate();

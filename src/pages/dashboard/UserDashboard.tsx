@@ -123,6 +123,12 @@ const UserDashboard = () => {
   }, [user, companyId]);
 
   const permissions: string[] = myData?.permissions || employeeData?.permissions || ["dashboard", "my-info"];
+  const permOverrides: Record<string, Record<string, boolean>> = myData?.permission_overrides || employeeData?.permission_overrides || {};
+  const canAction = (section: string, action: string) => {
+    const sectionOvr = permOverrides[section];
+    if (!sectionOvr) return false;
+    return !!sectionOvr[action] || !!sectionOvr["manage"];
+  };
   const visibleSections = allSections.filter(s =>
     ["my-info", "dashboard", "attendance", "requests", "my-tasks"].includes(s.key) || permissions.includes(s.key)
   );
@@ -308,7 +314,19 @@ const UserDashboard = () => {
               </div>
               <div className={cardClass}>
                 <h4 className="font-bold text-foreground mb-2">{t("صلاحياتي","My Permissions")}</h4>
-                <div className="flex flex-wrap gap-2">{permissions.map(p => <span key={p} className="px-3 py-1 rounded-full text-xs gradient-primary text-primary-foreground font-bold">{allSections.find(s=>s.key===p)?.label || p}</span>)}</div>
+                <div className="space-y-2">
+                  {permissions.map(p => {
+                    const section = allSections.find(s=>s.key===p);
+                    const sectionOvr = permOverrides[p] || {};
+                    const activeActions = Object.entries(sectionOvr).filter(([,v]) => v).map(([k]) => k);
+                    return (
+                      <div key={p} className="glass rounded-xl p-2">
+                        <span className="px-3 py-1 rounded-full text-xs gradient-primary text-primary-foreground font-bold">{section?.label || p}</span>
+                        {activeActions.length > 0 && <div className="flex flex-wrap gap-1 mt-1">{activeActions.map(a => <span key={a} className="px-2 py-0.5 rounded text-[10px] bg-success/20 text-success font-bold">{a}</span>)}</div>}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
@@ -417,11 +435,11 @@ const UserDashboard = () => {
               <div className="flex justify-between items-center">
                 <h3 className="font-bold text-foreground">{t("المنتجات","Products")} ({products.length})</h3>
                 <div className="flex gap-2">
-                  <button onClick={() => exportToPDF(t("المنتجات","Products"), products.map(p => ({[t("الاسم","Name")]:p.name,[t("الكود","Code")]:p.code,[t("الكمية","Qty")]:p.quantity,[t("بيع","Sell")]:p.sell_price})), [t("الاسم","Name"),t("الكود","Code"),t("الكمية","Qty"),t("بيع","Sell")])} className="px-3 py-2 rounded-xl border border-border text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button>
-                  <button onClick={() => setShowForm("product")} className={`${btnPrimary} flex items-center gap-2 text-xs`}><Plus className="h-3 w-3" /> {t("إضافة","Add")}</button>
+                  {canAction("products","export") && <button onClick={() => exportToPDF(t("المنتجات","Products"), products.map(p => ({[t("الاسم","Name")]:p.name,[t("الكود","Code")]:p.code,[t("الكمية","Qty")]:p.quantity,[t("بيع","Sell")]:p.sell_price})), [t("الاسم","Name"),t("الكود","Code"),t("الكمية","Qty"),t("بيع","Sell")])} className="px-3 py-2 rounded-xl border border-border text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button>}
+                  {canAction("products","create") && <button onClick={() => setShowForm("product")} className={`${btnPrimary} flex items-center gap-2 text-xs`}><Plus className="h-3 w-3" /> {t("إضافة","Add")}</button>}
                 </div>
               </div>
-              {showForm === "product" && (
+              {showForm === "product" && canAction("products","create") && (
                 <form onSubmit={async (e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); const d = Object.fromEntries(fd); await supabase.from("products").insert({ company_id: companyId!, name: d.name as string, code: d.code as string, type: d.type as string, quantity: Number(d.quantity)||0, buy_price: Number(d.buyPrice)||0, sell_price: Number(d.sellPrice)||0, barcode: d.barcode as string, min_stock: Number(d.minStock)||5 }); await refreshProducts(); setShowForm(""); }} className={`${cardClass} space-y-3`}>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div><label className="text-xs font-bold text-foreground">{t("اسم المنتج *","Name *")}</label><input name="name" required className={inputClass} /></div>
@@ -438,8 +456,8 @@ const UserDashboard = () => {
               )}
               {products.length > 0 ? (
                 <div className={`${cardClass} overflow-x-auto`}>
-                  <table className="w-full text-sm"><thead><tr className="border-b border-border">{[t("الاسم","Name"),t("الكود","Code"),t("النوع","Type"),t("الكمية","Qty"),t("بيع","Sell"),t("حالة","Status")].map(h => <th key={h} className="text-right py-2 px-2 text-muted-foreground text-xs">{h}</th>)}</tr></thead>
-                    <tbody>{products.map(p => (<tr key={p.id} className="border-b border-border/30"><td className="py-2 px-2 text-xs font-bold">{p.name}</td><td className="py-2 px-2 text-xs text-muted-foreground">{p.code||"-"}</td><td className="py-2 px-2 text-xs">{p.type||"-"}</td><td className="py-2 px-2 text-xs font-bold">{p.quantity}</td><td className="py-2 px-2 text-xs text-primary font-bold">{p.sell_price}</td><td className="py-2 px-2">{(p.quantity||0)<=(p.min_stock||5)?<span className="text-destructive text-[10px] font-bold">⚠️</span>:<span className="text-success text-[10px]">✅</span>}</td></tr>))}</tbody>
+                  <table className="w-full text-sm"><thead><tr className="border-b border-border">{[t("الاسم","Name"),t("الكود","Code"),t("النوع","Type"),t("الكمية","Qty"),t("بيع","Sell"),t("حالة","Status"),...(canAction("products","delete")?[t("إجراءات","Actions")]:[])].map(h => <th key={h} className="text-right py-2 px-2 text-muted-foreground text-xs">{h}</th>)}</tr></thead>
+                    <tbody>{products.map(p => (<tr key={p.id} className="border-b border-border/30"><td className="py-2 px-2 text-xs font-bold">{p.name}</td><td className="py-2 px-2 text-xs text-muted-foreground">{p.code||"-"}</td><td className="py-2 px-2 text-xs">{p.type||"-"}</td><td className="py-2 px-2 text-xs font-bold">{p.quantity}</td><td className="py-2 px-2 text-xs text-primary font-bold">{p.sell_price}</td><td className="py-2 px-2">{(p.quantity||0)<=(p.min_stock||5)?<span className="text-destructive text-[10px] font-bold">⚠️</span>:<span className="text-success text-[10px]">✅</span>}</td>{canAction("products","delete") && <td className="py-2 px-2"><button onClick={async () => { if(confirm(t("حذف؟","Delete?"))) { await supabase.from("products").delete().eq("id", p.id); await refreshProducts(); }}} className="text-destructive p-1"><Trash2 className="h-3 w-3" /></button></td>}</tr>))}</tbody>
                   </table>
                 </div>
               ) : <p className="text-sm text-muted-foreground">{t("لا توجد منتجات.","No products.")}</p>}
@@ -476,9 +494,9 @@ const UserDashboard = () => {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="font-bold text-foreground">{t("الموردين","Suppliers")} ({suppliers.length})</h3>
-                <button onClick={() => setShowForm("supplier")} className={`${btnPrimary} flex items-center gap-2 text-xs`}><Plus className="h-3 w-3" /> {t("إضافة","Add")}</button>
+                {canAction("suppliers","create") && <button onClick={() => setShowForm("supplier")} className={`${btnPrimary} flex items-center gap-2 text-xs`}><Plus className="h-3 w-3" /> {t("إضافة","Add")}</button>}
               </div>
-              {showForm === "supplier" && (
+              {showForm === "supplier" && canAction("suppliers","create") && (
                 <form onSubmit={async (e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); const d = Object.fromEntries(fd); await supabase.from("suppliers").insert({ company_id: companyId!, name: d.name as string, phone: d.phone as string, email: d.email as string, city: d.city as string, notes: d.notes as string }); await refreshSuppliers(); setShowForm(""); }} className={`${cardClass} space-y-3`}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div><label className="text-xs font-bold text-foreground">{t("الاسم *","Name *")}</label><input name="name" required className={inputClass} /></div>
@@ -493,7 +511,7 @@ const UserDashboard = () => {
               {suppliers.map(s => (
                 <div key={s.id} className="glass rounded-xl p-3 flex justify-between items-center">
                   <div><p className="text-sm font-bold text-foreground">{s.name}</p><p className="text-xs text-muted-foreground">{s.phone||"-"} · {s.city||"-"}</p></div>
-                  <button onClick={async () => { if(confirm(t("حذف؟","Delete?"))) { await supabase.from("suppliers").delete().eq("id", s.id); await refreshSuppliers(); }}} className="text-destructive p-1"><Trash2 className="h-3 w-3" /></button>
+                  {canAction("suppliers","delete") && <button onClick={async () => { if(confirm(t("حذف؟","Delete?"))) { await supabase.from("suppliers").delete().eq("id", s.id); await refreshSuppliers(); }}} className="text-destructive p-1"><Trash2 className="h-3 w-3" /></button>}
                 </div>
               ))}
             </div>
@@ -504,9 +522,9 @@ const UserDashboard = () => {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="font-bold text-foreground">{t("حركة المخزون","Stock Movements")}</h3>
-                <button onClick={() => setShowForm("movement")} className={`${btnPrimary} flex items-center gap-2 text-xs`}><Plus className="h-3 w-3" /> {t("إضافة حركة","Add Movement")}</button>
+                {canAction("stock","create") && <button onClick={() => setShowForm("movement")} className={`${btnPrimary} flex items-center gap-2 text-xs`}><Plus className="h-3 w-3" /> {t("إضافة حركة","Add Movement")}</button>}
               </div>
-              {showForm === "movement" && (
+              {showForm === "movement" && canAction("stock","create") && (
                 <form onSubmit={async (e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); const d = Object.fromEntries(fd); await supabase.from("stock_movements").insert({ company_id: companyId!, product_id: d.productId as string, type: d.movementType as string, quantity: Number(d.quantity)||0, reason: d.reason as string, notes: d.notes as string, created_by: user?.id }); const product = products.find(p=>p.id===d.productId); if(product) { const qty = Number(d.quantity)||0; const newQty = ["buy","add","return"].includes(d.movementType as string) ? (product.quantity||0)+qty : Math.max(0,(product.quantity||0)-qty); await supabase.from("products").update({quantity:newQty}).eq("id",product.id); } await refreshMovements(); await refreshProducts(); setShowForm(""); }} className={`${cardClass} space-y-3`}>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div><label className="text-xs font-bold text-foreground">{t("المنتج *","Product *")}</label><select name="productId" required className={inputClass}><option value="">{t("اختر","Select")}</option>{products.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></div>

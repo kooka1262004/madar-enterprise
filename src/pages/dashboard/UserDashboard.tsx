@@ -63,6 +63,8 @@ const UserDashboard = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [messagesData, setMessagesData] = useState<any[]>([]);
+  const [newMessageText, setNewMessageText] = useState("");
   const [showForm, setShowForm] = useState("");
   const [loading, setLoading] = useState(true);
   const [barcodeMode, setBarcodeMode] = useState("");

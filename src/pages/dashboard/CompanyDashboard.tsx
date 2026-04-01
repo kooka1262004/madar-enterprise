@@ -945,6 +945,7 @@ const CompanyDashboard = () => {
                     <div><label className="text-xs font-bold text-foreground">{t("سعر البيع", "Sell Price")}</label><input name="sellPrice" type="number" defaultValue={0} className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("الباركود", "Barcode")}</label><input name="barcode" className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("الحد الأدنى للمخزون", "Min Stock")}</label><input name="minStock" type="number" defaultValue={5} className={inputClass} /></div>
+                    {warehouses.length > 0 && <div><label className="text-xs font-bold text-foreground">{t("المخزن", "Warehouse")}</label><select name="warehouseId" className={inputClass}><option value="">{t("-- اختر مخزن --", "-- Select --")}</option>{warehouses.map((wh: any) => <option key={wh.id} value={wh.id}>{wh.name}</option>)}</select></div>}
                   </div>
                   <div className="flex gap-2">
                     <button type="submit" className={btnPrimary}>{t("حفظ", "Save")}</button>

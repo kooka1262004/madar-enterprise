@@ -796,7 +796,7 @@ const UserDashboard = () => {
           {/* ======= ORDERS ======= */}
           {activeTab === "orders" && hasSection("orders") && (
             <div className="space-y-4">
-              <SectionHeader title={t("تتبع الطلبات","Orders")} onAdd={() => setShowForm("order")} addLabel={t("إنشاء طلب","New Order")} onPDF={() => exportToPDF(t("الطلبات","Orders"), orders.map(o => ({[t("العميل","Client")]:o.customer_name,[t("الإجمالي","Total")]:o.total,[t("الحالة","Status")]:o.status})), [t("العميل","Client"),t("الإجمالي","Total"),t("الحالة","Status")])} />
+              <SectionHeader title={t("تتبع الطلبات","Orders")} onAdd={canAction("orders","create") ? () => setShowForm("order") : undefined} addLabel={t("إنشاء طلب","New Order")} onPDF={canAction("orders","export") ? () => exportToPDF(t("الطلبات","Orders"), orders.map(o => ({[t("العميل","Client")]:o.customer_name,[t("الإجمالي","Total")]:o.total,[t("الحالة","Status")]:o.status})), [t("العميل","Client"),t("الإجمالي","Total"),t("الحالة","Status")]) : undefined} />
               {showForm === "order" && (
                 <form onSubmit={async (e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); const d = Object.fromEntries(fd); await supabase.from("orders").insert({ company_id: companyId!, customer_name: d.customerName as string, customer_phone: d.customerPhone as string, customer_city: d.customerCity as string, total: Number(d.total)||0, notes: d.notes as string }); await refreshOrders(); setShowForm(""); }} className={`${cardClass} space-y-3`}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

@@ -662,18 +662,21 @@ const AdminDashboard = () => {
           {/* Wallet Requests */}
           {activeTab === "wallet-requests" && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <h3 className="font-bold text-foreground">{t("طلبات شحن المحافظ", "Wallet Requests")} ({walletRequests.length})</h3>
-                <button onClick={() => exportToPDF(t("طلبات شحن المحافظ","Wallet Requests"), walletRequests.map(r => ({ company: companies.find(c => c.id === r.company_id)?.company_name || "-", amount: r.amount, method: r.method, status: r.status, date: new Date(r.created_at).toLocaleDateString("ar-LY") })), [t("الشركة","Company"),t("المبلغ","Amount"),t("الطريقة","Method"),t("الحالة","Status"),t("التاريخ","Date")])} className="px-3 py-1.5 rounded-lg border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button>
+                <div className="flex gap-2">
+                  <button onClick={async () => { if(confirm(t("هل أنت متأكد من تصفير جميع طلبات الشحن المكتملة والملغية؟","Reset all completed/cancelled wallet requests?"))) { for(const r of walletRequests.filter(r=>["shipped","approved","cancelled"].includes(r.status))) { await supabase.from("wallet_requests").delete().eq("id",r.id); } const {data}=await supabase.from("wallet_requests").select("*").order("created_at",{ascending:false}); setWalletRequests(data||[]); alert(t("✅ تم التصفير","✅ Reset done")); }}} className="px-3 py-1.5 rounded-lg border border-destructive/50 text-destructive text-xs flex items-center gap-1"><RefreshCw className="h-3 w-3" /> {t("تصفير","Reset")}</button>
+                  <button onClick={() => exportToPDF(t("طلبات شحن المحافظ","Wallet Requests"), walletRequests.map(r => ({ company: companies.find(c => c.id === r.company_id)?.company_name || "-", amount: r.amount, method: r.method, status: r.status, date: new Date(r.created_at).toLocaleDateString("ar-LY") })), [t("الشركة","Company"),t("المبلغ","Amount"),t("الطريقة","Method"),t("الحالة","Status"),t("التاريخ","Date")])} className="px-3 py-1.5 rounded-lg border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button>
+                </div>
               </div>
               {/* تصفية حسب الحالة */}
               <div className="flex gap-2 flex-wrap">
                 {[{k:"all",l:t("الكل","All")},{k:"pending",l:t("معلق","Pending")},{k:"accepted",l:t("تم القبول","Accepted")},{k:"courier_sent",l:t("تم إرسال مندوب","Courier Sent")},{k:"shipped",l:t("تم الشحن","Shipped")},{k:"cancelled",l:t("ملغي","Cancelled")}].map(f => (
-                  <button key={f.k} onClick={() => setSearchCompany(f.k === "all" ? "" : f.k)} className={`px-3 py-1.5 rounded-xl text-xs ${searchCompany === f.k || (f.k === "all" && !searchCompany) ? "gradient-primary text-primary-foreground font-bold" : "glass text-foreground"}`}>{f.l}</button>
+                  <button key={f.k} onClick={() => setWalletFilter(f.k === "all" ? "" : f.k)} className={`px-3 py-1.5 rounded-xl text-xs ${walletFilter === f.k || (f.k === "all" && !walletFilter) ? "gradient-primary text-primary-foreground font-bold" : "glass text-foreground"}`}>{f.l}</button>
                 ))}
               </div>
               {walletRequests.length === 0 ? <div className="glass rounded-2xl p-6 text-center"><CreditCard className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لا توجد طلبات.", "No requests.")}</p></div> : (
-                <div className="space-y-3">{walletRequests.filter(r => !searchCompany || r.status === searchCompany).map(r => {
+                <div className="space-y-3">{walletRequests.filter(r => !walletFilter || r.status === walletFilter).map(r => {
                   const companyName = companies.find(c => c.id === r.company_id)?.company_name || "";
                   const walletStatusMap: Record<string,{ar:string,color:string}> = {
                     pending:{ar:"معلق",color:"bg-warning/20 text-warning"},

@@ -741,21 +741,30 @@ const AdminDashboard = () => {
           {/* Delivery Prices */}
           {activeTab === "delivery" && (
             <div className="space-y-4">
-              <h3 className="font-bold text-foreground">{t("أسعار التوصيل", "Delivery Prices")}</h3>
-              <p className="text-xs text-muted-foreground">{t("أسعار التوصيل تظهر للزبائن عند اختيار الشحن بالكاش وإرسال المندوب لمدينتهم.", "Delivery prices shown when customers choose cash payment for their city.")}</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-foreground">{t("أسعار التوصيل", "Delivery Prices")}</h3>
+                  <p className="text-xs text-muted-foreground">{t("أسعار التوصيل تظهر للزبائن عند اختيار الشحن بالكاش وإرسال المندوب لمدينتهم.", "Delivery prices shown when customers choose cash payment for their city.")}</p>
+                </div>
+                <button onClick={() => { const city = prompt(t("اسم المنطقة/المدينة الجديدة:", "New area/city name:")); if (city) { const price = Number(prompt(t("السعر بالدينار:", "Price in LYD:")) || "0"); supabase.from("delivery_prices").insert({ city, price }).then(() => { supabase.from("delivery_prices").select("*").order("city", { ascending: true }).then(({ data }) => setDeliveryPrices(data || [])); }); }}} className="px-4 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center gap-2"><Plus className="h-4 w-4" /> {t("إضافة منطقة", "Add Area")}</button>
+              </div>
               <div className="glass rounded-2xl p-4 overflow-x-auto">
                 <table className="w-full text-sm"><thead><tr className="border-b border-border">
                   <th className="text-right py-2 px-3 text-muted-foreground">{t("المدينة", "City")}</th>
                   <th className="text-right py-2 px-3 text-muted-foreground">{t("السعر (د.ل)", "Price (LYD)")}</th>
-                  <th className="text-right py-2 px-3 text-muted-foreground">{t("تعديل", "Edit")}</th>
+                  <th className="text-right py-2 px-3 text-muted-foreground">{t("إجراءات", "Actions")}</th>
                 </tr></thead><tbody>{deliveryPrices.map(d => (
                   <tr key={d.id} className="border-b border-border/30">
                     <td className="py-2 px-3 text-foreground font-medium">{d.city}</td>
                     <td className="py-2 px-3"><input type="number" value={d.price} onChange={e => setDeliveryPrices(deliveryPrices.map(dp => dp.id === d.id ? {...dp, price: +e.target.value} : dp))} className="w-20 px-2 py-1 rounded-lg bg-secondary border border-border text-foreground text-sm" /></td>
-                    <td className="py-2 px-3"><button onClick={() => updateDeliveryPrice(d.id, d.price)} className="text-xs px-2 py-1 rounded-lg bg-primary/20 text-primary">{t("حفظ", "Save")}</button></td>
+                    <td className="py-2 px-3"><div className="flex gap-1">
+                      <button onClick={() => updateDeliveryPrice(d.id, d.price)} className="text-xs px-2 py-1 rounded-lg bg-primary/20 text-primary">{t("حفظ", "Save")}</button>
+                      <button onClick={async () => { if(confirm(t("حذف هذه المنطقة?","Delete this area?"))) { await supabase.from("delivery_prices").delete().eq("id", d.id); setDeliveryPrices(deliveryPrices.filter(dp => dp.id !== d.id)); }}} className="text-xs px-2 py-1 rounded-lg bg-destructive/20 text-destructive">{t("حذف", "Delete")}</button>
+                    </div></td>
                   </tr>
                 ))}</tbody></table>
               </div>
+              {deliveryPrices.length === 0 && <div className="glass rounded-2xl p-6 text-center"><Truck className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لا توجد مناطق توصيل.", "No delivery areas.")}</p></div>}
             </div>
           )}
 

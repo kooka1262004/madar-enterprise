@@ -63,6 +63,7 @@ const AdminDashboard = () => {
   const [grantPlanModal, setGrantPlanModal] = useState<any>(null);
   const [revokePlanModal, setRevokePlanModal] = useState<any>(null);
   const [searchCompany, setSearchCompany] = useState("");
+  const [walletFilter, setWalletFilter] = useState("");
   const [newMessage, setNewMessage] = useState({ company: "", message: "" });
   const [editingCoupon, setEditingCoupon] = useState<any>(null);
   const [editingTerms, setEditingTerms] = useState("");

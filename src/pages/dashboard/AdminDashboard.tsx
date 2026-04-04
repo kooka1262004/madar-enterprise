@@ -130,6 +130,11 @@ const AdminDashboard = () => {
   const currency = platformSettings.currency || { primary: "LYD", secondary: "USD", rate: 4.85 };
   const contactInfo = platformSettings.contact_info || { email: "support@madar.ly", phone: "+218 XX XXX XXXX", address: "ليبيا - طرابلس" };
 
+  const formatDual = (amount: number) => {
+    const secondary = currency.secondary === "USD" ? (amount / (currency.rate || 4.85)).toFixed(2) : (amount * (currency.rate || 4.85)).toFixed(2);
+    return { primary: `${amount.toLocaleString()} ${t("د.ل","LYD")}`, secondary: `${secondary} ${currency.secondary}`, rate: `1 ${currency.secondary} = ${currency.rate} ${currency.primary}` };
+  };
+
   const saveSetting = async (key: string, value: any) => {
     const { data: existing } = await supabase.from("platform_settings").select("id").eq("key", key).maybeSingle();
     if (existing) {

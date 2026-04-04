@@ -73,19 +73,20 @@ const allPermissions = [
   { key: "requests", ar: "طلباتي", en: "My Requests" },
   { key: "my-tasks", ar: "مهامي", en: "My Tasks" },
   { key: "products", ar: "المنتجات", en: "Products" },
+  { key: "warehouses", ar: "المخازن", en: "Warehouses" },
   { key: "stock", ar: "حركة المخزون", en: "Stock" },
   { key: "barcode", ar: "الباركود", en: "Barcode" },
   { key: "suppliers", ar: "الموردين", en: "Suppliers" },
   { key: "returns", ar: "التالف والمرتجعات", en: "Returns" },
   { key: "inventory", ar: "الجرد", en: "Inventory" },
+  { key: "reorder", ar: "إعادة الطلب", en: "Reorder" },
   { key: "accounting", ar: "المحاسبة", en: "Accounting" },
   { key: "invoices", ar: "الفواتير", en: "Invoices" },
+  { key: "profits", ar: "الأرباح", en: "Profits" },
   { key: "reports", ar: "التقارير", en: "Reports" },
-  { key: "hr", ar: "الموارد البشرية", en: "HR" },
-  { key: "users", ar: "المستخدمين", en: "Users" },
-  { key: "settings", ar: "الإعدادات", en: "Settings" },
   { key: "orders", ar: "الطلبات", en: "Orders" },
   { key: "messages", ar: "المراسلات", en: "Messages" },
+  { key: "settings", ar: "الإعدادات", en: "Settings" },
 ];
 
 const sectionActions: Record<string, { key: string; ar: string; en: string }[]> = {

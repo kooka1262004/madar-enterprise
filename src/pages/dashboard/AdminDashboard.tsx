@@ -63,6 +63,7 @@ const AdminDashboard = () => {
   const [grantPlanModal, setGrantPlanModal] = useState<any>(null);
   const [revokePlanModal, setRevokePlanModal] = useState<any>(null);
   const [searchCompany, setSearchCompany] = useState("");
+  const [walletFilter, setWalletFilter] = useState("");
   const [newMessage, setNewMessage] = useState({ company: "", message: "" });
   const [editingCoupon, setEditingCoupon] = useState<any>(null);
   const [editingTerms, setEditingTerms] = useState("");
@@ -128,6 +129,11 @@ const AdminDashboard = () => {
   const branding = platformSettings.branding || { name: "مدار", primaryColor: "#2563eb", accentColor: "#c9a227", logo: "" };
   const currency = platformSettings.currency || { primary: "LYD", secondary: "USD", rate: 4.85 };
   const contactInfo = platformSettings.contact_info || { email: "support@madar.ly", phone: "+218 XX XXX XXXX", address: "ليبيا - طرابلس" };
+
+  const formatDual = (amount: number) => {
+    const secondary = currency.secondary === "USD" ? (amount / (currency.rate || 4.85)).toFixed(2) : (amount * (currency.rate || 4.85)).toFixed(2);
+    return { primary: `${amount.toLocaleString()} ${t("د.ل","LYD")}`, secondary: `${secondary} ${currency.secondary}`, rate: `1 ${currency.secondary} = ${currency.rate} ${currency.primary}` };
+  };
 
   const saveSetting = async (key: string, value: any) => {
     const { data: existing } = await supabase.from("platform_settings").select("id").eq("key", key).maybeSingle();
@@ -211,15 +217,21 @@ const AdminDashboard = () => {
   };
 
   const savePlan = async (plan: any) => {
-    const planData = { name: plan.name, name_en: plan.name_en, price: plan.price, period: plan.period, max_users: plan.max_users, max_stores: plan.max_stores, max_products: plan.max_products, max_employees: plan.max_employees || 5, max_storage_mb: plan.max_storage_mb || 500, max_db_mb: plan.max_db_mb || 100, max_file_uploads: plan.max_file_uploads || 100, max_departments: plan.max_departments || 3, features: plan.features, allowed_features: plan.allowed_features || [], active: plan.active };
-    if (plan.id && plans.find(p => p.id === plan.id)) {
-      await supabase.from("plans").update(planData).eq("id", plan.id);
-    } else {
-      await supabase.from("plans").insert(planData);
-    }
-    const { data } = await supabase.from("plans").select("*").order("price", { ascending: true });
-    setPlans(data || []);
-    setEditingPlan(null);
+    if (!plan.name || !plan.name.trim()) { alert(t("اسم الباقة مطلوب!","Plan name is required!")); return; }
+    const planData = { name: plan.name.trim(), name_en: (plan.name_en || "").trim(), price: Number(plan.price) || 0, period: plan.period || "شهر", max_users: Number(plan.max_users) || 5, max_stores: Number(plan.max_stores) || 1, max_products: Number(plan.max_products) || 500, max_employees: Number(plan.max_employees) || 5, max_storage_mb: Number(plan.max_storage_mb) || 500, max_db_mb: Number(plan.max_db_mb) || 100, max_file_uploads: Number(plan.max_file_uploads) || 100, max_departments: Number(plan.max_departments) || 3, features: plan.features || [], allowed_features: plan.allowed_features || [], active: plan.active !== false };
+    try {
+      if (plan.id && plans.find(p => p.id === plan.id)) {
+        const { error } = await supabase.from("plans").update(planData).eq("id", plan.id);
+        if (error) { alert(t("خطأ في التحديث: ","Update error: ") + error.message); return; }
+      } else {
+        const { error } = await supabase.from("plans").insert(planData);
+        if (error) { alert(t("خطأ في الإضافة: ","Insert error: ") + error.message); return; }
+      }
+      const { data } = await supabase.from("plans").select("*").order("price", { ascending: true });
+      setPlans(data || []);
+      setEditingPlan(null);
+      alert(t("✅ تم حفظ الباقة بنجاح!","✅ Plan saved successfully!"));
+    } catch (err: any) { alert(t("خطأ: ","Error: ") + err.message); }
   };
 
   const deletePlan = async (id: string) => {
@@ -650,18 +662,21 @@ const AdminDashboard = () => {
           {/* Wallet Requests */}
           {activeTab === "wallet-requests" && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <h3 className="font-bold text-foreground">{t("طلبات شحن المحافظ", "Wallet Requests")} ({walletRequests.length})</h3>
-                <button onClick={() => exportToPDF(t("طلبات شحن المحافظ","Wallet Requests"), walletRequests.map(r => ({ company: companies.find(c => c.id === r.company_id)?.company_name || "-", amount: r.amount, method: r.method, status: r.status, date: new Date(r.created_at).toLocaleDateString("ar-LY") })), [t("الشركة","Company"),t("المبلغ","Amount"),t("الطريقة","Method"),t("الحالة","Status"),t("التاريخ","Date")])} className="px-3 py-1.5 rounded-lg border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button>
+                <div className="flex gap-2">
+                  <button onClick={async () => { if(confirm(t("هل أنت متأكد من تصفير جميع طلبات الشحن المكتملة والملغية؟","Reset all completed/cancelled wallet requests?"))) { for(const r of walletRequests.filter(r=>["shipped","approved","cancelled"].includes(r.status))) { await supabase.from("wallet_requests").delete().eq("id",r.id); } const {data}=await supabase.from("wallet_requests").select("*").order("created_at",{ascending:false}); setWalletRequests(data||[]); alert(t("✅ تم التصفير","✅ Reset done")); }}} className="px-3 py-1.5 rounded-lg border border-destructive/50 text-destructive text-xs flex items-center gap-1"><RefreshCw className="h-3 w-3" /> {t("تصفير","Reset")}</button>
+                  <button onClick={() => exportToPDF(t("طلبات شحن المحافظ","Wallet Requests"), walletRequests.map(r => ({ company: companies.find(c => c.id === r.company_id)?.company_name || "-", amount: r.amount, method: r.method, status: r.status, date: new Date(r.created_at).toLocaleDateString("ar-LY") })), [t("الشركة","Company"),t("المبلغ","Amount"),t("الطريقة","Method"),t("الحالة","Status"),t("التاريخ","Date")])} className="px-3 py-1.5 rounded-lg border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button>
+                </div>
               </div>
               {/* تصفية حسب الحالة */}
               <div className="flex gap-2 flex-wrap">
                 {[{k:"all",l:t("الكل","All")},{k:"pending",l:t("معلق","Pending")},{k:"accepted",l:t("تم القبول","Accepted")},{k:"courier_sent",l:t("تم إرسال مندوب","Courier Sent")},{k:"shipped",l:t("تم الشحن","Shipped")},{k:"cancelled",l:t("ملغي","Cancelled")}].map(f => (
-                  <button key={f.k} onClick={() => setSearchCompany(f.k === "all" ? "" : f.k)} className={`px-3 py-1.5 rounded-xl text-xs ${searchCompany === f.k || (f.k === "all" && !searchCompany) ? "gradient-primary text-primary-foreground font-bold" : "glass text-foreground"}`}>{f.l}</button>
+                  <button key={f.k} onClick={() => setWalletFilter(f.k === "all" ? "" : f.k)} className={`px-3 py-1.5 rounded-xl text-xs ${walletFilter === f.k || (f.k === "all" && !walletFilter) ? "gradient-primary text-primary-foreground font-bold" : "glass text-foreground"}`}>{f.l}</button>
                 ))}
               </div>
               {walletRequests.length === 0 ? <div className="glass rounded-2xl p-6 text-center"><CreditCard className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لا توجد طلبات.", "No requests.")}</p></div> : (
-                <div className="space-y-3">{walletRequests.filter(r => !searchCompany || r.status === searchCompany).map(r => {
+                <div className="space-y-3">{walletRequests.filter(r => !walletFilter || r.status === walletFilter).map(r => {
                   const companyName = companies.find(c => c.id === r.company_id)?.company_name || "";
                   const walletStatusMap: Record<string,{ar:string,color:string}> = {
                     pending:{ar:"معلق",color:"bg-warning/20 text-warning"},
@@ -771,12 +786,19 @@ const AdminDashboard = () => {
           {/* Revenue */}
           {activeTab === "revenue" && (
             <div className="space-y-4">
-              <div className="flex justify-end"><button onClick={() => exportToPDF(t("أرباح المنصة","Revenue"), [{ total: totalRevenue, active: companies.filter(c=>c.status==="active").length, pending: walletRequests.filter(r=>r.status==="pending").length }], [t("الإجمالي","Total"),t("النشطة","Active"),t("المعلقة","Pending")])} className="px-3 py-1.5 rounded-lg border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button></div>
+              <div className="flex justify-between flex-wrap gap-2">
+                <h3 className="font-bold text-foreground">{t("أرباح المنصة","Platform Revenue")}</h3>
+                <div className="flex gap-2">
+                  <button onClick={async () => { if(confirm(t("هل أنت متأكد من تصفير الأرباح؟ سيتم حذف جميع سجلات المعاملات المكتملة.","Reset all revenue? This deletes completed transaction records."))) { for(const r of walletRequests.filter(r=>r.status==="approved"||r.status==="shipped")) { await supabase.from("wallet_requests").delete().eq("id",r.id); } const {data}=await supabase.from("wallet_requests").select("*").order("created_at",{ascending:false}); setWalletRequests(data||[]); alert(t("✅ تم تصفير الأرباح","✅ Revenue reset")); }}} className="px-3 py-1.5 rounded-lg border border-destructive/50 text-destructive text-xs flex items-center gap-1"><RefreshCw className="h-3 w-3" /> {t("تصفير الأرباح","Reset Revenue")}</button>
+                  <button onClick={() => exportToPDF(t("أرباح المنصة","Revenue"), [{ total: totalRevenue, active: companies.filter(c=>c.status==="active").length, pending: walletRequests.filter(r=>r.status==="pending").length }], [t("الإجمالي","Total"),t("النشطة","Active"),t("المعلقة","Pending")])} className="px-3 py-1.5 rounded-lg border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button>
+                </div>
+              </div>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div className="glass rounded-2xl p-5"><p className="text-xs text-muted-foreground">{t("إجمالي الأرباح", "Total Revenue")}</p><p className="text-2xl font-black text-primary">{totalRevenue} {t("د.ل", "LYD")}</p></div>
-                <div className="glass rounded-2xl p-5"><p className="text-xs text-muted-foreground">{t("أرباح الشهر", "This Month")}</p><p className="text-2xl font-black text-success">{walletRequests.filter(r => r.status === "approved" && new Date(r.created_at).getMonth() === new Date().getMonth()).reduce((a, r) => a + Number(r.amount || 0), 0)} {t("د.ل", "LYD")}</p></div>
+                <div className="glass rounded-2xl p-5"><p className="text-xs text-muted-foreground">{t("إجمالي الأرباح", "Total Revenue")}</p><p className="text-2xl font-black text-primary">{formatDual(totalRevenue).primary}</p><p className="text-xs text-muted-foreground mt-1">≈ {formatDual(totalRevenue).secondary}</p></div>
+                <div className="glass rounded-2xl p-5"><p className="text-xs text-muted-foreground">{t("أرباح الشهر", "This Month")}</p>{(() => { const m = walletRequests.filter(r => r.status === "approved" && new Date(r.created_at).getMonth() === new Date().getMonth()).reduce((a, r) => a + Number(r.amount || 0), 0); return <><p className="text-2xl font-black text-success">{formatDual(m).primary}</p><p className="text-xs text-muted-foreground mt-1">≈ {formatDual(m).secondary}</p></>; })()}</div>
                 <div className="glass rounded-2xl p-5"><p className="text-xs text-muted-foreground">{t("طلبات معلقة", "Pending")}</p><p className="text-2xl font-black text-warning">{walletRequests.filter(r => r.status === "pending").length}</p></div>
               </div>
+              <div className="glass rounded-xl p-3 text-center"><p className="text-xs text-muted-foreground">💱 {formatDual(0).rate}</p></div>
               <div className="glass rounded-2xl p-5">
                 <h4 className="font-bold text-foreground mb-4">{t("الأرباح الشهرية", "Monthly Revenue")}</h4>
                 <ResponsiveContainer width="100%" height={250}>
@@ -877,17 +899,39 @@ const AdminDashboard = () => {
 
           {/* Fraud Detection */}
           {activeTab === "fraud" && (
-            <div className="glass rounded-2xl p-6">
-              <h3 className="font-bold text-foreground mb-4">{t("كشف التلاعب", "Fraud Detection")}</h3>
-              <p className="text-xs text-muted-foreground mb-4">{t("النظام يراقب العمليات المشبوهة تلقائياً مثل الأرصدة المرتفعة والعمليات المتكررة غير الطبيعية.", "System automatically monitors suspicious activities like high balances and unusual repeated operations.")}</p>
-              <div className="space-y-3">
-                {companies.filter(c => (c.wallet || 0) > 5000).map(c => (
-                  <div key={c.id} className="glass rounded-xl p-4 border-warning/30">
-                    <div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-warning" /><span className="text-sm font-bold text-foreground">{c.company_name}</span></div>
-                    <p className="text-xs text-muted-foreground mt-1">{t("رصيد مرتفع:", "High balance:")} {c.wallet} {t("د.ل", "LYD")}</p>
-                  </div>
-                ))}
-                {companies.filter(c => (c.wallet || 0) > 5000).length === 0 && <p className="text-sm text-muted-foreground text-center py-4">✅ {t("لا توجد عمليات مشبوهة حالياً.", "No suspicious activity detected.")}</p>}
+            <div className="space-y-4">
+              <div className="glass rounded-2xl p-6">
+                <h3 className="font-bold text-foreground mb-4">{t("كشف التلاعب", "Fraud Detection")}</h3>
+                <p className="text-xs text-muted-foreground mb-4">{t("النظام يراقب العمليات المشبوهة تلقائياً مثل الأرصدة المرتفعة والعمليات المتكررة غير الطبيعية.", "System automatically monitors suspicious activities like high balances and unusual repeated operations.")}</p>
+                <div className="space-y-3">
+                  {/* High balance companies */}
+                  {companies.filter(c => (c.wallet || 0) > 5000).map(c => (
+                    <div key={c.id} className="glass rounded-xl p-4 border-warning/30">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-warning" /><span className="text-sm font-bold text-foreground">{c.company_name}</span></div>
+                        <span className="text-xs text-warning font-bold">{c.wallet} {t("د.ل","LYD")}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">{t("رصيد مرتفع بشكل غير طبيعي","Unusually high balance")}</p>
+                      <div className="flex gap-2 mt-3">
+                        <button onClick={async () => { await supabase.from("companies").update({ wallet: 0 }).eq("id", c.id); setCompanies(companies.map(co => co.id === c.id ? {...co, wallet: 0} : co)); alert(t("✅ تم تصفير الرصيد","✅ Balance reset")); }} className="px-3 py-1.5 rounded-lg bg-destructive/20 text-destructive text-xs font-bold flex items-center gap-1"><Shield className="h-3 w-3" /> {t("إصلاح (تصفير)","Fix (Reset)")}</button>
+                        <button onClick={() => { alert(t("تم تجاهل التنبيه. لن يظهر حتى تتغير الحالة.","Alert dismissed.")); }} className="px-3 py-1.5 rounded-lg bg-secondary text-foreground text-xs">{t("تجاهل","Ignore")}</button>
+                        <button onClick={() => { const newVal = prompt(t("أدخل القيمة الصحيحة للرصيد:","Enter correct balance:")); if(newVal !== null) { const val = Number(newVal); supabase.from("companies").update({ wallet: val }).eq("id", c.id).then(() => { setCompanies(companies.map(co => co.id === c.id ? {...co, wallet: val} : co)); alert(t("✅ تم التعديل","✅ Updated")); }); }}} className="px-3 py-1.5 rounded-lg bg-primary/20 text-primary text-xs font-bold flex items-center gap-1"><Edit className="h-3 w-3" /> {t("تعديل يدوي","Manual Edit")}</button>
+                      </div>
+                    </div>
+                  ))}
+                  {/* Duplicate wallet requests */}
+                  {(() => { const suspicious = walletRequests.filter(r => r.status === "pending" && walletRequests.filter(r2 => r2.company_id === r.company_id && r2.status === "pending").length > 2); return suspicious.length > 0 ? suspicious.slice(0,5).map(r => (
+                    <div key={r.id} className="glass rounded-xl p-4 border-destructive/30">
+                      <div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-destructive" /><span className="text-sm font-bold text-foreground">{companies.find(c=>c.id===r.company_id)?.company_name || "-"}</span></div>
+                      <p className="text-xs text-muted-foreground mt-1">{t("طلبات شحن متعددة معلقة - احتمال تلاعب","Multiple pending wallet requests - possible fraud")}</p>
+                      <div className="flex gap-2 mt-3">
+                        <button onClick={async () => { const pending = walletRequests.filter(r2=>r2.company_id===r.company_id&&r2.status==="pending"); for(const p of pending.slice(1)) { await supabase.from("wallet_requests").update({status:"cancelled",cancel_reason:"تكرار مشبوه"}).eq("id",p.id); } const {data}=await supabase.from("wallet_requests").select("*").order("created_at",{ascending:false}); setWalletRequests(data||[]); alert(t("✅ تم إلغاء الطلبات المكررة","✅ Duplicates cancelled")); }} className="px-3 py-1.5 rounded-lg bg-destructive/20 text-destructive text-xs font-bold">{t("إصلاح","Fix")}</button>
+                        <button className="px-3 py-1.5 rounded-lg bg-secondary text-foreground text-xs">{t("تجاهل","Ignore")}</button>
+                      </div>
+                    </div>
+                  )) : null; })()}
+                  {companies.filter(c => (c.wallet || 0) > 5000).length === 0 && <p className="text-sm text-muted-foreground text-center py-4">✅ {t("لا توجد عمليات مشبوهة حالياً.", "No suspicious activity detected.")}</p>}
+                </div>
               </div>
             </div>
           )}

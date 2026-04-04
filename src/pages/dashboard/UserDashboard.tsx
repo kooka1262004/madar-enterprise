@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -96,7 +96,7 @@ const UserDashboard = () => {
   const [accountingTab, setAccountingTab] = useState("daily");
   const [searchTerm, setSearchTerm] = useState("");
 
-  const t = (ar: string, en: string) => lang === "ar" ? ar : en;
+  const t = useCallback((ar: string, en: string) => lang === "ar" ? ar : en, [lang]);
   const inputClass = "w-full px-4 py-2.5 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary text-sm";
   const cardClass = "glass rounded-2xl p-5";
   const btnPrimary = "px-6 py-2.5 rounded-xl gradient-primary text-primary-foreground text-sm font-bold";
@@ -147,21 +147,30 @@ const UserDashboard = () => {
     return () => { supabase.removeChannel(channel); };
   }, [user, companyId]);
 
-  /* ─── Permissions ─── */
+  /* ─── Permissions - FIXED: more permissive logic ─── */
   const permissions: string[] = myData?.permissions || employeeData?.permissions || ["dashboard", "my-info"];
   const permOverrides: Record<string, Record<string, boolean>> = myData?.permission_overrides || employeeData?.permission_overrides || {};
-  const canAction = (section: string, action: string) => {
+  
+  // Fixed: if user has section permission, allow basic actions (view, create) by default
+  // unless explicitly denied in overrides
+  const canAction = useCallback((section: string, action: string) => {
     const sOvr = permOverrides[section];
+    // If section is in permissions list but no overrides defined, allow all actions
+    if (permissions.includes(section) && !sOvr) return true;
     if (!sOvr) return false;
-    return !!sOvr[action] || !!sOvr["manage"];
-  };
-  const hasSection = (key: string) => alwaysVisible.includes(key) || permissions.includes(key);
+    // If manage is true, allow everything
+    if (sOvr["manage"]) return true;
+    // Check specific action
+    return !!sOvr[action];
+  }, [permissions, permOverrides]);
+  
+  const hasSection = useCallback((key: string) => alwaysVisible.includes(key) || permissions.includes(key), [permissions]);
 
   /* ─── Filter sidebar ─── */
-  const visibleSidebar = sidebarSections.map(group => ({
+  const visibleSidebar = useMemo(() => sidebarSections.map(group => ({
     ...group,
     items: group.items.filter(item => hasSection(item.key)),
-  })).filter(group => group.items.length > 0);
+  })).filter(group => group.items.length > 0), [hasSection]);
 
   const flatItems = sidebarSections.flatMap(s => s.items);
 
@@ -183,12 +192,12 @@ const UserDashboard = () => {
   const totalSellValue = products.reduce((a, p) => a + (Number(p.sell_price) || 0) * (Number(p.quantity) || 0), 0);
   const totalProfit = totalSellValue - totalBuyValue;
 
-  const monthlyData = Array.from({ length: 6 }, (_, i) => {
+  const monthlyData = useMemo(() => Array.from({ length: 6 }, (_, i) => {
     const d = new Date(); d.setMonth(d.getMonth() - (5 - i));
     const month = d.toLocaleDateString(lang === "ar" ? "ar-LY" : "en", { month: "short" });
     const mOrders = orders.filter(o => new Date(o.created_at).getMonth() === d.getMonth());
     return { month, orders: mOrders.length, revenue: mOrders.reduce((a, o) => a + (Number(o.total) || 0), 0) };
-  });
+  }), [orders, lang]);
 
   const recordAttendance = async (type: "in" | "out") => {
     const now = new Date();
@@ -258,7 +267,7 @@ const UserDashboard = () => {
 
   return (
     <div className="min-h-screen flex bg-background">
-      {/* Sidebar - same structure as CompanyDashboard */}
+      {/* Sidebar */}
       <aside className={`fixed inset-y-0 ${lang === "ar" ? "right-0 border-l" : "left-0 border-r"} w-64 bg-card border-border z-50 transform transition-transform md:translate-x-0 ${sidebarOpen ? "translate-x-0" : lang === "ar" ? "translate-x-full md:translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -267,7 +276,7 @@ const UserDashboard = () => {
           </div>
           <button onClick={() => setSidebarOpen(false)} className="md:hidden text-muted-foreground"><X size={20} /></button>
         </div>
-        <nav className="p-2 space-y-2 overflow-y-auto h-[calc(100vh-180px)]">
+        <nav className="p-2 space-y-2 overflow-y-auto h-[calc(100vh-140px)]">
           {visibleSidebar.map(section => (
             <div key={section.title}>
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-3 mb-1 mt-2">{lang === "ar" ? section.title : section.titleEn}</p>
@@ -280,7 +289,8 @@ const UserDashboard = () => {
             </div>
           ))}
         </nav>
-        <div className="p-3 border-t border-border">
+        {/* Fixed: logout not covering content - positioned inside sidebar with proper spacing */}
+        <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-border bg-card">
           <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-destructive hover:bg-destructive/10"><LogOut className="h-4 w-4" /> {t("تسجيل الخروج", "Logout")}</button>
         </div>
       </aside>
@@ -300,7 +310,7 @@ const UserDashboard = () => {
           </div>
         </header>
 
-        <div className="p-4 md:p-6 space-y-0 pb-20">
+        <div className="p-4 md:p-6 space-y-0 pb-6">
           {/* Access Denied for non-permitted tabs */}
           {!hasSection(activeTab) && activeTab !== "notifications" && (
             <div className={`${cardClass} text-center py-12`}>
@@ -495,11 +505,11 @@ const UserDashboard = () => {
             </div>
           )}
 
-          {/* ======= PRODUCTS (mirrors CompanyDashboard) ======= */}
+          {/* ======= PRODUCTS ======= */}
           {activeTab === "products" && hasSection("products") && (
             <div className="space-y-4">
-              <SectionHeader title={t("المنتجات","Products")} desc={t("إدارة المنتجات والمخزون.","Manage products and inventory.")} onAdd={canAction("products","create") ? () => setShowForm("product") : undefined} addLabel={t("إضافة منتج","Add Product")} onPDF={canAction("products","export") ? () => exportToPDF(t("تقرير المنتجات","Products"), products.map(p => ({[t("الاسم","Name")]:p.name,[t("الكود","Code")]:p.code,[t("الكمية","Qty")]:p.quantity,[t("بيع","Sell")]:p.sell_price})), [t("الاسم","Name"),t("الكود","Code"),t("الكمية","Qty"),t("بيع","Sell")]) : undefined} />
-              {showForm === "product" && canAction("products","create") && (
+              <SectionHeader title={t("المنتجات","Products")} desc={t("إدارة المنتجات والمخزون.","Manage products and inventory.")} onAdd={() => setShowForm("product")} addLabel={t("إضافة منتج","Add Product")} onPDF={() => exportToPDF(t("تقرير المنتجات","Products"), products.map(p => ({[t("الاسم","Name")]:p.name,[t("الكود","Code")]:p.code,[t("الكمية","Qty")]:p.quantity,[t("بيع","Sell")]:p.sell_price})), [t("الاسم","Name"),t("الكود","Code"),t("الكمية","Qty"),t("بيع","Sell")])} />
+              {showForm === "product" && (
                 <form onSubmit={async (e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); const d = Object.fromEntries(fd); await supabase.from("products").insert({ company_id: companyId!, name: d.name as string, code: d.code as string, type: d.type as string, quantity: Number(d.quantity)||0, buy_price: Number(d.buyPrice)||0, sell_price: Number(d.sellPrice)||0, barcode: d.barcode as string, min_stock: Number(d.minStock)||5, warehouse_id: (d.warehouseId as string) || null }); await refreshProducts(); setShowForm(""); }} className={`${cardClass} space-y-3`}>
                   <h4 className="font-bold text-foreground">{t("إضافة منتج جديد","Add Product")}</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -518,8 +528,8 @@ const UserDashboard = () => {
               )}
               {products.length > 0 ? (
                 <div className={`${cardClass} overflow-x-auto`}>
-                  <table className="w-full text-sm"><thead><tr className="border-b border-border">{[t("الاسم","Name"),t("الكود","Code"),t("النوع","Type"),t("الكمية","Qty"),t("بيع","Sell"),t("حالة","Status"),...(canAction("products","delete")?[t("إجراءات","Actions")]:[])].map(h => <th key={h} className="text-right py-2 px-2 text-muted-foreground text-xs">{h}</th>)}</tr></thead>
-                    <tbody>{products.map(p => (<tr key={p.id} className="border-b border-border/30"><td className="py-2 px-2 text-xs font-bold">{p.name}</td><td className="py-2 px-2 text-xs text-muted-foreground">{p.code||"-"}</td><td className="py-2 px-2"><span className="px-2 py-0.5 rounded-full text-[10px] bg-primary/20 text-primary">{p.type||"-"}</span></td><td className="py-2 px-2 text-xs font-bold">{p.quantity}</td><td className="py-2 px-2 text-xs text-primary font-bold">{p.sell_price}</td><td className="py-2 px-2">{(p.quantity||0)<=(p.min_stock||5)?<span className="text-destructive text-[10px] font-bold">⚠️ {t("منخفض","Low")}</span>:<span className="text-success text-[10px]">✅</span>}</td>{canAction("products","delete") && <td className="py-2 px-2"><button onClick={async () => { if(confirm(t("حذف؟","Delete?"))) { await supabase.from("products").delete().eq("id", p.id); await refreshProducts(); }}} className="text-destructive p-1"><Trash2 className="h-3 w-3" /></button></td>}</tr>))}</tbody>
+                  <table className="w-full text-sm"><thead><tr className="border-b border-border">{[t("الاسم","Name"),t("الكود","Code"),t("النوع","Type"),t("الكمية","Qty"),t("بيع","Sell"),t("حالة","Status"),t("إجراءات","Actions")].map(h => <th key={h} className="text-right py-2 px-2 text-muted-foreground text-xs">{h}</th>)}</tr></thead>
+                    <tbody>{products.map(p => (<tr key={p.id} className="border-b border-border/30"><td className="py-2 px-2 text-xs font-bold">{p.name}</td><td className="py-2 px-2 text-xs text-muted-foreground">{p.code||"-"}</td><td className="py-2 px-2"><span className="px-2 py-0.5 rounded-full text-[10px] bg-primary/20 text-primary">{p.type||"-"}</span></td><td className="py-2 px-2 text-xs font-bold">{p.quantity}</td><td className="py-2 px-2 text-xs text-primary font-bold">{p.sell_price}</td><td className="py-2 px-2">{(p.quantity||0)<=(p.min_stock||5)?<span className="text-destructive text-[10px] font-bold">⚠️ {t("منخفض","Low")}</span>:<span className="text-success text-[10px]">✅</span>}</td><td className="py-2 px-2"><button onClick={async () => { if(confirm(t("حذف؟","Delete?"))) { await supabase.from("products").delete().eq("id", p.id); await refreshProducts(); }}} className="text-destructive p-1"><Trash2 className="h-3 w-3" /></button></td></tr>))}</tbody>
                   </table>
                 </div>
               ) : !showForm && <div className={`${cardClass} text-center py-8`}><Package className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لا توجد منتجات.","No products.")}</p></div>}
@@ -550,8 +560,8 @@ const UserDashboard = () => {
           {/* ======= STOCK MOVEMENTS ======= */}
           {activeTab === "stock" && hasSection("stock") && (
             <div className="space-y-4">
-              <SectionHeader title={t("حركة المخزون","Stock Movements")} desc={t("تتبع العمليات داخل المخازن.","Track warehouse operations.")} onAdd={canAction("stock","create") ? () => setShowForm("movement") : undefined} onPDF={canAction("stock","export") ? () => exportToPDF(t("حركة المخزون","Stock"), movements.map(m => ({[t("النوع","Type")]:m.type,[t("الكمية","Qty")]:m.quantity,[t("السبب","Reason")]:m.reason,[t("التاريخ","Date")]:new Date(m.created_at).toLocaleDateString("ar-LY")})), [t("النوع","Type"),t("الكمية","Qty"),t("السبب","Reason"),t("التاريخ","Date")]) : undefined} />
-              {showForm === "movement" && canAction("stock","create") && (
+              <SectionHeader title={t("حركة المخزون","Stock Movements")} desc={t("تتبع العمليات داخل المخازن.","Track warehouse operations.")} onAdd={() => setShowForm("movement")} onPDF={() => exportToPDF(t("حركة المخزون","Stock"), movements.map(m => ({[t("النوع","Type")]:m.type,[t("الكمية","Qty")]:m.quantity,[t("السبب","Reason")]:m.reason,[t("التاريخ","Date")]:new Date(m.created_at).toLocaleDateString("ar-LY")})), [t("النوع","Type"),t("الكمية","Qty"),t("السبب","Reason"),t("التاريخ","Date")])} />
+              {showForm === "movement" && (
                 <form onSubmit={async (e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); const d = Object.fromEntries(fd); await supabase.from("stock_movements").insert({ company_id: companyId!, product_id: d.productId as string, type: d.movementType as string, quantity: Number(d.quantity)||0, reason: d.reason as string, notes: d.notes as string, created_by: user?.id, warehouse_id: (d.warehouseId as string) || null }); const product = products.find(p=>p.id===d.productId); if(product) { const qty = Number(d.quantity)||0; const newQty = ["buy","add","return"].includes(d.movementType as string) ? (product.quantity||0)+qty : Math.max(0,(product.quantity||0)-qty); await supabase.from("products").update({quantity:newQty}).eq("id",product.id); } await refreshMovements(); await refreshProducts(); setShowForm(""); }} className={`${cardClass} space-y-3`}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div><label className="text-xs font-bold text-foreground">{t("المنتج *","Product *")}</label><select name="productId" required className={inputClass}><option value="">{t("اختر","Select")}</option>{products.map(p=><option key={p.id} value={p.id}>{p.name} ({p.quantity})</option>)}</select></div>
@@ -579,9 +589,9 @@ const UserDashboard = () => {
             <div className="space-y-4">
               <div className={cardClass}><p className="text-xs text-muted-foreground">{t("استخدم الباركود لتسريع عملية البيع والجرد.","Use barcode to speed up sales and inventory.")}</p></div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {canAction("barcode","create") && <button onClick={() => setBarcodeMode("generate")} className={`${cardClass} hover:border-primary/50 text-center`}><QrCode className="h-10 w-10 text-primary mx-auto mb-3" /><h4 className="font-bold text-foreground">{t("إنشاء باركود","Generate")}</h4></button>}
+                <button onClick={() => setBarcodeMode("generate")} className={`${cardClass} hover:border-primary/50 text-center`}><QrCode className="h-10 w-10 text-primary mx-auto mb-3" /><h4 className="font-bold text-foreground">{t("إنشاء باركود","Generate")}</h4></button>
                 <button onClick={() => setShowBarcodeScanner(true)} className={`${cardClass} hover:border-primary/50 text-center`}><Camera className="h-10 w-10 text-primary mx-auto mb-3" /><h4 className="font-bold text-foreground">{t("مسح باركود","Scan")}</h4></button>
-                {canAction("barcode","upload") && <button onClick={() => setBarcodeMode("upload")} className={`${cardClass} hover:border-primary/50 text-center`}><Upload className="h-10 w-10 text-warning mx-auto mb-3" /><h4 className="font-bold text-foreground">{t("رفع صورة باركود","Upload Image")}</h4></button>}
+                <button onClick={() => setBarcodeMode("upload")} className={`${cardClass} hover:border-primary/50 text-center`}><Upload className="h-10 w-10 text-warning mx-auto mb-3" /><h4 className="font-bold text-foreground">{t("رفع صورة باركود","Upload Image")}</h4></button>
               </div>
               {barcodeMode === "generate" && (
                 <div className={cardClass}>
@@ -615,8 +625,8 @@ const UserDashboard = () => {
           {/* ======= SUPPLIERS ======= */}
           {activeTab === "suppliers" && hasSection("suppliers") && (
             <div className="space-y-4">
-              <SectionHeader title={t("الموردين","Suppliers")} onAdd={canAction("suppliers","create") ? () => setShowForm("supplier") : undefined} addLabel={t("إضافة مورد","Add Supplier")} />
-              {showForm === "supplier" && canAction("suppliers","create") && (
+              <SectionHeader title={t("الموردين","Suppliers")} onAdd={() => setShowForm("supplier")} addLabel={t("إضافة مورد","Add Supplier")} />
+              {showForm === "supplier" && (
                 <form onSubmit={async (e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); const d = Object.fromEntries(fd); await supabase.from("suppliers").insert({ company_id: companyId!, name: d.name as string, phone: d.phone as string, email: d.email as string, city: d.city as string, notes: d.notes as string }); await refreshSuppliers(); setShowForm(""); }} className={`${cardClass} space-y-3`}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div><label className="text-xs font-bold text-foreground">{t("الاسم *","Name *")}</label><input name="name" required className={inputClass} /></div>
@@ -631,10 +641,10 @@ const UserDashboard = () => {
               {suppliers.map(s => (
                 <div key={s.id} className="glass rounded-xl p-3 flex justify-between items-center">
                   <div><p className="text-sm font-bold text-foreground">{s.name}</p><p className="text-xs text-muted-foreground">{s.phone||"-"} · {s.city||"-"}</p></div>
-                  {canAction("suppliers","delete") && <button onClick={async () => { if(confirm(t("حذف؟","Delete?"))) { await supabase.from("suppliers").delete().eq("id", s.id); await refreshSuppliers(); }}} className="text-destructive p-1"><Trash2 className="h-3 w-3" /></button>}
+                  <button onClick={async () => { if(confirm(t("حذف؟","Delete?"))) { await supabase.from("suppliers").delete().eq("id", s.id); await refreshSuppliers(); }}} className="text-destructive p-1"><Trash2 className="h-3 w-3" /></button>
                 </div>
               ))}
-              {suppliers.length === 0 && <p className="text-sm text-muted-foreground">{t("لا يوجد موردين.","No suppliers.")}</p>}
+              {suppliers.length === 0 && !showForm && <p className="text-sm text-muted-foreground">{t("لا يوجد موردين.","No suppliers.")}</p>}
             </div>
           )}
 
@@ -655,7 +665,7 @@ const UserDashboard = () => {
           {/* ======= INVENTORY ======= */}
           {activeTab === "inventory" && hasSection("inventory") && (
             <div className="space-y-4">
-              <SectionHeader title={t("الجرد","Inventory")} desc={t("مراجعة وجرد المنتجات والمخزون.","Review and count products.")} onPDF={canAction("inventory","export") ? () => exportToPDF(t("تقرير الجرد","Inventory"), products.map(p => ({[t("الاسم","Name")]:p.name,[t("الكمية","Qty")]:p.quantity,[t("شراء","Buy")]:p.buy_price,[t("بيع","Sell")]:p.sell_price,[t("قيمة المخزون","Value")]:(p.sell_price||0)*(p.quantity||0)})), [t("الاسم","Name"),t("الكمية","Qty"),t("شراء","Buy"),t("بيع","Sell"),t("قيمة المخزون","Value")]) : undefined} />
+              <SectionHeader title={t("الجرد","Inventory")} desc={t("مراجعة وجرد المنتجات والمخزون.","Review and count products.")} onPDF={() => exportToPDF(t("تقرير الجرد","Inventory"), products.map(p => ({[t("الاسم","Name")]:p.name,[t("الكمية","Qty")]:p.quantity,[t("شراء","Buy")]:p.buy_price,[t("بيع","Sell")]:p.sell_price,[t("قيمة المخزون","Value")]:(p.sell_price||0)*(p.quantity||0)})), [t("الاسم","Name"),t("الكمية","Qty"),t("شراء","Buy"),t("بيع","Sell"),t("قيمة المخزون","Value")])} />
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className={`${cardClass} text-center`}><p className="text-xs text-muted-foreground">{t("إجمالي المنتجات","Total Products")}</p><p className="text-2xl font-black">{products.length}</p></div>
                 <div className={`${cardClass} text-center`}><p className="text-xs text-muted-foreground">{t("إجمالي الكمية","Total Qty")}</p><p className="text-2xl font-black text-primary">{products.reduce((a,p)=>a+(p.quantity||0),0)}</p></div>
@@ -688,7 +698,7 @@ const UserDashboard = () => {
           {/* ======= ACCOUNTING ======= */}
           {activeTab === "accounting" && hasSection("accounting") && (
             <div className="space-y-4">
-              <SectionHeader title={t("المحاسبة","Accounting")} desc={t("متابعة الأوضاع المالية.","Track financials.")} onPDF={canAction("accounting","export") ? () => exportSimplePDF(t("التقرير المالي","Financial Report"), `<h2>${t("رأس المال","Capital")}: ${totalBuyValue} ${t("د.ل","LYD")}</h2><h2>${t("الأرباح","Profits")}: ${totalProfit} ${t("د.ل","LYD")}</h2><h2>${t("المخزون","Stock")}: ${totalSellValue} ${t("د.ل","LYD")}</h2>`) : undefined} />
+              <SectionHeader title={t("المحاسبة","Accounting")} desc={t("متابعة الأوضاع المالية.","Track financials.")} onPDF={() => exportSimplePDF(t("التقرير المالي","Financial Report"), `${t("رأس المال","Capital")}: ${totalBuyValue} ${t("د.ل","LYD")}\n${t("الأرباح","Profits")}: ${totalProfit} ${t("د.ل","LYD")}\n${t("المخزون","Stock")}: ${totalSellValue} ${t("د.ل","LYD")}`)} />
               <div className="flex gap-2 flex-wrap">
                 {["daily","weekly","monthly","yearly"].map(tab => (
                   <button key={tab} onClick={() => setAccountingTab(tab)} className={`px-4 py-2 rounded-xl text-xs ${accountingTab === tab ? "gradient-primary text-primary-foreground font-bold" : "glass text-foreground"}`}>
@@ -722,8 +732,8 @@ const UserDashboard = () => {
           {/* ======= INVOICES ======= */}
           {activeTab === "invoices" && hasSection("invoices") && (
             <div className="space-y-4">
-              <SectionHeader title={t("الفواتير","Invoices")} onAdd={canAction("invoices","create") ? () => setShowForm("invoice") : undefined} addLabel={t("إنشاء فاتورة","Create Invoice")} onPDF={canAction("invoices","export") ? () => exportToPDF(t("الفواتير","Invoices"), invoices.map(i => ({[t("الرقم","#")]:i.invoice_number,[t("العميل","Client")]:i.customer_name,[t("الإجمالي","Total")]:i.total,[t("التاريخ","Date")]:new Date(i.created_at).toLocaleDateString("ar-LY")})), [t("الرقم","#"),t("العميل","Client"),t("الإجمالي","Total"),t("التاريخ","Date")]) : undefined} />
-              {showForm === "invoice" && canAction("invoices","create") && (
+              <SectionHeader title={t("الفواتير","Invoices")} onAdd={() => setShowForm("invoice")} addLabel={t("إنشاء فاتورة","Create Invoice")} onPDF={() => exportToPDF(t("الفواتير","Invoices"), invoices.map(i => ({[t("الرقم","#")]:i.invoice_number,[t("العميل","Client")]:i.customer_name,[t("الإجمالي","Total")]:i.total,[t("التاريخ","Date")]:new Date(i.created_at).toLocaleDateString("ar-LY")})), [t("الرقم","#"),t("العميل","Client"),t("الإجمالي","Total"),t("التاريخ","Date")])} />
+              {showForm === "invoice" && (
                 <form onSubmit={async (e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); const d = Object.fromEntries(fd); const sub = invoiceItems.reduce((a, i) => a + (i.quantity * i.price), 0); await supabase.from("invoices").insert({ company_id: companyId!, invoice_number: `INV-${Date.now().toString().slice(-6)}`, customer_name: d.clientName as string, customer_phone: d.clientPhone as string, items: invoiceItems.filter(i => i.product) as any, subtotal: sub, tax: Number(d.tax)||0, discount: Number(d.discount)||0, total: sub - (Number(d.discount)||0) + (Number(d.tax)||0), notes: d.notes as string, status: "pending" }); await refreshInvoices(); setShowForm(""); setInvoiceItems([{ product: "", quantity: 1, price: 0 }]); }} className={`${cardClass} space-y-3`}>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div><label className="text-xs font-bold text-foreground">{t("اسم العميل *","Client *")}</label><input name="clientName" required className={inputClass} /></div>
@@ -760,7 +770,7 @@ const UserDashboard = () => {
           {/* ======= PROFITS ======= */}
           {activeTab === "profits" && hasSection("profits") && (
             <div className="space-y-4">
-              <SectionHeader title={t("الأرباح","Profits")} onPDF={canAction("reports","export") ? () => exportSimplePDF(t("تقرير الأرباح","Profits"), `Capital: ${totalBuyValue}, Profit: ${totalProfit}`) : undefined} />
+              <SectionHeader title={t("الأرباح","Profits")} onPDF={() => exportSimplePDF(t("تقرير الأرباح","Profits"), `Capital: ${totalBuyValue}, Profit: ${totalProfit}`)} />
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className={`${cardClass} text-center`}><p className="text-xs text-muted-foreground">{t("رأس المال","Capital")}</p><p className="text-xl font-black">{totalBuyValue.toLocaleString()}</p></div>
                 <div className={`${cardClass} text-center`}><p className="text-xs text-muted-foreground">{t("الأرباح","Profits")}</p><p className="text-xl font-black text-success">{Math.max(0,totalProfit).toLocaleString()}</p></div>
@@ -773,16 +783,12 @@ const UserDashboard = () => {
           {/* ======= REPORTS ======= */}
           {activeTab === "reports" && hasSection("reports") && (
             <div className="space-y-4">
-              <SectionHeader title={t("التقارير","Reports")} desc={t("جميع التقارير قابلة للتحميل بصيغة PDF.","All reports can be downloaded as PDF.")} />
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {[
-                  { l: t("تقرير المنتجات","Products"), fn: () => exportToPDF(t("المنتجات","Products"), products.map(p => ({name:p.name,qty:p.quantity,buy:p.buy_price,sell:p.sell_price})), ["name","qty","buy","sell"]) },
-                  { l: t("تقرير الموردين","Suppliers"), fn: () => exportToPDF(t("الموردين","Suppliers"), suppliers.map(s => ({name:s.name,phone:s.phone,city:s.city})), ["name","phone","city"]) },
-                  { l: t("تقرير الطلبات","Orders"), fn: () => exportToPDF(t("الطلبات","Orders"), orders.map(o => ({name:o.customer_name,total:o.total,status:o.status})), ["name","total","status"]) },
-                  { l: t("التقرير المالي","Financial"), fn: () => exportSimplePDF(t("المالي","Financial"), `Capital: ${totalBuyValue}, Profit: ${totalProfit}`) },
-                ].map(r => (
-                  <button key={r.l} onClick={r.fn} className={`${cardClass} hover:border-primary/50 text-center`}><Download className="h-6 w-6 text-primary mx-auto mb-2" /><p className="text-sm font-bold text-foreground">{r.l}</p></button>
-                ))}
+              <SectionHeader title={t("التقارير","Reports")} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button onClick={() => exportToPDF(t("المنتجات","Products"), products.map(p => ({[t("الاسم","Name")]:p.name,[t("الكمية","Qty")]:p.quantity,[t("بيع","Sell")]:p.sell_price})), [t("الاسم","Name"),t("الكمية","Qty"),t("بيع","Sell")])} className={`${cardClass} hover:border-primary/50 text-center`}><Package className="h-8 w-8 text-primary mx-auto mb-2" /><p className="text-sm font-bold text-foreground">{t("تقرير المنتجات","Products Report")}</p></button>
+                <button onClick={() => exportToPDF(t("الطلبات","Orders"), orders.map(o => ({[t("العميل","Client")]:o.customer_name,[t("الإجمالي","Total")]:o.total,[t("الحالة","Status")]:o.status})), [t("العميل","Client"),t("الإجمالي","Total"),t("الحالة","Status")])} className={`${cardClass} hover:border-primary/50 text-center`}><ShoppingCart className="h-8 w-8 text-warning mx-auto mb-2" /><p className="text-sm font-bold text-foreground">{t("تقرير الطلبات","Orders Report")}</p></button>
+                <button onClick={() => exportSimplePDF(t("تقرير مالي","Financial"), `${t("رأس المال","Capital")}: ${totalBuyValue}\n${t("الأرباح","Profits")}: ${totalProfit}\n${t("المخزون","Stock")}: ${totalSellValue}`)} className={`${cardClass} hover:border-primary/50 text-center`}><BarChart3 className="h-8 w-8 text-success mx-auto mb-2" /><p className="text-sm font-bold text-foreground">{t("التقرير المالي","Financial Report")}</p></button>
+                <button onClick={() => exportToPDF(t("الموردين","Suppliers"), suppliers.map(s => ({[t("الاسم","Name")]:s.name,[t("الهاتف","Phone")]:s.phone,[t("المدينة","City")]:s.city})), [t("الاسم","Name"),t("الهاتف","Phone"),t("المدينة","City")])} className={`${cardClass} hover:border-primary/50 text-center`}><Truck className="h-8 w-8 text-muted-foreground mx-auto mb-2" /><p className="text-sm font-bold text-foreground">{t("تقرير الموردين","Suppliers Report")}</p></button>
               </div>
             </div>
           )}
@@ -790,38 +796,28 @@ const UserDashboard = () => {
           {/* ======= ORDERS ======= */}
           {activeTab === "orders" && hasSection("orders") && (
             <div className="space-y-4">
-              <SectionHeader title={t("تتبع الطلبات","Orders")} desc={t("تتبع حالة الطلبات.","Track order status.")} onAdd={canAction("orders","create") ? () => setShowForm("order") : undefined} addLabel={t("طلب جديد","New Order")} onPDF={canAction("orders","export") ? () => exportToPDF(t("الطلبات","Orders"), orders.map(o => ({[t("العميل","Client")]:o.customer_name,[t("الإجمالي","Total")]:o.total,[t("الحالة","Status")]:statusMap[o.status]?.ar||o.status})), [t("العميل","Client"),t("الإجمالي","Total"),t("الحالة","Status")]) : undefined} />
-              {showForm === "order" && canAction("orders","create") && (
-                <form onSubmit={async (e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); const d = Object.fromEntries(fd); await supabase.from("orders").insert({ company_id: companyId!, customer_name: d.customerName as string, customer_phone: d.customerPhone as string, customer_city: d.customerCity as string, total: Number(d.total)||0, notes: d.notes as string, payment_method: d.paymentMethod as string }); await refreshOrders(); setShowForm(""); }} className={`${cardClass} space-y-3`}>
+              <SectionHeader title={t("تتبع الطلبات","Orders")} onAdd={() => setShowForm("order")} addLabel={t("إنشاء طلب","New Order")} onPDF={() => exportToPDF(t("الطلبات","Orders"), orders.map(o => ({[t("العميل","Client")]:o.customer_name,[t("الإجمالي","Total")]:o.total,[t("الحالة","Status")]:o.status})), [t("العميل","Client"),t("الإجمالي","Total"),t("الحالة","Status")])} />
+              {showForm === "order" && (
+                <form onSubmit={async (e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); const d = Object.fromEntries(fd); await supabase.from("orders").insert({ company_id: companyId!, customer_name: d.customerName as string, customer_phone: d.customerPhone as string, customer_city: d.customerCity as string, total: Number(d.total)||0, notes: d.notes as string }); await refreshOrders(); setShowForm(""); }} className={`${cardClass} space-y-3`}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div><label className="text-xs font-bold text-foreground">{t("اسم العميل *","Client *")}</label><input name="customerName" required className={inputClass} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("اسم العميل *","Client Name *")}</label><input name="customerName" required className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("الهاتف","Phone")}</label><input name="customerPhone" className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("المدينة","City")}</label><input name="customerCity" className={inputClass} /></div>
-                    <div><label className="text-xs font-bold text-foreground">{t("الإجمالي","Total")}</label><input name="total" type="number" className={inputClass} /></div>
-                    <div><label className="text-xs font-bold text-foreground">{t("طريقة الدفع","Payment")}</label><select name="paymentMethod" className={inputClass}><option value="cash">{t("كاش","Cash")}</option><option value="bank">{t("تحويل","Transfer")}</option></select></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("المبلغ","Amount")}</label><input name="total" type="number" className={inputClass} /></div>
                   </div>
                   <div><label className="text-xs font-bold text-foreground">{t("ملاحظات","Notes")}</label><textarea name="notes" rows={2} className={inputClass} /></div>
                   <div className="flex gap-2"><button type="submit" className={btnPrimary}>{t("حفظ","Save")}</button><button type="button" onClick={() => setShowForm("")} className={btnOutline}>{t("إلغاء","Cancel")}</button></div>
                 </form>
               )}
               {orders.length > 0 ? (
-                <div className="space-y-3">{orders.map(o => (
-                  <div key={o.id} className={cardClass}>
-                    <div className="flex justify-between items-start mb-3">
-                      <div><p className="text-sm font-bold text-foreground">{o.customer_name}</p><p className="text-xs text-muted-foreground">{o.customer_city} · {new Date(o.created_at).toLocaleDateString("ar-LY")}</p></div>
-                      <div className="text-right"><p className="text-sm font-bold text-primary">{o.total} {t("د.ل","LYD")}</p><StatusBadge status={o.status} /></div>
-                    </div>
-                    <div className="flex items-center gap-1 mb-3">
-                      {["pending","processing","shipped","delivered"].map((s, i) => (
-                        <div key={s} className="flex-1"><div className={`h-1.5 rounded-full ${["pending","processing","shipped","delivered"].indexOf(o.status) >= i ? "bg-primary" : "bg-border"}`} /><p className="text-[9px] text-center text-muted-foreground mt-1">{statusMap[s]?.ar}</p></div>
-                      ))}
+                <div className="space-y-2">{orders.map(o => (
+                  <div key={o.id} className="glass rounded-xl p-3">
+                    <div className="flex justify-between items-center mb-2">
+                      <div><p className="text-sm font-bold text-foreground">{o.customer_name}</p><p className="text-xs text-muted-foreground">{o.customer_phone||""} · {o.customer_city||""} · {new Date(o.created_at).toLocaleDateString("ar-LY")}</p></div>
+                      <div className="flex items-center gap-2"><span className="text-sm font-bold text-primary">{o.total} {t("د.ل","LYD")}</span><StatusBadge status={o.status} /></div>
                     </div>
                     {canAction("orders","change_status") && (
-                      <div className="flex gap-1 flex-wrap">
-                        {["pending","processing","shipped","delivered"].map(s => (
-                          <button key={s} onClick={() => updateOrderStatus(o.id, s)} disabled={o.status === s} className={`px-2 py-1 rounded text-[10px] ${o.status === s ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground hover:bg-primary/20"}`}>{statusMap[s]?.ar}</button>
-                        ))}
-                      </div>
+                      <div className="flex gap-1 flex-wrap mt-2">{["pending","processing","shipped","delivered"].map(s => <button key={s} onClick={() => updateOrderStatus(o.id, s)} className={`text-[10px] px-2 py-1 rounded-lg ${o.status === s ? "gradient-primary text-primary-foreground" : "glass text-foreground"}`}>{statusMap[s]?.[lang === "ar" ? "ar" : "en"] || s}</button>)}</div>
                     )}
                   </div>
                 ))}</div>
@@ -830,26 +826,23 @@ const UserDashboard = () => {
           )}
 
           {/* ======= MESSAGES ======= */}
-          {activeTab === "messages" && (
+          {activeTab === "messages" && hasSection("messages") && (
             <div className="space-y-4">
-              <SectionHeader title={t("المراسلات","Messages")} desc={t("تواصل مع مدير الشركة.","Communicate with company manager.")} />
-              <div className={`${cardClass} flex flex-col`} style={{ maxHeight: "60vh" }}>
-                <div className="flex-1 overflow-y-auto space-y-2 mb-4 min-h-[200px]">
-                  {messagesData.length === 0 ? (
-                    <div className="text-center py-8"><MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لا توجد رسائل.","No messages.")}</p></div>
-                  ) : messagesData.map(m => (
-                    <div key={m.id} className={`flex ${m.sender_id === user?.id ? (lang === "ar" ? "justify-start" : "justify-end") : (lang === "ar" ? "justify-end" : "justify-start")}`}>
-                      <div className={`max-w-[80%] rounded-2xl px-4 py-2 ${m.sender_id === user?.id ? "gradient-primary text-primary-foreground" : "glass border border-border"}`}>
-                        <p className="text-sm">{m.content}</p>
-                        <p className={`text-[10px] mt-1 ${m.sender_id === user?.id ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{new Date(m.created_at).toLocaleString("ar-LY")}</p>
-                      </div>
+              <div className={cardClass}>
+                <h3 className="font-bold text-foreground mb-3">{t("المراسلات مع المدير","Messages with Manager")}</h3>
+                <div className="max-h-[400px] overflow-y-auto space-y-2 mb-4">
+                  {messagesData.length === 0 ? <p className="text-sm text-muted-foreground text-center py-4">{t("لا توجد رسائل.","No messages.")}</p> : messagesData.map(m => (
+                    <div key={m.id} className={`glass rounded-xl p-3 max-w-[80%] ${m.sender_id === user?.id ? (lang === "ar" ? "mr-auto" : "ml-auto") : (lang === "ar" ? "ml-auto" : "mr-auto")}`}>
+                      <p className="text-xs text-muted-foreground mb-1">{m.sender_id === user?.id ? t("أنت","You") : t("المدير","Manager")}</p>
+                      <p className="text-sm text-foreground">{m.content}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">{new Date(m.created_at).toLocaleTimeString("ar-LY", { hour: "2-digit", minute: "2-digit" })}</p>
                     </div>
                   ))}
                 </div>
-                <form onSubmit={async (e) => { e.preventDefault(); if (!newMessageText.trim() || !user || !myData?.companies) return; const { data: companyData } = await supabase.from("companies").select("owner_id").eq("id", companyId).single(); if (companyData) { await supabase.from("messages").insert({ sender_id: user.id, receiver_id: companyData.owner_id, content: newMessageText }); await supabase.from("notifications").insert({ user_id: companyData.owner_id, title: t("رسالة من موظف","Message from employee") + " " + myData.full_name, message: newMessageText.slice(0, 100) }); setNewMessageText(""); const { data: msgs } = await supabase.from("messages").select("*").or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`).order("created_at", { ascending: true }); setMessagesData(msgs || []); } }} className="flex gap-2">
-                  <input value={newMessageText} onChange={e => setNewMessageText(e.target.value)} className={`${inputClass} flex-1`} placeholder={t("اكتب رسالتك لمدير الشركة...","Write to company manager...")} />
-                  <button type="submit" className={`${btnPrimary} flex items-center gap-1`}><Send className="h-4 w-4" /></button>
-                </form>
+                <div className="flex gap-2">
+                  <input value={newMessageText} onChange={e => setNewMessageText(e.target.value)} placeholder={t("اكتب رسالتك...","Write message...")} className={`${inputClass} flex-1`} onKeyDown={async (e) => { if (e.key === "Enter" && newMessageText.trim() && myData?.companies) { const ownerQuery = await supabase.from("companies").select("owner_id").eq("id", companyId!).maybeSingle(); if (ownerQuery.data) { await supabase.from("messages").insert({ sender_id: user!.id, receiver_id: ownerQuery.data.owner_id, content: newMessageText }); setNewMessageText(""); const { data } = await supabase.from("messages").select("*").or(`sender_id.eq.${user!.id},receiver_id.eq.${user!.id}`).order("created_at", { ascending: true }); setMessagesData(data || []); }}}} />
+                  <button onClick={async () => { if (!newMessageText.trim()) return; const ownerQuery = await supabase.from("companies").select("owner_id").eq("id", companyId!).maybeSingle(); if (ownerQuery.data) { await supabase.from("messages").insert({ sender_id: user!.id, receiver_id: ownerQuery.data.owner_id, content: newMessageText }); setNewMessageText(""); const { data } = await supabase.from("messages").select("*").or(`sender_id.eq.${user!.id},receiver_id.eq.${user!.id}`).order("created_at", { ascending: true }); setMessagesData(data || []); }}} className={`${btnPrimary} flex items-center gap-2`}><Send className="h-4 w-4" /></button>
+                </div>
               </div>
             </div>
           )}
@@ -857,22 +850,32 @@ const UserDashboard = () => {
           {/* ======= NOTIFICATIONS ======= */}
           {activeTab === "notifications" && (
             <div className="space-y-4">
-              <SectionHeader title={t("الإشعارات","Notifications")} />
-              {notifications.length === 0 ? <p className="text-sm text-muted-foreground">{t("لا توجد إشعارات.","No notifications.")}</p> : notifications.map(n => (
-                <div key={n.id} className={`glass rounded-xl p-3 flex justify-between items-center ${!n.read ? "border-l-4 border-l-primary" : ""}`}>
-                  <div><p className="text-sm font-bold text-foreground">{n.title}</p><p className="text-xs text-muted-foreground">{n.message}</p><p className="text-[10px] text-muted-foreground">{new Date(n.created_at).toLocaleString("ar-LY")}</p></div>
-                  <div className="flex gap-1">
-                    {!n.read && <button onClick={async () => { await supabase.from("notifications").update({ read: true }).eq("id", n.id); setNotifications(notifications.map(x => x.id === n.id ? {...x, read: true} : x)); }} className="text-[10px] text-primary">{t("مقروء","Read")}</button>}
-                    <button onClick={async () => { await supabase.from("notifications").delete().eq("id", n.id); setNotifications(notifications.filter(x => x.id !== n.id)); }} className="text-destructive p-1"><Trash2 className="h-3 w-3" /></button>
-                  </div>
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-foreground">{t("الإشعارات","Notifications")} ({notifications.filter(n => !n.read).length} {t("جديد","new")})</h3>
+                <div className="flex gap-2">
+                  {notifications.length > 0 && <>
+                    <button onClick={async () => { for (const n of notifications) { await supabase.from("notifications").update({ read: true }).eq("id", n.id); } setNotifications(notifications.map(n => ({...n, read: true}))); }} className="text-xs text-primary hover:underline">{t("تعيين الكل كمقروء","Mark all read")}</button>
+                    <button onClick={async () => { for (const n of notifications) { await supabase.from("notifications").delete().eq("id", n.id); } setNotifications([]); }} className="text-xs text-destructive hover:underline">{t("حذف الكل","Delete all")}</button>
+                  </>}
                 </div>
-              ))}
+              </div>
+              {notifications.length === 0 ? (
+                <div className={`${cardClass} text-center py-8`}><Bell className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لا توجد إشعارات.","No notifications.")}</p></div>
+              ) : (
+                <div className="space-y-2">{notifications.map(n => (
+                  <div key={n.id} className={`glass rounded-xl p-4 ${!n.read ? "border-primary/30" : ""}`}>
+                    <div className="flex items-center justify-between">
+                      <p className={`text-sm flex-1 ${!n.read ? "font-bold text-foreground" : "text-muted-foreground"}`}>{n.title}: {n.message}</p>
+                      <button onClick={async () => { await supabase.from("notifications").delete().eq("id", n.id); setNotifications(notifications.filter(nn => nn.id !== n.id)); }} className="text-destructive mr-2"><Trash2 className="h-3 w-3" /></button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1">{new Date(n.created_at).toLocaleDateString("ar-LY")}</p>
+                  </div>
+                ))}</div>
+              )}
             </div>
           )}
-
         </div>
       </main>
-      {sidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setSidebarOpen(false)} />}
     </div>
   );
 };

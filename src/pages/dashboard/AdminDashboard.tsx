@@ -217,15 +217,21 @@ const AdminDashboard = () => {
   };
 
   const savePlan = async (plan: any) => {
-    const planData = { name: plan.name, name_en: plan.name_en, price: plan.price, period: plan.period, max_users: plan.max_users, max_stores: plan.max_stores, max_products: plan.max_products, max_employees: plan.max_employees || 5, max_storage_mb: plan.max_storage_mb || 500, max_db_mb: plan.max_db_mb || 100, max_file_uploads: plan.max_file_uploads || 100, max_departments: plan.max_departments || 3, features: plan.features, allowed_features: plan.allowed_features || [], active: plan.active };
-    if (plan.id && plans.find(p => p.id === plan.id)) {
-      await supabase.from("plans").update(planData).eq("id", plan.id);
-    } else {
-      await supabase.from("plans").insert(planData);
-    }
-    const { data } = await supabase.from("plans").select("*").order("price", { ascending: true });
-    setPlans(data || []);
-    setEditingPlan(null);
+    if (!plan.name || !plan.name.trim()) { alert(t("اسم الباقة مطلوب!","Plan name is required!")); return; }
+    const planData = { name: plan.name.trim(), name_en: (plan.name_en || "").trim(), price: Number(plan.price) || 0, period: plan.period || "شهر", max_users: Number(plan.max_users) || 5, max_stores: Number(plan.max_stores) || 1, max_products: Number(plan.max_products) || 500, max_employees: Number(plan.max_employees) || 5, max_storage_mb: Number(plan.max_storage_mb) || 500, max_db_mb: Number(plan.max_db_mb) || 100, max_file_uploads: Number(plan.max_file_uploads) || 100, max_departments: Number(plan.max_departments) || 3, features: plan.features || [], allowed_features: plan.allowed_features || [], active: plan.active !== false };
+    try {
+      if (plan.id && plans.find(p => p.id === plan.id)) {
+        const { error } = await supabase.from("plans").update(planData).eq("id", plan.id);
+        if (error) { alert(t("خطأ في التحديث: ","Update error: ") + error.message); return; }
+      } else {
+        const { error } = await supabase.from("plans").insert(planData);
+        if (error) { alert(t("خطأ في الإضافة: ","Insert error: ") + error.message); return; }
+      }
+      const { data } = await supabase.from("plans").select("*").order("price", { ascending: true });
+      setPlans(data || []);
+      setEditingPlan(null);
+      alert(t("✅ تم حفظ الباقة بنجاح!","✅ Plan saved successfully!"));
+    } catch (err: any) { alert(t("خطأ: ","Error: ") + err.message); }
   };
 
   const deletePlan = async (id: string) => {

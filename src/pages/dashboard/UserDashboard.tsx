@@ -625,7 +625,7 @@ const UserDashboard = () => {
           {/* ======= SUPPLIERS ======= */}
           {activeTab === "suppliers" && hasSection("suppliers") && (
             <div className="space-y-4">
-              <SectionHeader title={t("الموردين","Suppliers")} onAdd={() => setShowForm("supplier")} addLabel={t("إضافة مورد","Add Supplier")} />
+              <SectionHeader title={t("الموردين","Suppliers")} onAdd={canAction("suppliers","create") ? () => setShowForm("supplier") : undefined} addLabel={t("إضافة مورد","Add Supplier")} />
               {showForm === "supplier" && (
                 <form onSubmit={async (e) => { e.preventDefault(); const fd = new FormData(e.target as HTMLFormElement); const d = Object.fromEntries(fd); await supabase.from("suppliers").insert({ company_id: companyId!, name: d.name as string, phone: d.phone as string, email: d.email as string, city: d.city as string, notes: d.notes as string }); await refreshSuppliers(); setShowForm(""); }} className={`${cardClass} space-y-3`}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

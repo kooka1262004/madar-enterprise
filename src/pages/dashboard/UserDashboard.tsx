@@ -641,7 +641,7 @@ const UserDashboard = () => {
               {suppliers.map(s => (
                 <div key={s.id} className="glass rounded-xl p-3 flex justify-between items-center">
                   <div><p className="text-sm font-bold text-foreground">{s.name}</p><p className="text-xs text-muted-foreground">{s.phone||"-"} · {s.city||"-"}</p></div>
-                  <button onClick={async () => { if(confirm(t("حذف؟","Delete?"))) { await supabase.from("suppliers").delete().eq("id", s.id); await refreshSuppliers(); }}} className="text-destructive p-1"><Trash2 className="h-3 w-3" /></button>
+                  {canAction("suppliers","delete") && <button onClick={async () => { if(confirm(t("حذف؟","Delete?"))) { await supabase.from("suppliers").delete().eq("id", s.id); await refreshSuppliers(); }}} className="text-destructive p-1"><Trash2 className="h-3 w-3" /></button>}
                 </div>
               ))}
               {suppliers.length === 0 && !showForm && <p className="text-sm text-muted-foreground">{t("لا يوجد موردين.","No suppliers.")}</p>}

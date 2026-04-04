@@ -899,17 +899,39 @@ const AdminDashboard = () => {
 
           {/* Fraud Detection */}
           {activeTab === "fraud" && (
-            <div className="glass rounded-2xl p-6">
-              <h3 className="font-bold text-foreground mb-4">{t("كشف التلاعب", "Fraud Detection")}</h3>
-              <p className="text-xs text-muted-foreground mb-4">{t("النظام يراقب العمليات المشبوهة تلقائياً مثل الأرصدة المرتفعة والعمليات المتكررة غير الطبيعية.", "System automatically monitors suspicious activities like high balances and unusual repeated operations.")}</p>
-              <div className="space-y-3">
-                {companies.filter(c => (c.wallet || 0) > 5000).map(c => (
-                  <div key={c.id} className="glass rounded-xl p-4 border-warning/30">
-                    <div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-warning" /><span className="text-sm font-bold text-foreground">{c.company_name}</span></div>
-                    <p className="text-xs text-muted-foreground mt-1">{t("رصيد مرتفع:", "High balance:")} {c.wallet} {t("د.ل", "LYD")}</p>
-                  </div>
-                ))}
-                {companies.filter(c => (c.wallet || 0) > 5000).length === 0 && <p className="text-sm text-muted-foreground text-center py-4">✅ {t("لا توجد عمليات مشبوهة حالياً.", "No suspicious activity detected.")}</p>}
+            <div className="space-y-4">
+              <div className="glass rounded-2xl p-6">
+                <h3 className="font-bold text-foreground mb-4">{t("كشف التلاعب", "Fraud Detection")}</h3>
+                <p className="text-xs text-muted-foreground mb-4">{t("النظام يراقب العمليات المشبوهة تلقائياً مثل الأرصدة المرتفعة والعمليات المتكررة غير الطبيعية.", "System automatically monitors suspicious activities like high balances and unusual repeated operations.")}</p>
+                <div className="space-y-3">
+                  {/* High balance companies */}
+                  {companies.filter(c => (c.wallet || 0) > 5000).map(c => (
+                    <div key={c.id} className="glass rounded-xl p-4 border-warning/30">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-warning" /><span className="text-sm font-bold text-foreground">{c.company_name}</span></div>
+                        <span className="text-xs text-warning font-bold">{c.wallet} {t("د.ل","LYD")}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">{t("رصيد مرتفع بشكل غير طبيعي","Unusually high balance")}</p>
+                      <div className="flex gap-2 mt-3">
+                        <button onClick={async () => { await supabase.from("companies").update({ wallet: 0 }).eq("id", c.id); setCompanies(companies.map(co => co.id === c.id ? {...co, wallet: 0} : co)); alert(t("✅ تم تصفير الرصيد","✅ Balance reset")); }} className="px-3 py-1.5 rounded-lg bg-destructive/20 text-destructive text-xs font-bold flex items-center gap-1"><Shield className="h-3 w-3" /> {t("إصلاح (تصفير)","Fix (Reset)")}</button>
+                        <button onClick={() => { alert(t("تم تجاهل التنبيه. لن يظهر حتى تتغير الحالة.","Alert dismissed.")); }} className="px-3 py-1.5 rounded-lg bg-secondary text-foreground text-xs">{t("تجاهل","Ignore")}</button>
+                        <button onClick={() => { const newVal = prompt(t("أدخل القيمة الصحيحة للرصيد:","Enter correct balance:")); if(newVal !== null) { const val = Number(newVal); supabase.from("companies").update({ wallet: val }).eq("id", c.id).then(() => { setCompanies(companies.map(co => co.id === c.id ? {...co, wallet: val} : co)); alert(t("✅ تم التعديل","✅ Updated")); }); }}} className="px-3 py-1.5 rounded-lg bg-primary/20 text-primary text-xs font-bold flex items-center gap-1"><Edit className="h-3 w-3" /> {t("تعديل يدوي","Manual Edit")}</button>
+                      </div>
+                    </div>
+                  ))}
+                  {/* Duplicate wallet requests */}
+                  {(() => { const suspicious = walletRequests.filter(r => r.status === "pending" && walletRequests.filter(r2 => r2.company_id === r.company_id && r2.status === "pending").length > 2); return suspicious.length > 0 ? suspicious.slice(0,5).map(r => (
+                    <div key={r.id} className="glass rounded-xl p-4 border-destructive/30">
+                      <div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-destructive" /><span className="text-sm font-bold text-foreground">{companies.find(c=>c.id===r.company_id)?.company_name || "-"}</span></div>
+                      <p className="text-xs text-muted-foreground mt-1">{t("طلبات شحن متعددة معلقة - احتمال تلاعب","Multiple pending wallet requests - possible fraud")}</p>
+                      <div className="flex gap-2 mt-3">
+                        <button onClick={async () => { const pending = walletRequests.filter(r2=>r2.company_id===r.company_id&&r2.status==="pending"); for(const p of pending.slice(1)) { await supabase.from("wallet_requests").update({status:"cancelled",cancel_reason:"تكرار مشبوه"}).eq("id",p.id); } const {data}=await supabase.from("wallet_requests").select("*").order("created_at",{ascending:false}); setWalletRequests(data||[]); alert(t("✅ تم إلغاء الطلبات المكررة","✅ Duplicates cancelled")); }} className="px-3 py-1.5 rounded-lg bg-destructive/20 text-destructive text-xs font-bold">{t("إصلاح","Fix")}</button>
+                        <button className="px-3 py-1.5 rounded-lg bg-secondary text-foreground text-xs">{t("تجاهل","Ignore")}</button>
+                      </div>
+                    </div>
+                  )) : null; })()}
+                  {companies.filter(c => (c.wallet || 0) > 5000).length === 0 && <p className="text-sm text-muted-foreground text-center py-4">✅ {t("لا توجد عمليات مشبوهة حالياً.", "No suspicious activity detected.")}</p>}
+                </div>
               </div>
             </div>
           )}

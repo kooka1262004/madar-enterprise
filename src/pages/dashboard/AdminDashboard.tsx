@@ -786,12 +786,19 @@ const AdminDashboard = () => {
           {/* Revenue */}
           {activeTab === "revenue" && (
             <div className="space-y-4">
-              <div className="flex justify-end"><button onClick={() => exportToPDF(t("أرباح المنصة","Revenue"), [{ total: totalRevenue, active: companies.filter(c=>c.status==="active").length, pending: walletRequests.filter(r=>r.status==="pending").length }], [t("الإجمالي","Total"),t("النشطة","Active"),t("المعلقة","Pending")])} className="px-3 py-1.5 rounded-lg border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button></div>
+              <div className="flex justify-between flex-wrap gap-2">
+                <h3 className="font-bold text-foreground">{t("أرباح المنصة","Platform Revenue")}</h3>
+                <div className="flex gap-2">
+                  <button onClick={async () => { if(confirm(t("هل أنت متأكد من تصفير الأرباح؟ سيتم حذف جميع سجلات المعاملات المكتملة.","Reset all revenue? This deletes completed transaction records."))) { for(const r of walletRequests.filter(r=>r.status==="approved"||r.status==="shipped")) { await supabase.from("wallet_requests").delete().eq("id",r.id); } const {data}=await supabase.from("wallet_requests").select("*").order("created_at",{ascending:false}); setWalletRequests(data||[]); alert(t("✅ تم تصفير الأرباح","✅ Revenue reset")); }}} className="px-3 py-1.5 rounded-lg border border-destructive/50 text-destructive text-xs flex items-center gap-1"><RefreshCw className="h-3 w-3" /> {t("تصفير الأرباح","Reset Revenue")}</button>
+                  <button onClick={() => exportToPDF(t("أرباح المنصة","Revenue"), [{ total: totalRevenue, active: companies.filter(c=>c.status==="active").length, pending: walletRequests.filter(r=>r.status==="pending").length }], [t("الإجمالي","Total"),t("النشطة","Active"),t("المعلقة","Pending")])} className="px-3 py-1.5 rounded-lg border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> PDF</button>
+                </div>
+              </div>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div className="glass rounded-2xl p-5"><p className="text-xs text-muted-foreground">{t("إجمالي الأرباح", "Total Revenue")}</p><p className="text-2xl font-black text-primary">{totalRevenue} {t("د.ل", "LYD")}</p></div>
-                <div className="glass rounded-2xl p-5"><p className="text-xs text-muted-foreground">{t("أرباح الشهر", "This Month")}</p><p className="text-2xl font-black text-success">{walletRequests.filter(r => r.status === "approved" && new Date(r.created_at).getMonth() === new Date().getMonth()).reduce((a, r) => a + Number(r.amount || 0), 0)} {t("د.ل", "LYD")}</p></div>
+                <div className="glass rounded-2xl p-5"><p className="text-xs text-muted-foreground">{t("إجمالي الأرباح", "Total Revenue")}</p><p className="text-2xl font-black text-primary">{formatDual(totalRevenue).primary}</p><p className="text-xs text-muted-foreground mt-1">≈ {formatDual(totalRevenue).secondary}</p></div>
+                <div className="glass rounded-2xl p-5"><p className="text-xs text-muted-foreground">{t("أرباح الشهر", "This Month")}</p>{(() => { const m = walletRequests.filter(r => r.status === "approved" && new Date(r.created_at).getMonth() === new Date().getMonth()).reduce((a, r) => a + Number(r.amount || 0), 0); return <><p className="text-2xl font-black text-success">{formatDual(m).primary}</p><p className="text-xs text-muted-foreground mt-1">≈ {formatDual(m).secondary}</p></>; })()}</div>
                 <div className="glass rounded-2xl p-5"><p className="text-xs text-muted-foreground">{t("طلبات معلقة", "Pending")}</p><p className="text-2xl font-black text-warning">{walletRequests.filter(r => r.status === "pending").length}</p></div>
               </div>
+              <div className="glass rounded-xl p-3 text-center"><p className="text-xs text-muted-foreground">💱 {formatDual(0).rate}</p></div>
               <div className="glass rounded-2xl p-5">
                 <h4 className="font-bold text-foreground mb-4">{t("الأرباح الشهرية", "Monthly Revenue")}</h4>
                 <ResponsiveContainer width="100%" height={250}>

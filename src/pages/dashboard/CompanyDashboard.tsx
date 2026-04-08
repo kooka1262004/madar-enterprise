@@ -288,7 +288,7 @@ const CompanyDashboard = () => {
   const totalProfit = totalSellValue - totalBuyValue;
   const totalSalaries = employees.reduce((a, e) => a + (Number(e.salary) || 0), 0);
   const walletBalance = company?.wallet || 0;
-  const daysLeft = subscription?.end_date ? Math.max(0, Math.ceil((new Date(subscription.end_date).getTime() - Date.now()) / 86400000)) : 0;
+  const daysLeft = sub.daysLeft;
 
   const stats = [
     { label: t("المنتجات", "Products"), value: products.length, icon: Package, color: "text-primary" },
@@ -457,8 +457,9 @@ const CompanyDashboard = () => {
     // تسجيل حركة مالية
     await supabase.from("wallet_transactions").insert({ company_id: companyId!, amount: plan.price, type: "payment", description: `اشتراك باقة ${plan.name}` });
     setCompany({ ...company, wallet: newBalance, plan: plan.id, plan_name: plan.name });
-    const { data: sub } = await supabase.from("subscriptions").select("*").eq("company_id", companyId).eq("status", "active").order("created_at", { ascending: false }).limit(1);
-    setSubscription(sub?.[0] || null);
+    const { data: subData } = await supabase.from("subscriptions").select("*").eq("company_id", companyId).eq("status", "active").order("created_at", { ascending: false }).limit(1);
+    setSubscription(subData?.[0] || null);
+    sub.refresh();
     alert(t("✅ تم الاشتراك بنجاح وخصم المبلغ من محفظتك!", "✅ Subscription activated and amount deducted!"));
   };
 

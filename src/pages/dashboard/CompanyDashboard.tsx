@@ -526,12 +526,24 @@ const CompanyDashboard = () => {
           {sidebarSections.map(section => (
             <div key={section.title}>
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-3 mb-1 mt-2">{lang === "ar" ? section.title : section.titleEn}</p>
-              {section.items.map(item => (
-                <button key={item.key} onClick={() => { setActiveTab(item.key); setSidebarOpen(false); }}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${activeTab === item.key ? "gradient-primary text-primary-foreground font-bold" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}>
-                  <item.icon className="h-4 w-4" />{lang === "ar" ? item.label : item.labelEn}
+              {section.items.map(item => {
+                const isAllowed = ["dashboard", "subscription", "wallet", "notifications", "settings", "messages"].includes(item.key) || sub.hasFeature(item.key) || sub.limits.allowed_features.length === 0;
+                return (
+                <button key={item.key} onClick={() => {
+                  if (!isAllowed) {
+                    alert(t("باقتك الحالية لا تتضمن هذه الميزة. يرجى ترقية الباقة.", "Your plan doesn't include this feature. Please upgrade."));
+                    setActiveTab("subscription");
+                    return;
+                  }
+                  setActiveTab(item.key); setSidebarOpen(false);
+                }}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${activeTab === item.key ? "gradient-primary text-primary-foreground font-bold" : isAllowed ? "text-muted-foreground hover:bg-secondary hover:text-foreground" : "text-muted-foreground/40 cursor-not-allowed"}`}>
+                  <item.icon className="h-4 w-4" />
+                  <span className="flex-1 text-start">{lang === "ar" ? item.label : item.labelEn}</span>
+                  {!isAllowed && <Lock className="h-3 w-3 text-muted-foreground/40" />}
                 </button>
-              ))}
+                );
+              })}
             </div>
           ))}
         </nav>

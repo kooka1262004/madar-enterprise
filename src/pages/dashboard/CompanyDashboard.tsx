@@ -558,6 +558,30 @@ const CompanyDashboard = () => {
 
         <div className="p-4 md:p-6 space-y-0">
 
+          {/* ======= SUBSCRIPTION EXPIRED OVERLAY ======= */}
+          {sub.isExpired && activeTab !== "subscription" && activeTab !== "wallet" && activeTab !== "notifications" && activeTab !== "settings" && (
+            <div className="fixed inset-0 z-50 bg-background/90 backdrop-blur-sm flex items-center justify-center p-4" style={{ marginRight: "0", marginLeft: "0" }}>
+              <div className="glass rounded-2xl p-8 max-w-md text-center space-y-4 border border-destructive/30">
+                <Lock className="h-16 w-16 text-destructive mx-auto" />
+                <h2 className="text-2xl font-black text-destructive">{t("اشتراكك منتهي!", "Subscription Expired!")}</h2>
+                <p className="text-muted-foreground">{t("يرجى تجديد اشتراكك للاستمرار في استخدام المنصة. جميع بياناتك محفوظة بأمان.", "Please renew your subscription to continue using the platform. All your data is safely stored.")}</p>
+                <div className="flex gap-3 justify-center">
+                  <button onClick={() => setActiveTab("subscription")} className={`${btnPrimary} flex items-center gap-2`}><CreditCard className="h-4 w-4" /> {t("تجديد الاشتراك", "Renew Subscription")}</button>
+                  <button onClick={() => setActiveTab("wallet")} className={`${btnOutline} flex items-center gap-2`}><Wallet className="h-4 w-4" /> {t("شحن المحفظة", "Charge Wallet")}</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ======= NEAR EXPIRY WARNING ======= */}
+          {sub.isNearExpiry && (
+            <div className="bg-warning/10 border border-warning/30 rounded-2xl p-4 flex items-center gap-3 mb-4">
+              <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
+              <p className="text-sm text-warning font-bold flex-1">{sub.expiryWarning}</p>
+              <button onClick={() => setActiveTab("subscription")} className="px-3 py-1.5 rounded-lg bg-warning text-warning-foreground text-xs font-bold">{t("جدّد الآن", "Renew")}</button>
+            </div>
+          )}
+
           {/* ======= DASHBOARD ======= */}
           {activeTab === "dashboard" && (
             <div className="space-y-6">

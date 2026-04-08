@@ -1019,16 +1019,36 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* Profile with Password Change */}
+          {/* Profile with Password & Email Change */}
           {activeTab === "profile" && (
             <div className="space-y-4 max-w-lg">
               <div className="glass rounded-2xl p-6">
-                <h3 className="font-bold text-foreground mb-4">{t("الملف الشخصي", "Profile")}</h3>
+                <h3 className="font-bold text-foreground mb-4 flex items-center gap-2"><User className="h-5 w-5 text-primary" /> {t("الملف الشخصي", "Profile")}</h3>
                 <div className="space-y-3">
-                  <div><label className="text-sm font-bold text-foreground">{t("البريد الإلكتروني", "Email")}</label><input value={user?.email || ""} disabled className={inputClass + " opacity-50"} /></div>
                   <div><label className="text-sm font-bold text-foreground">{t("الدور", "Role")}</label><input value={t("مسؤول النظام", "System Admin")} disabled className={inputClass + " opacity-50"} /></div>
+                  <div><label className="text-sm font-bold text-foreground">{t("الاسم الكامل", "Full Name")}</label>
+                    <input value={platformSettings.admin_profile?.name || ""} onChange={e => saveSetting("admin_profile", { ...(platformSettings.admin_profile || {}), name: e.target.value })} placeholder={t("اسم المسؤول", "Admin name")} className={inputClass} /></div>
+                  <div><label className="text-sm font-bold text-foreground">{t("رقم الهاتف", "Phone")}</label>
+                    <input value={platformSettings.admin_profile?.phone || ""} onChange={e => saveSetting("admin_profile", { ...(platformSettings.admin_profile || {}), phone: e.target.value })} placeholder="09XXXXXXXX" className={inputClass} /></div>
                 </div>
               </div>
+
+              <div className="glass rounded-2xl p-6">
+                <h3 className="font-bold text-foreground mb-4 flex items-center gap-2"><Edit className="h-4 w-4 text-primary" /> {t("تغيير البريد الإلكتروني", "Change Email")}</h3>
+                <p className="text-xs text-muted-foreground mb-3">{t("البريد الحالي:", "Current email:")} <span className="font-bold text-foreground">{user?.email}</span></p>
+                <div className="space-y-3">
+                  <input id="new-admin-email" type="email" placeholder={t("البريد الإلكتروني الجديد", "New email address")} className={inputClass} />
+                  <button onClick={async () => {
+                    const emailInput = (document.getElementById("new-admin-email") as HTMLInputElement)?.value?.trim();
+                    if (!emailInput) { setPasswordMsg(t("❌ أدخل بريد إلكتروني صحيح", "❌ Enter a valid email")); return; }
+                    const { error } = await supabase.auth.updateUser({ email: emailInput });
+                    if (error) { setPasswordMsg("❌ " + error.message); } else {
+                      setPasswordMsg(t("✅ تم إرسال رابط تأكيد للبريد الجديد. يرجى تأكيده من صندوق الوارد.", "✅ Confirmation link sent to new email. Please confirm."));
+                    }
+                  }} className="px-6 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold">{t("تحديث البريد", "Update Email")}</button>
+                </div>
+              </div>
+
               <div className="glass rounded-2xl p-6">
                 <h3 className="font-bold text-foreground mb-4 flex items-center gap-2"><Lock className="h-4 w-4 text-primary" /> {t("تغيير كلمة المرور", "Change Password")}</h3>
                 <div className="space-y-3">
@@ -1036,6 +1056,14 @@ const AdminDashboard = () => {
                     <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder={t("أدخل كلمة مرور جديدة (6 أحرف على الأقل)", "Enter new password (min 6 chars)")} className={inputClass} /></div>
                   {passwordMsg && <p className={`text-xs ${passwordMsg.includes("✅") ? "text-success" : "text-destructive"}`}>{passwordMsg}</p>}
                   <button onClick={changePassword} className="px-6 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold">{t("تغيير كلمة المرور", "Change Password")}</button>
+                </div>
+              </div>
+
+              <div className="glass rounded-2xl p-6">
+                <h3 className="font-bold text-foreground mb-4 flex items-center gap-2"><Shield className="h-4 w-4 text-warning" /> {t("معلومات الأمان", "Security Info")}</h3>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <p>🔹 {t("آخر تسجيل دخول:", "Last login:")} {new Date().toLocaleDateString("ar-LY")} {new Date().toLocaleTimeString("ar-LY")}</p>
+                  <p>🔹 {t("المتصفح:", "Browser:")} {navigator.userAgent.split("(")[0]}</p>
                 </div>
               </div>
             </div>

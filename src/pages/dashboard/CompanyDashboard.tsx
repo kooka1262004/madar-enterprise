@@ -626,22 +626,28 @@ const CompanyDashboard = () => {
 
           {/* ======= SUBSCRIPTION ======= */}
           {activeTab === "subscription" && (() => {
-            const currentPlan = plans.find(p => p.id === company?.plan || p.name === company?.plan_name);
+            const fmtLimit = (v: number) => v === -1 ? "∞" : String(v);
             const quotas = [
-              { label: t("المنتجات", "Products"), used: products.length, max: currentPlan?.max_products || 50, icon: "📦" },
-              { label: t("الموظفين", "Employees"), used: employees.length, max: currentPlan?.max_employees || 2, icon: "👷" },
-              { label: t("المخازن", "Warehouses"), used: warehouses.length, max: currentPlan?.max_stores || 1, icon: "🏪" },
-              { label: t("التخزين", "Storage"), used: Math.round((products.length * 0.5 + warehouses.length * 0.1) * 10) / 10, max: currentPlan?.max_storage_mb || 100, icon: "💾", unit: "MB" },
-              { label: t("قاعدة البيانات", "Database"), used: Math.round((products.length * 0.02 + employees.length * 0.01 + orders.length * 0.03) * 10) / 10, max: currentPlan?.max_db_mb || 50, icon: "🗄️", unit: "MB" },
+              { label: t("المنتجات", "Products"), used: products.length, max: sub.limits.max_products, icon: "📦" },
+              { label: t("الموظفين", "Employees"), used: employees.length, max: sub.limits.max_employees, icon: "👷" },
+              { label: t("المخازن", "Warehouses"), used: warehouses.length, max: sub.limits.max_stores, icon: "🏪" },
+              { label: t("التخزين", "Storage"), used: Math.round((products.length * 0.5 + warehouses.length * 0.1) * 10) / 10, max: sub.limits.max_storage_mb, icon: "💾", unit: "MB" },
+              { label: t("قاعدة البيانات", "Database"), used: Math.round((products.length * 0.02 + employees.length * 0.01 + orders.length * 0.03) * 10) / 10, max: sub.limits.max_db_mb, icon: "🗄️", unit: "MB" },
             ];
             return (
             <div className="space-y-4">
-              <div className={cardClass}>
-                <h3 className="font-bold text-foreground mb-2">{t("الباقة الحالية", "Current Plan")}</h3>
+              {/* Current Plan Status */}
+              <div className={`${cardClass} ${sub.isExpired ? "border-2 border-destructive" : sub.isNearExpiry ? "border-2 border-warning" : ""}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-bold text-foreground">{t("الباقة الحالية", "Current Plan")}</h3>
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${sub.status === "active" ? "bg-success/20 text-success" : sub.status === "trial" ? "bg-primary/20 text-primary" : sub.status === "expired" ? "bg-destructive/20 text-destructive" : "bg-warning/20 text-warning"}`}>
+                    {sub.status === "active" ? t("نشط","Active") : sub.status === "trial" ? t("تجريبي","Trial") : sub.status === "expired" ? t("منتهي","Expired") : t("موقوف","Suspended")}
+                  </span>
+                </div>
                 <p className="text-3xl font-black text-primary">{company?.plan_name || t("تجربة مجانية", "Free Trial")}</p>
-                {subscription && <p className="text-sm text-muted-foreground mt-2">{t("تنتهي:", "Ends:")} <span className="text-warning font-bold">{new Date(subscription.end_date).toLocaleDateString("ar-LY")}</span> · {t("متبقي:", "Left:")} <span className="text-primary font-bold">{daysLeft} {t("يوم", "days")}</span></p>}
-                {!subscription && company?.trial_end && <p className="text-sm text-muted-foreground mt-2">{t("الفترة التجريبية تنتهي:", "Trial ends:")} <span className="text-warning font-bold">{new Date(company.trial_end).toLocaleDateString("ar-LY")}</span></p>}
-                {daysLeft > 0 && daysLeft <= 7 && <div className="mt-3 bg-warning/10 rounded-xl p-3 text-sm text-warning font-bold flex items-center gap-2"><AlertTriangle className="h-4 w-4" />{t("اشتراكك على وشك الانتهاء! جدد الآن.", "Subscription expiring soon!")}</div>}
+                {sub.subscription && <p className="text-sm text-muted-foreground mt-2">{t("تنتهي:", "Ends:")} <span className="text-warning font-bold">{new Date(sub.subscription.end_date).toLocaleDateString("ar-LY")}</span> · {t("متبقي:", "Left:")} <span className="text-primary font-bold">{sub.daysLeft} {t("يوم", "days")}</span></p>}
+                {!sub.subscription && company?.trial_end && <p className="text-sm text-muted-foreground mt-2">{t("الفترة التجريبية تنتهي:", "Trial ends:")} <span className="text-warning font-bold">{new Date(company.trial_end).toLocaleDateString("ar-LY")}</span></p>}
+                {sub.expiryWarning && <div className="mt-3 bg-warning/10 rounded-xl p-3 text-sm text-warning font-bold flex items-center gap-2"><AlertTriangle className="h-4 w-4" />{sub.expiryWarning}</div>}
               </div>
 
               {/* Plan Quotas */}
@@ -649,46 +655,57 @@ const CompanyDashboard = () => {
                 <h3 className="font-bold text-foreground mb-4">{t("استهلاك الموارد", "Resource Usage")}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {quotas.map(q => {
-                    const pct = q.max >= 999999 ? 5 : Math.min(100, Math.round((q.used / q.max) * 100));
-                    const isNear = pct >= 80;
+                    const isUnlimited = q.max === -1;
+                    const pct = isUnlimited ? 5 : Math.min(100, Math.round((q.used / Math.max(q.max, 1)) * 100));
+                    const isNear = !isUnlimited && pct >= 80;
                     return (
                       <div key={q.label} className="bg-secondary/50 rounded-xl p-4">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-bold text-foreground">{q.icon} {q.label}</span>
-                          <span className={`text-xs font-bold ${isNear ? "text-destructive" : "text-success"}`}>{pct}%</span>
+                          <span className={`text-xs font-bold ${isNear ? "text-destructive" : "text-success"}`}>{isUnlimited ? "∞" : `${pct}%`}</span>
                         </div>
                         <div className="w-full h-2 rounded-full bg-border">
                           <div className={`h-full rounded-full transition-all ${isNear ? "bg-destructive" : "bg-primary"}`} style={{ width: `${pct}%` }} />
                         </div>
-                        <p className="text-[10px] text-muted-foreground mt-1">{q.used} / {q.max >= 999999 ? "∞" : q.max} {q.unit || ""}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">{q.used} / {fmtLimit(q.max)} {q.unit || ""}</p>
                       </div>
                     );
                   })}
                 </div>
               </div>
 
+              {/* Available Plans */}
               <div className={cardClass}>
                 <h3 className="font-bold text-foreground mb-4">{t("الباقات المتاحة", "Available Plans")}</h3>
-                <p className="text-xs text-muted-foreground mb-4">{t("اختر الباقة المناسبة لك. سيتم الخصم تلقائياً من محفظتك فوراً عند الاشتراك.", "Choose a plan. Amount will be auto-deducted from your wallet immediately.")}</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {plans.map(plan => (
-                    <div key={plan.id} className={`${cardClass} border ${company?.plan_name === plan.name ? "border-primary" : "border-border/50"}`}>
-                      {company?.plan_name === plan.name && <span className="px-2 py-0.5 rounded-full text-[10px] bg-primary text-primary-foreground font-bold mb-2 inline-block">{t("باقتك الحالية", "Current")}</span>}
-                      <h4 className="font-bold text-foreground text-lg">{plan.name}</h4>
+                <p className="text-xs text-muted-foreground mb-4">{t("اختر الباقة المناسبة لك. سيتم الخصم تلقائياً من محفظتك.", "Choose a plan. Amount will be auto-deducted from your wallet.")}</p>
+                <p className="text-xs text-muted-foreground mb-4">💰 {t("رصيد المحفظة:", "Wallet:")} <span className="font-bold text-success">{walletBalance} {t("د.ل", "LYD")}</span></p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {plans.map(plan => {
+                    const isCurrent = company?.plan === plan.id || company?.plan_name === plan.name;
+                    const canAfford = walletBalance >= plan.price;
+                    const isUpgrade = plan.price > (sub.plan?.price || 0);
+                    return (
+                    <div key={plan.id} className={`${cardClass} border-2 ${isCurrent ? "border-primary shadow-lg shadow-primary/20" : "border-border/50"} relative`}>
+                      {isCurrent && <span className="absolute -top-3 right-4 px-3 py-0.5 rounded-full text-[10px] bg-primary text-primary-foreground font-bold">{t("باقتك الحالية", "Current")}</span>}
+                      {!isCurrent && isUpgrade && <span className="absolute -top-3 right-4 px-3 py-0.5 rounded-full text-[10px] bg-success text-success-foreground font-bold">⬆ {t("ترقية", "Upgrade")}</span>}
+                      <h4 className="font-bold text-foreground text-lg mt-1">{plan.name}</h4>
                       <p className="text-3xl font-black text-primary mt-2">{plan.price} <span className="text-xs text-muted-foreground">{t("د.ل", "LYD")}/{plan.period}</span></p>
                       <div className="mt-3 text-xs text-muted-foreground space-y-1">
-                        <p>👥 {plan.max_users} {t("مستخدم", "users")} · 👷 {plan.max_employees || 5} {t("موظف", "emps")}</p>
-                        <p>📦 {plan.max_products >= 999999 ? "∞" : plan.max_products} {t("منتج", "products")} · 🏪 {plan.max_stores} {t("مخزن", "stores")}</p>
-                        <p>💾 {plan.max_storage_mb || 500} MB · 🗄️ {plan.max_db_mb || 100} MB DB</p>
-                        <p>📁 {plan.max_file_uploads || 100} {t("ملف", "files")}</p>
-                        {(plan.features || []).slice(0, 5).map((f: string, i: number) => <p key={i}>✅ {f}</p>)}
-                        {(plan.features || []).length > 5 && <p className="text-primary">+{(plan.features || []).length - 5} {t("مميزات أخرى", "more")}</p>}
+                        <p>👥 {fmtLimit(plan.max_users)} {t("مستخدم", "users")} · 👷 {fmtLimit(plan.max_employees)} {t("موظف", "emps")}</p>
+                        <p>📦 {fmtLimit(plan.max_products)} {t("منتج", "products")} · 🏪 {fmtLimit(plan.max_stores)} {t("مخزن", "stores")}</p>
+                        <p>💾 {fmtLimit(plan.max_storage_mb)} MB · 🗄️ {fmtLimit(plan.max_db_mb)} MB</p>
+                        {(plan.features || []).map((f: string, i: number) => <p key={i}>✅ {f}</p>)}
                       </div>
-                      <button onClick={() => subscribeToplan(plan)} disabled={company?.plan_name === plan.name} className={`w-full mt-4 ${btnPrimary} ${company?.plan_name === plan.name ? "opacity-50 cursor-not-allowed" : ""}`}>
-                        {company?.plan_name === plan.name ? t("مشترك حالياً", "Current") : t("اشتراك", "Subscribe")}
-                      </button>
+                      {isCurrent ? (
+                        <button disabled className="w-full mt-4 px-6 py-2.5 rounded-xl bg-secondary text-muted-foreground text-sm font-bold cursor-not-allowed">{t("مشترك حالياً", "Current")}</button>
+                      ) : (
+                        <button onClick={() => subscribeToplan(plan)} className={`w-full mt-4 ${btnPrimary} ${!canAfford ? "opacity-60" : ""}`}>
+                          {canAfford ? (isUpgrade ? t("ترقية الآن", "Upgrade Now") : t("اشتراك", "Subscribe")) : t("رصيد غير كافٍ", "Insufficient Balance")}
+                        </button>
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>

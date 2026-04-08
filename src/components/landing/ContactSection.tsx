@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Send, Phone, Mail, MapPin } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const defaultContact = {
   email: "support@madar.ly",
@@ -11,19 +12,32 @@ const defaultContact = {
 
 const ContactSection = () => {
   const [form, setForm] = useState({ name: "", email: "", message: "" });
-  const contact = JSON.parse(localStorage.getItem("madar_contact_info") || JSON.stringify(defaultContact));
+  const [contact, setContact] = useState(defaultContact);
+  const [sending, setSending] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    supabase.from("platform_settings").select("value").eq("key", "contact_info").maybeSingle().then(({ data }) => {
+      if (data?.value) setContact({ ...defaultContact, ...(data.value as any) });
+    });
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Save to admin messages
-    const msgs = JSON.parse(localStorage.getItem("madar_admin_messages") || "[]");
-    msgs.unshift({ id: Date.now().toString(), from: form.name, type: "رسالة من الموقع", message: `${form.message}\n\nالبريد: ${form.email}`, date: new Date().toISOString() });
-    localStorage.setItem("madar_admin_messages", JSON.stringify(msgs));
-    const notifs = JSON.parse(localStorage.getItem("madar_admin_notifs") || "[]");
-    notifs.unshift({ id: Date.now().toString(), message: `رسالة جديدة من الموقع: ${form.name} - ${form.message.substring(0, 50)}`, date: new Date().toISOString(), read: false });
-    localStorage.setItem("madar_admin_notifs", JSON.stringify(notifs));
+    setSending(true);
+    // Get admin user to send message to
+    const { data: adminRoles } = await supabase.from("user_roles").select("user_id").eq("role", "admin" as any).limit(1);
+    const adminId = adminRoles?.[0]?.user_id;
+    if (adminId) {
+      await supabase.from("notifications").insert({
+        user_id: adminId,
+        title: "رسالة جديدة من الموقع",
+        message: `من: ${form.name} (${form.email})\n${form.message}`,
+        type: "message",
+      });
+    }
     alert("تم إرسال رسالتك بنجاح! سنتواصل معك قريباً.");
     setForm({ name: "", email: "", message: "" });
+    setSending(false);
   };
 
   return (
@@ -54,8 +68,8 @@ const ContactSection = () => {
               <textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} placeholder="اكتب رسالتك هنا..." required rows={4}
                 className="w-full px-4 py-3 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary text-sm resize-none" />
             </div>
-            <button type="submit" className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-all">
-              <Send className="h-4 w-4" /> إرسال الرسالة
+            <button type="submit" disabled={sending} className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50">
+              <Send className="h-4 w-4" /> {sending ? "جاري الإرسال..." : "إرسال الرسالة"}
             </button>
           </form>
 
@@ -77,8 +91,8 @@ const ContactSection = () => {
             </div>
             <div className="glass rounded-xl p-6">
               <h3 className="font-bold text-foreground mb-2">ساعات العمل</h3>
-              <p className="text-sm text-muted-foreground">{contact.workDays}</p>
-              <p className="text-sm text-muted-foreground">{contact.offDays}</p>
+              <p className="text-sm text-muted-foreground">{contact.workDays || defaultContact.workDays}</p>
+              <p className="text-sm text-muted-foreground">{contact.offDays || defaultContact.offDays}</p>
             </div>
           </div>
         </div>

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Menu, X } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo-transparent.png";
 
 const navLinks = [
@@ -13,7 +14,14 @@ const navLinks = [
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);
-  const branding = JSON.parse(localStorage.getItem("madar_branding") || "{}");
+  const [branding, setBranding] = useState<any>({});
+
+  useEffect(() => {
+    supabase.from("platform_settings").select("value").eq("key", "branding").maybeSingle().then(({ data }) => {
+      if (data?.value) setBranding(data.value as any);
+    });
+  }, []);
+
   const displayLogo = branding.logo || logo;
 
   return (

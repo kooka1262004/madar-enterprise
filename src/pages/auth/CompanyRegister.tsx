@@ -63,18 +63,43 @@ const CompanyRegister = () => {
           role: "company" as any,
         });
 
-        // Create company record
-        await supabase.from("companies").insert({
+        // Get free trial plan
+        const { data: trialPlan } = await supabase
+          .from("plans")
+          .select("id, name")
+          .eq("price", 0)
+          .limit(1)
+          .single();
+
+        const trialEnd = new Date();
+        trialEnd.setDate(trialEnd.getDate() + 7);
+
+        // Create company record with trial plan
+        const { data: newCompany } = await supabase.from("companies").insert({
           owner_id: authData.user.id,
           company_name: form.companyName,
           manager_name: form.managerName,
-          email: form.email,
+          email: normalizedEmail,
           phone: form.phone,
           city: form.city,
-          plan: "trial",
+          plan: trialPlan?.id || "trial",
           plan_name: "تجربة مجانية",
           status: "active",
-        });
+          trial_end: trialEnd.toISOString(),
+        }).select("id").single();
+
+        // Create subscription record for trial
+        if (newCompany && trialPlan) {
+          await supabase.from("subscriptions").insert({
+            company_id: newCompany.id,
+            plan_id: trialPlan.id,
+            plan_name: "تجربة مجانية",
+            price: 0,
+            start_date: new Date().toISOString(),
+            end_date: trialEnd.toISOString(),
+            status: "active",
+          });
+        }
 
         // Update profile
         await supabase.from("profiles").update({

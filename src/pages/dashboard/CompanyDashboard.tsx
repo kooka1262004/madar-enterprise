@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
 import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard, Package, Warehouse, Users, CreditCard, BarChart3, QrCode,
   Truck, ClipboardList, TrendingUp, RotateCcw, FileText, DollarSign,
   UserCog, Settings, LogOut, Bell, Menu, X, ShoppingCart, AlertTriangle, Clock, Briefcase,
   Plus, Edit, Trash2, Download, Eye, Send, Check, Search, Upload, Calendar, Award, Flag, MessageSquare, ListChecks,
-  Moon, Sun, Globe, Camera, RefreshCw, ArrowUpDown, Receipt, Printer, Volume2, Shield, Target, Wallet, ChevronDown, ChevronRight, AlertCircle, Info, Banknote, Building2, MapPin, Phone, Mail, FileCheck, UserPlus, CheckCircle2, XCircle, ArrowLeft
+  Moon, Sun, Globe, Camera, RefreshCw, ArrowUpDown, Receipt, Printer, Volume2, Shield, Target, Wallet, ChevronDown, ChevronRight, AlertCircle, Info, Banknote, Building2, MapPin, Phone, Mail, FileCheck, UserPlus, CheckCircle2, XCircle, ArrowLeft, Lock
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
 import logo from "@/assets/logo-transparent.png";
@@ -157,6 +158,7 @@ const sectionActions: Record<string, { key: string; ar: string; en: string }[]> 
 const CompanyDashboard = () => {
   const navigate = useNavigate();
   const { user, role, companyId, loading: authLoading, signOut } = useAuth();
+  const sub = useSubscription(companyId);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [company, setCompany] = useState<any>(null);
@@ -286,7 +288,7 @@ const CompanyDashboard = () => {
   const totalProfit = totalSellValue - totalBuyValue;
   const totalSalaries = employees.reduce((a, e) => a + (Number(e.salary) || 0), 0);
   const walletBalance = company?.wallet || 0;
-  const daysLeft = subscription?.end_date ? Math.max(0, Math.ceil((new Date(subscription.end_date).getTime() - Date.now()) / 86400000)) : 0;
+  const daysLeft = sub.daysLeft;
 
   const stats = [
     { label: t("المنتجات", "Products"), value: products.length, icon: Package, color: "text-primary" },
@@ -327,11 +329,8 @@ const CompanyDashboard = () => {
     e.preventDefault();
     const fd = new FormData(e.target as HTMLFormElement);
     const d = Object.fromEntries(fd);
-    // Check plan limits
-    const currentPlan = plans.find(p => p.id === company?.plan || p.name === company?.plan_name);
-    const maxProducts = currentPlan?.max_products || 50;
-    if (products.length >= maxProducts && maxProducts < 999999) {
-      alert(t(`لقد وصلت إلى الحد المسموح في باقتك (${maxProducts} منتج). يرجى ترقية الباقة للحصول على سعة أكبر.`, `You've reached your plan limit (${maxProducts} products). Please upgrade your plan.`));
+    if (!sub.canAddProduct(products.length)) {
+      alert(t(sub.getUpgradeMessage("المنتجات"), sub.getUpgradeMessage("products")));
       return;
     }
     await supabase.from("products").insert({ company_id: companyId, name: d.name as string, code: d.code as string, type: d.type as string, quantity: Number(d.quantity) || 0, buy_price: Number(d.buyPrice) || 0, sell_price: Number(d.sellPrice) || 0, barcode: d.barcode as string, min_stock: Number(d.minStock) || 5, warehouse_id: (d.warehouseId as string) || null });
@@ -368,11 +367,8 @@ const CompanyDashboard = () => {
     e.preventDefault();
     const fd = new FormData(e.target as HTMLFormElement);
     const d = Object.fromEntries(fd);
-    // Check employee limit
-    const currentPlan = plans.find(p => p.id === company?.plan || p.name === company?.plan_name);
-    const maxEmps = currentPlan?.max_employees || currentPlan?.max_users || 2;
-    if (employees.length >= maxEmps) {
-      alert(t(`لقد وصلت إلى الحد المسموح في باقتك (${maxEmps} موظف). يرجى ترقية الباقة.`, `Employee limit reached (${maxEmps}). Please upgrade.`));
+    if (!sub.canAddEmployee(employees.length)) {
+      alert(t(sub.getUpgradeMessage("الموظفين"), sub.getUpgradeMessage("employees")));
       return;
     }
     const rolePerms: Record<string, string[]> = {
@@ -461,8 +457,9 @@ const CompanyDashboard = () => {
     // تسجيل حركة مالية
     await supabase.from("wallet_transactions").insert({ company_id: companyId!, amount: plan.price, type: "payment", description: `اشتراك باقة ${plan.name}` });
     setCompany({ ...company, wallet: newBalance, plan: plan.id, plan_name: plan.name });
-    const { data: sub } = await supabase.from("subscriptions").select("*").eq("company_id", companyId).eq("status", "active").order("created_at", { ascending: false }).limit(1);
-    setSubscription(sub?.[0] || null);
+    const { data: subData } = await supabase.from("subscriptions").select("*").eq("company_id", companyId).eq("status", "active").order("created_at", { ascending: false }).limit(1);
+    setSubscription(subData?.[0] || null);
+    sub.refresh();
     alert(t("✅ تم الاشتراك بنجاح وخصم المبلغ من محفظتك!", "✅ Subscription activated and amount deducted!"));
   };
 
@@ -529,12 +526,24 @@ const CompanyDashboard = () => {
           {sidebarSections.map(section => (
             <div key={section.title}>
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-3 mb-1 mt-2">{lang === "ar" ? section.title : section.titleEn}</p>
-              {section.items.map(item => (
-                <button key={item.key} onClick={() => { setActiveTab(item.key); setSidebarOpen(false); }}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${activeTab === item.key ? "gradient-primary text-primary-foreground font-bold" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}>
-                  <item.icon className="h-4 w-4" />{lang === "ar" ? item.label : item.labelEn}
+              {section.items.map(item => {
+                const isAllowed = ["dashboard", "subscription", "wallet", "notifications", "settings", "messages"].includes(item.key) || sub.hasFeature(item.key) || sub.limits.allowed_features.length === 0;
+                return (
+                <button key={item.key} onClick={() => {
+                  if (!isAllowed) {
+                    alert(t("باقتك الحالية لا تتضمن هذه الميزة. يرجى ترقية الباقة.", "Your plan doesn't include this feature. Please upgrade."));
+                    setActiveTab("subscription");
+                    return;
+                  }
+                  setActiveTab(item.key); setSidebarOpen(false);
+                }}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${activeTab === item.key ? "gradient-primary text-primary-foreground font-bold" : isAllowed ? "text-muted-foreground hover:bg-secondary hover:text-foreground" : "text-muted-foreground/40 cursor-not-allowed"}`}>
+                  <item.icon className="h-4 w-4" />
+                  <span className="flex-1 text-start">{lang === "ar" ? item.label : item.labelEn}</span>
+                  {!isAllowed && <Lock className="h-3 w-3 text-muted-foreground/40" />}
                 </button>
-              ))}
+                );
+              })}
             </div>
           ))}
         </nav>
@@ -561,6 +570,30 @@ const CompanyDashboard = () => {
         </header>
 
         <div className="p-4 md:p-6 space-y-0">
+
+          {/* ======= SUBSCRIPTION EXPIRED OVERLAY ======= */}
+          {sub.isExpired && activeTab !== "subscription" && activeTab !== "wallet" && activeTab !== "notifications" && activeTab !== "settings" && (
+            <div className="fixed inset-0 z-50 bg-background/90 backdrop-blur-sm flex items-center justify-center p-4" style={{ marginRight: "0", marginLeft: "0" }}>
+              <div className="glass rounded-2xl p-8 max-w-md text-center space-y-4 border border-destructive/30">
+                <Lock className="h-16 w-16 text-destructive mx-auto" />
+                <h2 className="text-2xl font-black text-destructive">{t("اشتراكك منتهي!", "Subscription Expired!")}</h2>
+                <p className="text-muted-foreground">{t("يرجى تجديد اشتراكك للاستمرار في استخدام المنصة. جميع بياناتك محفوظة بأمان.", "Please renew your subscription to continue using the platform. All your data is safely stored.")}</p>
+                <div className="flex gap-3 justify-center">
+                  <button onClick={() => setActiveTab("subscription")} className={`${btnPrimary} flex items-center gap-2`}><CreditCard className="h-4 w-4" /> {t("تجديد الاشتراك", "Renew Subscription")}</button>
+                  <button onClick={() => setActiveTab("wallet")} className={`${btnOutline} flex items-center gap-2`}><Wallet className="h-4 w-4" /> {t("شحن المحفظة", "Charge Wallet")}</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ======= NEAR EXPIRY WARNING ======= */}
+          {sub.isNearExpiry && (
+            <div className="bg-warning/10 border border-warning/30 rounded-2xl p-4 flex items-center gap-3 mb-4">
+              <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
+              <p className="text-sm text-warning font-bold flex-1">{sub.expiryWarning}</p>
+              <button onClick={() => setActiveTab("subscription")} className="px-3 py-1.5 rounded-lg bg-warning text-warning-foreground text-xs font-bold">{t("جدّد الآن", "Renew")}</button>
+            </div>
+          )}
 
           {/* ======= DASHBOARD ======= */}
           {activeTab === "dashboard" && (
@@ -606,22 +639,28 @@ const CompanyDashboard = () => {
 
           {/* ======= SUBSCRIPTION ======= */}
           {activeTab === "subscription" && (() => {
-            const currentPlan = plans.find(p => p.id === company?.plan || p.name === company?.plan_name);
+            const fmtLimit = (v: number) => v === -1 ? "∞" : String(v);
             const quotas = [
-              { label: t("المنتجات", "Products"), used: products.length, max: currentPlan?.max_products || 50, icon: "📦" },
-              { label: t("الموظفين", "Employees"), used: employees.length, max: currentPlan?.max_employees || 2, icon: "👷" },
-              { label: t("المخازن", "Warehouses"), used: warehouses.length, max: currentPlan?.max_stores || 1, icon: "🏪" },
-              { label: t("التخزين", "Storage"), used: Math.round((products.length * 0.5 + warehouses.length * 0.1) * 10) / 10, max: currentPlan?.max_storage_mb || 100, icon: "💾", unit: "MB" },
-              { label: t("قاعدة البيانات", "Database"), used: Math.round((products.length * 0.02 + employees.length * 0.01 + orders.length * 0.03) * 10) / 10, max: currentPlan?.max_db_mb || 50, icon: "🗄️", unit: "MB" },
+              { label: t("المنتجات", "Products"), used: products.length, max: sub.limits.max_products, icon: "📦" },
+              { label: t("الموظفين", "Employees"), used: employees.length, max: sub.limits.max_employees, icon: "👷" },
+              { label: t("المخازن", "Warehouses"), used: warehouses.length, max: sub.limits.max_stores, icon: "🏪" },
+              { label: t("التخزين", "Storage"), used: Math.round((products.length * 0.5 + warehouses.length * 0.1) * 10) / 10, max: sub.limits.max_storage_mb, icon: "💾", unit: "MB" },
+              { label: t("قاعدة البيانات", "Database"), used: Math.round((products.length * 0.02 + employees.length * 0.01 + orders.length * 0.03) * 10) / 10, max: sub.limits.max_db_mb, icon: "🗄️", unit: "MB" },
             ];
             return (
             <div className="space-y-4">
-              <div className={cardClass}>
-                <h3 className="font-bold text-foreground mb-2">{t("الباقة الحالية", "Current Plan")}</h3>
+              {/* Current Plan Status */}
+              <div className={`${cardClass} ${sub.isExpired ? "border-2 border-destructive" : sub.isNearExpiry ? "border-2 border-warning" : ""}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-bold text-foreground">{t("الباقة الحالية", "Current Plan")}</h3>
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${sub.status === "active" ? "bg-success/20 text-success" : sub.status === "trial" ? "bg-primary/20 text-primary" : sub.status === "expired" ? "bg-destructive/20 text-destructive" : "bg-warning/20 text-warning"}`}>
+                    {sub.status === "active" ? t("نشط","Active") : sub.status === "trial" ? t("تجريبي","Trial") : sub.status === "expired" ? t("منتهي","Expired") : t("موقوف","Suspended")}
+                  </span>
+                </div>
                 <p className="text-3xl font-black text-primary">{company?.plan_name || t("تجربة مجانية", "Free Trial")}</p>
-                {subscription && <p className="text-sm text-muted-foreground mt-2">{t("تنتهي:", "Ends:")} <span className="text-warning font-bold">{new Date(subscription.end_date).toLocaleDateString("ar-LY")}</span> · {t("متبقي:", "Left:")} <span className="text-primary font-bold">{daysLeft} {t("يوم", "days")}</span></p>}
-                {!subscription && company?.trial_end && <p className="text-sm text-muted-foreground mt-2">{t("الفترة التجريبية تنتهي:", "Trial ends:")} <span className="text-warning font-bold">{new Date(company.trial_end).toLocaleDateString("ar-LY")}</span></p>}
-                {daysLeft > 0 && daysLeft <= 7 && <div className="mt-3 bg-warning/10 rounded-xl p-3 text-sm text-warning font-bold flex items-center gap-2"><AlertTriangle className="h-4 w-4" />{t("اشتراكك على وشك الانتهاء! جدد الآن.", "Subscription expiring soon!")}</div>}
+                {sub.subscription && <p className="text-sm text-muted-foreground mt-2">{t("تنتهي:", "Ends:")} <span className="text-warning font-bold">{new Date(sub.subscription.end_date).toLocaleDateString("ar-LY")}</span> · {t("متبقي:", "Left:")} <span className="text-primary font-bold">{sub.daysLeft} {t("يوم", "days")}</span></p>}
+                {!sub.subscription && company?.trial_end && <p className="text-sm text-muted-foreground mt-2">{t("الفترة التجريبية تنتهي:", "Trial ends:")} <span className="text-warning font-bold">{new Date(company.trial_end).toLocaleDateString("ar-LY")}</span></p>}
+                {sub.expiryWarning && <div className="mt-3 bg-warning/10 rounded-xl p-3 text-sm text-warning font-bold flex items-center gap-2"><AlertTriangle className="h-4 w-4" />{sub.expiryWarning}</div>}
               </div>
 
               {/* Plan Quotas */}
@@ -629,46 +668,57 @@ const CompanyDashboard = () => {
                 <h3 className="font-bold text-foreground mb-4">{t("استهلاك الموارد", "Resource Usage")}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {quotas.map(q => {
-                    const pct = q.max >= 999999 ? 5 : Math.min(100, Math.round((q.used / q.max) * 100));
-                    const isNear = pct >= 80;
+                    const isUnlimited = q.max === -1;
+                    const pct = isUnlimited ? 5 : Math.min(100, Math.round((q.used / Math.max(q.max, 1)) * 100));
+                    const isNear = !isUnlimited && pct >= 80;
                     return (
                       <div key={q.label} className="bg-secondary/50 rounded-xl p-4">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-bold text-foreground">{q.icon} {q.label}</span>
-                          <span className={`text-xs font-bold ${isNear ? "text-destructive" : "text-success"}`}>{pct}%</span>
+                          <span className={`text-xs font-bold ${isNear ? "text-destructive" : "text-success"}`}>{isUnlimited ? "∞" : `${pct}%`}</span>
                         </div>
                         <div className="w-full h-2 rounded-full bg-border">
                           <div className={`h-full rounded-full transition-all ${isNear ? "bg-destructive" : "bg-primary"}`} style={{ width: `${pct}%` }} />
                         </div>
-                        <p className="text-[10px] text-muted-foreground mt-1">{q.used} / {q.max >= 999999 ? "∞" : q.max} {q.unit || ""}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">{q.used} / {fmtLimit(q.max)} {q.unit || ""}</p>
                       </div>
                     );
                   })}
                 </div>
               </div>
 
+              {/* Available Plans */}
               <div className={cardClass}>
                 <h3 className="font-bold text-foreground mb-4">{t("الباقات المتاحة", "Available Plans")}</h3>
-                <p className="text-xs text-muted-foreground mb-4">{t("اختر الباقة المناسبة لك. سيتم الخصم تلقائياً من محفظتك فوراً عند الاشتراك.", "Choose a plan. Amount will be auto-deducted from your wallet immediately.")}</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {plans.map(plan => (
-                    <div key={plan.id} className={`${cardClass} border ${company?.plan_name === plan.name ? "border-primary" : "border-border/50"}`}>
-                      {company?.plan_name === plan.name && <span className="px-2 py-0.5 rounded-full text-[10px] bg-primary text-primary-foreground font-bold mb-2 inline-block">{t("باقتك الحالية", "Current")}</span>}
-                      <h4 className="font-bold text-foreground text-lg">{plan.name}</h4>
+                <p className="text-xs text-muted-foreground mb-4">{t("اختر الباقة المناسبة لك. سيتم الخصم تلقائياً من محفظتك.", "Choose a plan. Amount will be auto-deducted from your wallet.")}</p>
+                <p className="text-xs text-muted-foreground mb-4">💰 {t("رصيد المحفظة:", "Wallet:")} <span className="font-bold text-success">{walletBalance} {t("د.ل", "LYD")}</span></p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {plans.map(plan => {
+                    const isCurrent = company?.plan === plan.id || company?.plan_name === plan.name;
+                    const canAfford = walletBalance >= plan.price;
+                    const isUpgrade = plan.price > (sub.plan?.price || 0);
+                    return (
+                    <div key={plan.id} className={`${cardClass} border-2 ${isCurrent ? "border-primary shadow-lg shadow-primary/20" : "border-border/50"} relative`}>
+                      {isCurrent && <span className="absolute -top-3 right-4 px-3 py-0.5 rounded-full text-[10px] bg-primary text-primary-foreground font-bold">{t("باقتك الحالية", "Current")}</span>}
+                      {!isCurrent && isUpgrade && <span className="absolute -top-3 right-4 px-3 py-0.5 rounded-full text-[10px] bg-success text-success-foreground font-bold">⬆ {t("ترقية", "Upgrade")}</span>}
+                      <h4 className="font-bold text-foreground text-lg mt-1">{plan.name}</h4>
                       <p className="text-3xl font-black text-primary mt-2">{plan.price} <span className="text-xs text-muted-foreground">{t("د.ل", "LYD")}/{plan.period}</span></p>
                       <div className="mt-3 text-xs text-muted-foreground space-y-1">
-                        <p>👥 {plan.max_users} {t("مستخدم", "users")} · 👷 {plan.max_employees || 5} {t("موظف", "emps")}</p>
-                        <p>📦 {plan.max_products >= 999999 ? "∞" : plan.max_products} {t("منتج", "products")} · 🏪 {plan.max_stores} {t("مخزن", "stores")}</p>
-                        <p>💾 {plan.max_storage_mb || 500} MB · 🗄️ {plan.max_db_mb || 100} MB DB</p>
-                        <p>📁 {plan.max_file_uploads || 100} {t("ملف", "files")}</p>
-                        {(plan.features || []).slice(0, 5).map((f: string, i: number) => <p key={i}>✅ {f}</p>)}
-                        {(plan.features || []).length > 5 && <p className="text-primary">+{(plan.features || []).length - 5} {t("مميزات أخرى", "more")}</p>}
+                        <p>👥 {fmtLimit(plan.max_users)} {t("مستخدم", "users")} · 👷 {fmtLimit(plan.max_employees)} {t("موظف", "emps")}</p>
+                        <p>📦 {fmtLimit(plan.max_products)} {t("منتج", "products")} · 🏪 {fmtLimit(plan.max_stores)} {t("مخزن", "stores")}</p>
+                        <p>💾 {fmtLimit(plan.max_storage_mb)} MB · 🗄️ {fmtLimit(plan.max_db_mb)} MB</p>
+                        {(plan.features || []).map((f: string, i: number) => <p key={i}>✅ {f}</p>)}
                       </div>
-                      <button onClick={() => subscribeToplan(plan)} disabled={company?.plan_name === plan.name} className={`w-full mt-4 ${btnPrimary} ${company?.plan_name === plan.name ? "opacity-50 cursor-not-allowed" : ""}`}>
-                        {company?.plan_name === plan.name ? t("مشترك حالياً", "Current") : t("اشتراك", "Subscribe")}
-                      </button>
+                      {isCurrent ? (
+                        <button disabled className="w-full mt-4 px-6 py-2.5 rounded-xl bg-secondary text-muted-foreground text-sm font-bold cursor-not-allowed">{t("مشترك حالياً", "Current")}</button>
+                      ) : (
+                        <button onClick={() => subscribeToplan(plan)} className={`w-full mt-4 ${btnPrimary} ${!canAfford ? "opacity-60" : ""}`}>
+                          {canAfford ? (isUpgrade ? t("ترقية الآن", "Upgrade Now") : t("اشتراك", "Subscribe")) : t("رصيد غير كافٍ", "Insufficient Balance")}
+                        </button>
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>

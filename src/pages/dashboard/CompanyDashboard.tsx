@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
 import { supabase } from "@/integrations/supabase/client";
 import {
   LayoutDashboard, Package, Warehouse, Users, CreditCard, BarChart3, QrCode,
   Truck, ClipboardList, TrendingUp, RotateCcw, FileText, DollarSign,
   UserCog, Settings, LogOut, Bell, Menu, X, ShoppingCart, AlertTriangle, Clock, Briefcase,
   Plus, Edit, Trash2, Download, Eye, Send, Check, Search, Upload, Calendar, Award, Flag, MessageSquare, ListChecks,
-  Moon, Sun, Globe, Camera, RefreshCw, ArrowUpDown, Receipt, Printer, Volume2, Shield, Target, Wallet, ChevronDown, ChevronRight, AlertCircle, Info, Banknote, Building2, MapPin, Phone, Mail, FileCheck, UserPlus, CheckCircle2, XCircle, ArrowLeft
+  Moon, Sun, Globe, Camera, RefreshCw, ArrowUpDown, Receipt, Printer, Volume2, Shield, Target, Wallet, ChevronDown, ChevronRight, AlertCircle, Info, Banknote, Building2, MapPin, Phone, Mail, FileCheck, UserPlus, CheckCircle2, XCircle, ArrowLeft, Lock
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
 import logo from "@/assets/logo-transparent.png";
@@ -157,6 +158,7 @@ const sectionActions: Record<string, { key: string; ar: string; en: string }[]> 
 const CompanyDashboard = () => {
   const navigate = useNavigate();
   const { user, role, companyId, loading: authLoading, signOut } = useAuth();
+  const sub = useSubscription(companyId);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [company, setCompany] = useState<any>(null);

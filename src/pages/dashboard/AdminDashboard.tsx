@@ -235,9 +235,8 @@ const AdminDashboard = () => {
     } catch (err: any) { alert(t("خطأ: ","Error: ") + err.message); }
   };
 
-  const deletePlan = async (id: string) => {
-    await supabase.from("plans").delete().eq("id", id);
-    setPlans(plans.filter(p => p.id !== id));
+  const deletePlan = async (_id: string) => {
+    alert(t("لا يمكن حذف الباقات. النظام يعتمد على هيكل باقات محدد مسبقاً لضمان عمل الصلاحيات بشكل صحيح.","Plans cannot be deleted. The system relies on a predefined plan structure to ensure permissions work correctly."));
   };
 
   const saveCoupon = async (coupon: any) => {
@@ -527,75 +526,94 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* Plans */}
+          {/* Plans - Structured Templates */}
           {activeTab === "plans" && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-foreground">{t("إدارة الباقات", "Manage Plans")}</h3>
-                <button onClick={() => setEditingPlan({ name: "", name_en: "", price: 0, period: "شهر", max_users: 5, max_employees: 5, max_stores: 1, max_products: 500, max_storage_mb: 500, max_db_mb: 100, max_file_uploads: 100, max_departments: 3, features: [], allowed_features: [], active: true })} className="px-4 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold flex items-center gap-2"><Plus className="h-4 w-4" /> {t("إضافة باقة", "Add Plan")}</button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {plans.map(p => (
-                  <div key={p.id} className={`glass rounded-2xl p-5 ${!p.active ? "opacity-50" : ""}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-bold text-foreground">{p.name}</h4>
-                      <div className="flex gap-1">
-                        <button onClick={() => setEditingPlan(p)} className="text-primary"><Edit className="h-4 w-4" /></button>
-                        <button onClick={() => deletePlan(p.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></button>
-                      </div>
-                    </div>
-                    <p className="text-2xl font-black text-primary">{p.price} <span className="text-xs text-muted-foreground">{t("د.ل", "LYD")}/{p.period}</span></p>
-                    <div className="mt-3 text-xs text-muted-foreground space-y-1.5">
-                      <p>👥 {p.max_users} {t("مستخدم", "users")} · 👷 {p.max_employees || 5} {t("موظف", "employees")}</p>
-                      <p>📦 {p.max_products >= 999999 ? t("غير محدود", "Unlimited") : p.max_products} {t("منتج", "products")}</p>
-                      <p>🏪 {p.max_stores} {t("مخزن", "stores")} · 🏢 {p.max_departments || 3} {t("قسم", "depts")}</p>
-                      <p>💾 {p.max_storage_mb || 500} MB {t("تخزين", "storage")} · 🗄️ {p.max_db_mb || 100} MB {t("قاعدة بيانات", "DB")}</p>
-                      <p>📁 {p.max_file_uploads || 100} {t("ملف", "files")}</p>
-                    </div>
-                    {p.features?.length > 0 && <div className="mt-2 flex flex-wrap gap-1">{p.features.map((f: string, i: number) => <span key={i} className="px-2 py-0.5 rounded-full text-[10px] bg-primary/10 text-primary">{f}</span>)}</div>}
-                  </div>
-                ))}
-              </div>
-              {editingPlan && (
-                <div className="glass rounded-2xl p-6">
-                  <h3 className="font-bold text-foreground mb-4">{editingPlan.id ? t("تعديل الباقة", "Edit Plan") : t("إضافة باقة جديدة", "Add New Plan")}</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div><label className="text-sm font-bold text-foreground">{t("الاسم (عربي)", "Name (AR)")}</label><input value={editingPlan.name} onChange={e => setEditingPlan({...editingPlan, name: e.target.value})} className={inputClass} /></div>
-                    <div><label className="text-sm font-bold text-foreground">{t("الاسم (انجليزي)", "Name (EN)")}</label><input value={editingPlan.name_en} onChange={e => setEditingPlan({...editingPlan, name_en: e.target.value})} className={inputClass} /></div>
-                    <div><label className="text-sm font-bold text-foreground">{t("السعر", "Price")}</label><input type="number" value={editingPlan.price} onChange={e => setEditingPlan({...editingPlan, price: +e.target.value})} className={inputClass} /></div>
-                    <div><label className="text-sm font-bold text-foreground">{t("المدة", "Period")}</label><select value={editingPlan.period} onChange={e => setEditingPlan({...editingPlan, period: e.target.value})} className={inputClass}><option>أسبوع</option><option>شهر</option><option>سنة</option></select></div>
-                    <div><label className="text-sm font-bold text-foreground">{t("المستخدمين", "Users")}</label><input type="number" value={editingPlan.max_users} onChange={e => setEditingPlan({...editingPlan, max_users: +e.target.value})} className={inputClass} /></div>
-                    <div><label className="text-sm font-bold text-foreground">{t("الموظفين", "Employees")}</label><input type="number" value={editingPlan.max_employees || 5} onChange={e => setEditingPlan({...editingPlan, max_employees: +e.target.value})} className={inputClass} /></div>
-                    <div><label className="text-sm font-bold text-foreground">{t("المنتجات", "Products")}</label><input type="number" value={editingPlan.max_products} onChange={e => setEditingPlan({...editingPlan, max_products: +e.target.value})} className={inputClass} /></div>
-                    <div><label className="text-sm font-bold text-foreground">{t("المخازن", "Stores")}</label><input type="number" value={editingPlan.max_stores} onChange={e => setEditingPlan({...editingPlan, max_stores: +e.target.value})} className={inputClass} /></div>
-                    <div><label className="text-sm font-bold text-foreground">{t("الأقسام", "Departments")}</label><input type="number" value={editingPlan.max_departments || 3} onChange={e => setEditingPlan({...editingPlan, max_departments: +e.target.value})} className={inputClass} /></div>
-                    <div><label className="text-sm font-bold text-foreground">{t("التخزين (MB)", "Storage (MB)")}</label><input type="number" value={editingPlan.max_storage_mb || 500} onChange={e => setEditingPlan({...editingPlan, max_storage_mb: +e.target.value})} className={inputClass} /></div>
-                    <div><label className="text-sm font-bold text-foreground">{t("قاعدة البيانات (MB)", "DB (MB)")}</label><input type="number" value={editingPlan.max_db_mb || 100} onChange={e => setEditingPlan({...editingPlan, max_db_mb: +e.target.value})} className={inputClass} /></div>
-                    <div><label className="text-sm font-bold text-foreground">{t("عدد الملفات", "File Uploads")}</label><input type="number" value={editingPlan.max_file_uploads || 100} onChange={e => setEditingPlan({...editingPlan, max_file_uploads: +e.target.value})} className={inputClass} /></div>
-                  </div>
-                  <div className="mt-3"><label className="text-sm font-bold text-foreground">{t("المميزات (فاصل بينها فاصلة)", "Features (comma-separated)")}</label>
-                    <input value={editingPlan.features?.join(",") || ""} onChange={e => setEditingPlan({...editingPlan, features: e.target.value.split(",").map((f: string) => f.trim()).filter(Boolean)})} className={inputClass} />
-                  </div>
-                  <div className="mt-3">
-                    <label className="text-sm font-bold text-foreground">{t("الأقسام المسموحة (مفاتيح)", "Allowed Feature Keys")}</label>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {["dashboard","products","stock","barcode","suppliers","invoices","reports","accounting","inventory","hr","orders","messages","reorder","returns","settings","users","attendance","requests","my-tasks","my-info"].map(key => (
-                        <label key={key} className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <input type="checkbox" checked={(editingPlan.allowed_features || []).includes(key)} onChange={e => {
-                            const af = editingPlan.allowed_features || [];
-                            setEditingPlan({...editingPlan, allowed_features: e.target.checked ? [...af, key] : af.filter((k: string) => k !== key)});
-                          }} className="rounded border-border" />
-                          {key}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex gap-2 mt-4">
-                    <button onClick={() => savePlan(editingPlan)} className="px-6 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold">{t("حفظ", "Save")}</button>
-                    <button onClick={() => setEditingPlan(null)} className="px-6 py-2 rounded-xl border border-border text-foreground text-sm">{t("إلغاء", "Cancel")}</button>
-                  </div>
+                <div>
+                  <h3 className="font-bold text-foreground">{t("إدارة الباقات", "Manage Plans")}</h3>
+                  <p className="text-xs text-muted-foreground">{t("الباقات محددة مسبقاً بصلاحيات واضحة. يمكنك تعديل الأسعار والحدود فقط ضمن الهيكل المحدد.", "Plans are predefined with clear permissions. You can only adjust prices and limits within the defined structure.")}</p>
                 </div>
-              )}
+              </div>
+              
+              <div className="bg-primary/10 border border-primary/30 rounded-xl p-4">
+                <p className="text-xs text-primary font-bold">💡 {t("لا يمكن إضافة أو حذف باقات بشكل حر. البنية محددة مسبقاً لضمان عمل نظام الصلاحيات بشكل صحيح. يمكنك تعديل السعر والحدود العددية فقط.", "Plans cannot be freely added or deleted. The structure is predefined to ensure the permissions system works correctly. You can only modify prices and numeric limits.")}</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+                {plans.map(p => {
+                  const isEditing = editingPlan?.id === p.id;
+                  const planIcon = p.price === 0 ? "🎁" : p.price <= 300 ? "📦" : p.price <= 1000 ? "⚡" : "👑";
+                  const planColor = p.price === 0 ? "border-muted-foreground/30" : p.price <= 300 ? "border-primary/30" : p.price <= 1000 ? "border-warning/30" : "border-accent/30";
+                  return (
+                  <div key={p.id} className={`glass rounded-2xl p-5 border-2 ${planColor} ${!p.active ? "opacity-50" : ""}`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl">{planIcon}</span>
+                        <div>
+                          <h4 className="font-bold text-foreground">{p.name}</h4>
+                          <p className="text-xs text-muted-foreground">{p.name_en || ""}</p>
+                        </div>
+                      </div>
+                      {p.price > 0 && <button onClick={() => setEditingPlan(isEditing ? null : {...p})} className="text-primary text-xs px-3 py-1 rounded-lg border border-primary/30 hover:bg-primary/10">
+                        {isEditing ? t("إلغاء","Cancel") : t("تعديل","Edit")}
+                      </button>}
+                    </div>
+                    
+                    <p className="text-3xl font-black text-primary mb-3">{p.price} <span className="text-xs text-muted-foreground">{t("د.ل", "LYD")}/{p.period}</span></p>
+                    
+                    <div className="space-y-1.5 text-xs text-muted-foreground">
+                      <p>👥 {p.max_users === -1 ? t("غير محدود","Unlimited") : p.max_users} {t("مستخدم", "users")}</p>
+                      <p>👷 {p.max_employees === -1 ? t("غير محدود","Unlimited") : p.max_employees} {t("موظف", "employees")}</p>
+                      <p>📦 {p.max_products === -1 ? t("غير محدود","Unlimited") : p.max_products} {t("منتج", "products")}</p>
+                      <p>🏪 {p.max_stores === -1 ? t("غير محدود","Unlimited") : p.max_stores} {t("مخزن", "stores")}</p>
+                      <p>💾 {p.max_storage_mb || 500} MB {t("تخزين", "storage")}</p>
+                    </div>
+                    
+                    <div className="mt-3">
+                      <p className="text-xs font-bold text-foreground mb-1">{t("الأقسام المتاحة:","Available sections:")}</p>
+                      <div className="flex flex-wrap gap-1">{(p.allowed_features || []).map((f: string) => <span key={f} className="px-2 py-0.5 rounded-full text-[9px] bg-primary/10 text-primary">{f}</span>)}</div>
+                    </div>
+                    
+                    {isEditing && (
+                      <div className="mt-4 pt-4 border-t border-border space-y-3">
+                        <p className="text-xs font-bold text-warning">{t("⚠️ تعديل محدود: السعر والحدود العددية فقط","⚠️ Limited edit: Price and numeric limits only")}</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div><label className="text-[10px] font-bold text-foreground">{t("السعر","Price")}</label><input type="number" value={editingPlan.price} onChange={e => setEditingPlan({...editingPlan, price: +e.target.value})} className={inputClass} /></div>
+                          <div><label className="text-[10px] font-bold text-foreground">{t("المستخدمين","Users")}</label><input type="number" value={editingPlan.max_users} onChange={e => setEditingPlan({...editingPlan, max_users: +e.target.value})} className={inputClass} /></div>
+                          <div><label className="text-[10px] font-bold text-foreground">{t("الموظفين","Employees")}</label><input type="number" value={editingPlan.max_employees} onChange={e => setEditingPlan({...editingPlan, max_employees: +e.target.value})} className={inputClass} /></div>
+                          <div><label className="text-[10px] font-bold text-foreground">{t("المنتجات","Products")}</label><input type="number" value={editingPlan.max_products} onChange={e => setEditingPlan({...editingPlan, max_products: +e.target.value})} className={inputClass} /></div>
+                          <div><label className="text-[10px] font-bold text-foreground">{t("المخازن","Stores")}</label><input type="number" value={editingPlan.max_stores} onChange={e => setEditingPlan({...editingPlan, max_stores: +e.target.value})} className={inputClass} /></div>
+                          <div><label className="text-[10px] font-bold text-foreground">{t("التخزين MB","Storage MB")}</label><input type="number" value={editingPlan.max_storage_mb} onChange={e => setEditingPlan({...editingPlan, max_storage_mb: +e.target.value})} className={inputClass} /></div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-foreground flex items-center gap-2"><input type="checkbox" checked={editingPlan.active} onChange={e => setEditingPlan({...editingPlan, active: e.target.checked})} className="rounded" />{t("فعّال","Active")}</label>
+                        </div>
+                        <button onClick={() => savePlan(editingPlan)} className="w-full px-4 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold">{t("حفظ التعديلات","Save Changes")}</button>
+                      </div>
+                    )}
+                  </div>
+                  );
+                })}
+              </div>
+              
+              {/* Plan Comparison */}
+              <div className="glass rounded-2xl p-6">
+                <h4 className="font-bold text-foreground mb-4">{t("مقارنة الباقات","Plan Comparison")}</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs"><thead><tr className="border-b border-border">
+                    <th className="text-right py-2 px-2 text-muted-foreground">{t("الميزة","Feature")}</th>
+                    {plans.filter(p => p.price > 0).map(p => <th key={p.id} className="text-center py-2 px-2 text-foreground font-bold">{p.name}</th>)}
+                  </tr></thead><tbody>
+                    {[{k:"max_users",l:t("المستخدمين","Users")},{k:"max_employees",l:t("الموظفين","Employees")},{k:"max_products",l:t("المنتجات","Products")},{k:"max_stores",l:t("المخازن","Stores")},{k:"max_storage_mb",l:t("التخزين","Storage")}].map(row => (
+                      <tr key={row.k} className="border-b border-border/30">
+                        <td className="py-2 px-2 text-muted-foreground">{row.l}</td>
+                        {plans.filter(p => p.price > 0).map(p => <td key={p.id} className="text-center py-2 px-2 font-bold text-foreground">{(p as any)[row.k] === -1 ? "∞" : (p as any)[row.k]}{row.k.includes("mb") ? " MB" : ""}</td>)}
+                      </tr>
+                    ))}
+                  </tbody></table>
+                </div>
+              </div>
             </div>
           )}
 

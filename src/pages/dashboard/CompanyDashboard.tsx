@@ -717,14 +717,22 @@ const CompanyDashboard = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {plans.map(plan => {
                     const isCurrent = company?.plan === plan.id || company?.plan_name === plan.name;
-                    const canAfford = walletBalance >= plan.price;
-                    const isUpgrade = plan.price > (sub.plan?.price || 0);
+                    const currentPlanPrice = sub.plan?.price || 0;
+                    const isUpgrade = !isCurrent && plan.price > currentPlanPrice && currentPlanPrice > 0;
+                    const priceDiff = isUpgrade ? plan.price - currentPlanPrice : plan.price;
+                    const canAfford = walletBalance >= priceDiff;
                     return (
                     <div key={plan.id} className={`${cardClass} border-2 ${isCurrent ? "border-primary shadow-lg shadow-primary/20" : "border-border/50"} relative`}>
                       {isCurrent && <span className="absolute -top-3 right-4 px-3 py-0.5 rounded-full text-[10px] bg-primary text-primary-foreground font-bold">{t("باقتك الحالية", "Current")}</span>}
                       {!isCurrent && isUpgrade && <span className="absolute -top-3 right-4 px-3 py-0.5 rounded-full text-[10px] bg-success text-success-foreground font-bold">⬆ {t("ترقية", "Upgrade")}</span>}
                       <h4 className="font-bold text-foreground text-lg mt-1">{plan.name}</h4>
                       <p className="text-3xl font-black text-primary mt-2">{plan.price} <span className="text-xs text-muted-foreground">{t("د.ل", "LYD")}/{plan.period}</span></p>
+                      {isUpgrade && (
+                        <div className="mt-1 bg-success/10 rounded-lg px-2 py-1">
+                          <p className="text-xs text-success font-bold">💡 {t(`ستدفع فقط الفرق: ${priceDiff} د.ل`, `You'll only pay the difference: ${priceDiff} LYD`)}</p>
+                          <p className="text-[10px] text-muted-foreground">{t("مدة اشتراكك الحالية لن تتغير", "Current subscription period stays the same")}</p>
+                        </div>
+                      )}
                       <div className="mt-3 text-xs text-muted-foreground space-y-1">
                         <p>👥 {fmtLimit(plan.max_users)} {t("مستخدم", "users")} · 👷 {fmtLimit(plan.max_employees)} {t("موظف", "emps")}</p>
                         <p>📦 {fmtLimit(plan.max_products)} {t("منتج", "products")} · 🏪 {fmtLimit(plan.max_stores)} {t("مخزن", "stores")}</p>
@@ -735,7 +743,7 @@ const CompanyDashboard = () => {
                         <button disabled className="w-full mt-4 px-6 py-2.5 rounded-xl bg-secondary text-muted-foreground text-sm font-bold cursor-not-allowed">{t("مشترك حالياً", "Current")}</button>
                       ) : (
                         <button onClick={() => subscribeToplan(plan)} className={`w-full mt-4 ${btnPrimary} ${!canAfford ? "opacity-60" : ""}`}>
-                          {canAfford ? (isUpgrade ? t("ترقية الآن", "Upgrade Now") : t("اشتراك", "Subscribe")) : t("رصيد غير كافٍ", "Insufficient Balance")}
+                          {canAfford ? (isUpgrade ? t(`ترقية (${priceDiff} د.ل فقط)`, `Upgrade (${priceDiff} LYD only)`) : t("اشتراك", "Subscribe")) : t("رصيد غير كافٍ", "Insufficient Balance")}
                         </button>
                       )}
                     </div>

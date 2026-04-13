@@ -1445,7 +1445,128 @@ const CompanyDashboard = () => {
                 </div>
               )}
 
-              {hrTab === "employees" && (
+              {hrTab === "ai-analysis" && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {[
+                      { action: "performance-analysis", label: t("تحليل الأداء","Performance"), icon: "📊", desc: t("تقييم شامل لأداء كل موظف","Evaluate each employee's performance") },
+                      { action: "salary-optimization", label: t("تحليل الرواتب","Salaries"), icon: "💰", desc: t("تحسين هيكل الرواتب والخصومات","Optimize salary structure") },
+                      { action: "attendance-insights", label: t("تحليل الحضور","Attendance"), icon: "⏰", desc: t("رؤى ذكية عن الحضور والانضباط","Smart attendance insights") },
+                      { action: "team-recommendations", label: t("توصيات الفريق","Team Tips"), icon: "💡", desc: t("نصائح ذكية لتحسين الفريق","Smart tips to improve team") },
+                    ].map(item => (
+                      <button key={item.action} onClick={async () => {
+                        setAiLoading(true);
+                        try {
+                          const { data, error } = await supabase.functions.invoke("ai-hr-assistant", { body: { action: item.action, companyId } });
+                          if (error) throw error;
+                          setAiAnalysis({ type: item.action, label: item.label, data });
+                        } catch (err: any) { alert(err.message); }
+                        setAiLoading(false);
+                      }} disabled={aiLoading} className="glass rounded-xl p-4 text-right hover:border-primary/50 border border-border/30 transition-all">
+                        <span className="text-2xl">{item.icon}</span>
+                        <p className="text-xs font-bold text-foreground mt-2">{item.label}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">{item.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+
+                  {aiLoading && (
+                    <div className={`${cardClass} text-center py-8`}>
+                      <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-3" />
+                      <p className="text-sm text-muted-foreground">{t("جاري التحليل الذكي...","Running AI analysis...")}</p>
+                    </div>
+                  )}
+
+                  {aiAnalysis && !aiLoading && (
+                    <div className="space-y-3">
+                      <h4 className="font-bold text-foreground flex items-center gap-2">🤖 {aiAnalysis.label}</h4>
+                      
+                      {aiAnalysis.type === "performance-analysis" && aiAnalysis.data?.analysis && (
+                        <div className="space-y-3">
+                          {aiAnalysis.data.summary && (
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                              <div className={cardClass}><p className="text-[10px] text-muted-foreground">{t("إجمالي الموظفين","Total")}</p><p className="text-xl font-black">{aiAnalysis.data.summary.totalEmployees}</p></div>
+                              <div className={cardClass}><p className="text-[10px] text-muted-foreground">{t("متوسط الأداء","Avg Score")}</p><p className="text-xl font-black text-primary">{aiAnalysis.data.summary.avgScore}%</p></div>
+                              <div className={cardClass}><p className="text-[10px] text-muted-foreground">{t("الأفضل أداءً","Top")}</p><p className="text-sm font-black text-success">{aiAnalysis.data.summary.topPerformer}</p></div>
+                              <div className={cardClass}><p className="text-[10px] text-muted-foreground">{t("يحتاجون اهتمام","Attention")}</p><p className="text-sm font-black text-destructive">{aiAnalysis.data.summary.needsAttention?.length || 0}</p></div>
+                            </div>
+                          )}
+                          {aiAnalysis.data.analysis.map((emp: any) => (
+                            <div key={emp.id} className={`glass rounded-xl p-4 border-r-4 ${emp.overallScore >= 85 ? "border-r-success" : emp.overallScore >= 50 ? "border-r-warning" : "border-r-destructive"}`}>
+                              <div className="flex justify-between items-start mb-2">
+                                <div><p className="font-bold text-foreground">{emp.name}</p><p className="text-xs text-muted-foreground">{emp.position} · {emp.department}</p></div>
+                                <div className={`px-3 py-1 rounded-full text-xs font-bold ${emp.overallScore >= 85 ? "bg-success/20 text-success" : emp.overallScore >= 50 ? "bg-warning/20 text-warning" : "bg-destructive/20 text-destructive"}`}>{emp.overallScore}%</div>
+                              </div>
+                              <div className="grid grid-cols-3 gap-2 mb-2">
+                                <div className="glass rounded p-2 text-center"><p className="text-[9px] text-muted-foreground">{t("الحضور","Attendance")}</p><p className="text-xs font-bold">{emp.attendanceRate}%</p></div>
+                                <div className="glass rounded p-2 text-center"><p className="text-[9px] text-muted-foreground">{t("المهام","Tasks")}</p><p className="text-xs font-bold">{emp.completedTasks}/{emp.totalTasks}</p></div>
+                                <div className="glass rounded p-2 text-center"><p className="text-[9px] text-muted-foreground">{t("الخصومات","Ded")}</p><p className="text-xs font-bold text-destructive">{emp.totalDeductions}</p></div>
+                              </div>
+                              <p className="text-[11px] text-primary bg-primary/10 rounded-lg px-3 py-2">💡 {emp.recommendation}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {aiAnalysis.type === "salary-optimization" && aiAnalysis.data?.salaryAnalysis && (
+                        <div className="space-y-3">
+                          <div className={cardClass}><p className="text-xs text-muted-foreground">{t("إجمالي الرواتب الصافية","Total Net Payroll")}</p><p className="text-2xl font-black text-primary">{aiAnalysis.data.totalPayroll?.toLocaleString()} {t("د.ل","LYD")}</p></div>
+                          {aiAnalysis.data.salaryAnalysis.map((emp: any, i: number) => (
+                            <div key={i} className="glass rounded-xl p-3">
+                              <div className="flex justify-between items-center mb-2">
+                                <p className="font-bold text-foreground text-sm">{emp.name}</p>
+                                <p className="text-xs font-bold text-primary">{emp.netSalary} {t("د.ل","LYD")}</p>
+                              </div>
+                              <div className="flex gap-2 text-[10px] mb-2">
+                                <span className="glass rounded px-2 py-1">{t("أساسي","Base")}: {emp.baseSalary}</span>
+                                <span className="glass rounded px-2 py-1 text-destructive">{t("خصم","Ded")}: -{emp.deductions}</span>
+                                <span className="glass rounded px-2 py-1">{t("مهام مكتملة","Done")}: {emp.completedTasks}</span>
+                              </div>
+                              <p className="text-[11px] text-warning bg-warning/10 rounded-lg px-3 py-2">💡 {emp.suggestion}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {aiAnalysis.type === "attendance-insights" && aiAnalysis.data?.insights && (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            <div className={cardClass}><p className="text-[10px] text-muted-foreground">{t("في الوقت","On Time")}</p><p className="text-xl font-black text-success">{aiAnalysis.data.insights.onTime}</p></div>
+                            <div className={cardClass}><p className="text-[10px] text-muted-foreground">{t("متأخرين","Late")}</p><p className="text-xl font-black text-warning">{aiAnalysis.data.insights.late}</p></div>
+                            <div className={cardClass}><p className="text-[10px] text-muted-foreground">{t("غائبين","Absent")}</p><p className="text-xl font-black text-destructive">{aiAnalysis.data.insights.absent}</p></div>
+                            <div className={cardClass}><p className="text-[10px] text-muted-foreground">{t("خصومات الشهر","Deductions")}</p><p className="text-xl font-black">{aiAnalysis.data.insights.totalDeductions}</p></div>
+                          </div>
+                          {aiAnalysis.data.insights.bestAttendance && (
+                            <div className="glass rounded-xl p-3 flex items-center gap-3">
+                              <span className="text-2xl">🏆</span>
+                              <div><p className="text-xs text-muted-foreground">{t("الأفضل حضوراً","Best Attendance")}</p><p className="font-bold text-success">{aiAnalysis.data.insights.bestAttendance.name} ({aiAnalysis.data.insights.bestAttendance.count} {t("يوم","days")})</p></div>
+                            </div>
+                          )}
+                          {aiAnalysis.data.insights.mostLate && (
+                            <div className="glass rounded-xl p-3 flex items-center gap-3">
+                              <span className="text-2xl">⚠️</span>
+                              <div><p className="text-xs text-muted-foreground">{t("الأكثر تأخراً","Most Late")}</p><p className="font-bold text-warning">{aiAnalysis.data.insights.mostLate.name} ({aiAnalysis.data.insights.mostLate.count} {t("مرة","times")})</p></div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {aiAnalysis.type === "team-recommendations" && aiAnalysis.data?.recommendations && (
+                        <div className="space-y-2">
+                          {aiAnalysis.data.recommendations.map((rec: string, i: number) => (
+                            <div key={i} className="glass rounded-xl p-4 flex items-start gap-3">
+                              <span className="text-lg">💡</span>
+                              <p className="text-sm text-foreground">{rec}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+
                 <div className="space-y-2">
                   <button onClick={() => exportToPDF(t("تفاصيل الموظفين","Employee Details"), employees.map(e => ({[t("الاسم","Name")]:e.full_name,[t("البريد","Email")]:e.email,[t("الهاتف","Phone")]:e.phone||"-",[t("الوظيفة","Position")]:e.position,[t("الراتب","Salary")]:e.salary,[t("نوع العقد","Contract")]:e.contract_type,[t("المؤهل","Qualification")]:e.qualification||"-"})), [t("الاسم","Name"),t("البريد","Email"),t("الهاتف","Phone"),t("الوظيفة","Position"),t("الراتب","Salary"),t("نوع العقد","Contract"),t("المؤهل","Qualification")])} className="px-3 py-2 rounded-xl border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> {t("تحميل التفاصيل PDF","Download Details PDF")}</button>
                   {employees.map(e => (

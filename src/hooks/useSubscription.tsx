@@ -112,7 +112,8 @@ export const useSubscription = (companyId: string | null) => {
   }, [state.limits.max_stores]);
 
   const hasFeature = useCallback((feature: string) => {
-    if (state.limits.allowed_features.length === 0) return false;
+    // If no features defined (trial with all access or unlimited plan), allow all
+    if (state.limits.allowed_features.length === 0) return true;
     return state.limits.allowed_features.includes(feature);
   }, [state.limits.allowed_features]);
 

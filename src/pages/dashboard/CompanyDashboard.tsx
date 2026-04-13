@@ -1566,7 +1566,7 @@ const CompanyDashboard = () => {
                 </div>
               )}
 
-
+              {hrTab === "employees" && (
                 <div className="space-y-2">
                   <button onClick={() => exportToPDF(t("تفاصيل الموظفين","Employee Details"), employees.map(e => ({[t("الاسم","Name")]:e.full_name,[t("البريد","Email")]:e.email,[t("الهاتف","Phone")]:e.phone||"-",[t("الوظيفة","Position")]:e.position,[t("الراتب","Salary")]:e.salary,[t("نوع العقد","Contract")]:e.contract_type,[t("المؤهل","Qualification")]:e.qualification||"-"})), [t("الاسم","Name"),t("البريد","Email"),t("الهاتف","Phone"),t("الوظيفة","Position"),t("الراتب","Salary"),t("نوع العقد","Contract"),t("المؤهل","Qualification")])} className="px-3 py-2 rounded-xl border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> {t("تحميل التفاصيل PDF","Download Details PDF")}</button>
                   {employees.map(e => (

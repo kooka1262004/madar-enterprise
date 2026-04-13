@@ -198,6 +198,8 @@ const CompanyDashboard = () => {
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [walletLocation, setWalletLocation] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   const t = (ar: string, en: string) => lang === "ar" ? ar : en;
   const flatItems = sidebarSections.flatMap(s => s.items);

@@ -1763,9 +1763,16 @@ const CompanyDashboard = () => {
           {activeTab === "users" && (
             <div className="space-y-4">
               <SectionHeader title={t("إدارة المستخدمين", "User Management")} desc={t("أضف موظفين جدد وحدد صلاحياتهم ووظائفهم. الموظف يسجل الدخول بالبريد وكلمة المرور التي تحددها.","Add employees and set their permissions.")} onAdd={() => setShowForm("user")} addLabel={t("إضافة موظف","Add Employee")} />
+              <div className="bg-amber-500/15 border border-amber-500/40 rounded-xl p-3 flex items-start gap-2">
+                <span className="text-amber-500 text-lg">⚠️</span>
+                <p className="text-xs text-amber-700 dark:text-amber-400 font-medium">{t("ميزة إضافة الموظفين قيد التطوير وقد لا تعمل بشكل كامل حالياً. نعمل على تحسينها.","Employee creation is under development and may not work fully. We're improving it.")}</p>
+              </div>
               {showForm === "user" && (
                 <form onSubmit={saveUser} className={`${cardClass} space-y-3`}>
                   <h4 className="font-bold text-foreground">{t("إضافة موظف جديد","Add New Employee")}</h4>
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2">
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400">🔧 {t("هذه الميزة قيد التطوير - قد تواجه بعض المشاكل","This feature is under development - you may encounter issues")}</p>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div><label className="text-xs font-bold text-foreground">{t("الاسم الكامل *","Full Name *")}</label><input name="username" required className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("البريد الإلكتروني *","Email *")}</label><input name="email" type="email" required className={inputClass} /></div>

@@ -462,14 +462,33 @@ const AdminDashboard = () => {
                   <th className="text-right py-2 px-3 text-muted-foreground">{t("الشركة", "Company")}</th>
                   <th className="text-right py-2 px-3 text-muted-foreground">{t("البريد", "Email")}</th>
                   <th className="text-right py-2 px-3 text-muted-foreground">{t("الباقة", "Plan")}</th>
+                  <th className="text-right py-2 px-3 text-muted-foreground">{t("انتهاء الباقة", "Plan Expiry")}</th>
                   <th className="text-right py-2 px-3 text-muted-foreground">{t("المحفظة", "Wallet")}</th>
                   <th className="text-right py-2 px-3 text-muted-foreground">{t("الحالة", "Status")}</th>
                   <th className="text-right py-2 px-3 text-muted-foreground">{t("الإجراءات", "Actions")}</th>
-                </tr></thead><tbody>{filteredCompanies.map(c => (
+                </tr></thead><tbody>{filteredCompanies.map(c => {
+                  const endDate = c.trial_end ? new Date(c.trial_end) : null;
+                  const now = new Date();
+                  const daysLeft = endDate ? Math.max(0, Math.ceil((endDate.getTime() - now.getTime()) / 86400000)) : 0;
+                  const isExpired = endDate ? now > endDate : false;
+                  const isNearExpiry = daysLeft > 0 && daysLeft <= 7;
+                  return (
                   <tr key={c.id} className="border-b border-border/30 hover:bg-secondary/30">
                     <td className="py-2 px-3 text-foreground font-medium">{c.company_name}</td>
                     <td className="py-2 px-3 text-muted-foreground text-xs">{c.email}</td>
                     <td className="py-2 px-3"><span className="px-2 py-0.5 rounded-full text-xs bg-primary/20 text-primary">{c.plan_name}</span></td>
+                    <td className="py-2 px-3">
+                      {endDate ? (
+                        <div>
+                          <p className={`text-xs font-bold ${isExpired ? "text-destructive" : isNearExpiry ? "text-warning" : "text-success"}`}>
+                            {endDate.toLocaleDateString("ar-LY")}
+                          </p>
+                          <p className={`text-[10px] ${isExpired ? "text-destructive" : isNearExpiry ? "text-warning" : "text-muted-foreground"}`}>
+                            {isExpired ? t("منتهية ❌","Expired ❌") : `${daysLeft} ${t("يوم متبقي","days left")}`}
+                          </p>
+                        </div>
+                      ) : <span className="text-xs text-muted-foreground">-</span>}
+                    </td>
                     <td className="py-2 px-3 text-foreground">{c.wallet || 0}</td>
                     <td className="py-2 px-3"><span className={`px-2 py-0.5 rounded-full text-xs ${c.status === "suspended" ? "bg-destructive/20 text-destructive" : "bg-success/20 text-success"}`}>{c.status === "suspended" ? t("معلّق", "Suspended") : t("نشط", "Active")}</span></td>
                     <td className="py-2 px-3"><div className="flex gap-1 flex-wrap">
@@ -479,7 +498,8 @@ const AdminDashboard = () => {
                       <button onClick={() => deleteCompany(c.id)} className="text-xs px-2 py-1 rounded-lg bg-destructive/20 text-destructive">{t("حذف", "Delete")}</button>
                     </div></td>
                   </tr>
-                ))}</tbody></table>
+                  );
+                })}</tbody></table>
               </div>
               {grantPlanModal && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"><div className="glass rounded-2xl p-6 max-w-md w-full">

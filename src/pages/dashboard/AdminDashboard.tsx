@@ -1119,6 +1119,46 @@ const AdminDashboard = () => {
             </div>
           )}
 
+          {/* Coming Soon Features */}
+          {activeTab === "coming-soon" && (
+            <div className="space-y-4">
+              <div className="glass rounded-2xl p-6">
+                <h3 className="font-bold text-foreground mb-4 flex items-center gap-2"><Gift className="h-5 w-5 text-primary" /> {t("ميزات قيد التطوير", "Coming Soon Features")}</h3>
+                <p className="text-xs text-muted-foreground mb-4">{t("أضف الميزات التي تخطط لإطلاقها قريباً. ستظهر للشركات كقائمة بالميزات القادمة.", "Add features you plan to launch soon.")}</p>
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <input id="coming-soon-input" placeholder={t("اكتب اسم الميزة الجديدة...", "New feature name...")} className={inputClass} />
+                    <button onClick={async () => {
+                      const input = document.getElementById("coming-soon-input") as HTMLInputElement;
+                      if (!input.value.trim()) return;
+                      const currentFeatures = platformSettings.coming_soon || [];
+                      const updated = [...currentFeatures, { name: input.value.trim(), added: new Date().toISOString() }];
+                      await saveSetting("coming_soon", updated);
+                      input.value = "";
+                    }} className="px-4 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold whitespace-nowrap"><Plus className="h-4 w-4 inline" /> {t("إضافة", "Add")}</button>
+                  </div>
+                  {(platformSettings.coming_soon || []).length === 0 ? (
+                    <div className="text-center py-8"><Gift className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لا توجد ميزات مضافة بعد.", "No features added yet.")}</p></div>
+                  ) : (platformSettings.coming_soon || []).map((f: any, i: number) => (
+                    <div key={i} className="glass rounded-xl p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-warning animate-pulse" />
+                        <div>
+                          <p className="text-sm font-bold text-foreground">{f.name}</p>
+                          <p className="text-[10px] text-muted-foreground">{t("تمت الإضافة:", "Added:")} {new Date(f.added).toLocaleDateString("ar-LY")}</p>
+                        </div>
+                      </div>
+                      <button onClick={async () => {
+                        const updated = (platformSettings.coming_soon || []).filter((_: any, idx: number) => idx !== i);
+                        await saveSetting("coming_soon", updated);
+                      }} className="text-destructive p-1"><Trash2 className="h-4 w-4" /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Settings */}
           {activeTab === "settings" && (
             <div className="glass rounded-2xl p-6 max-w-lg">

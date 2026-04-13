@@ -36,6 +36,7 @@ const sidebarSections = [
     { icon: MessageSquare, label: "المراسلات", labelEn: "Messages", key: "messages" },
     { icon: Bell, label: "الإشعارات", labelEn: "Notifications", key: "notifications" },
     { icon: Monitor, label: "تواصل معنا", labelEn: "Contact Info", key: "contact" },
+    { icon: Gift, label: "ميزات قيد التطوير", labelEn: "Coming Soon", key: "coming-soon" },
   ]},
   { title: "الحساب", titleEn: "Account", items: [
     { icon: User, label: "الملف الشخصي", labelEn: "Profile", key: "profile" },

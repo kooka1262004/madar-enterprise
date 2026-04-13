@@ -442,25 +442,47 @@ const CompanyDashboard = () => {
   };
 
   const subscribeToplan = async (plan: any) => {
-    if (walletBalance < plan.price) {
-      alert(t("رصيدك غير كافٍ! الرجاء شحن المحفظة أولاً.", "Insufficient balance! Please charge your wallet first."));
+    // حساب الفرق في حالة الترقية
+    const currentPlanPrice = sub.plan?.price || 0;
+    const isUpgrade = currentPlanPrice > 0 && plan.price > currentPlanPrice;
+    const actualPrice = isUpgrade ? plan.price - currentPlanPrice : plan.price;
+
+    if (walletBalance < actualPrice) {
+      alert(t(`رصيدك غير كافٍ! المطلوب: ${actualPrice} د.ل (${isUpgrade ? "فرق الترقية" : "سعر الباقة"}). الرجاء شحن المحفظة أولاً.`, `Insufficient balance! Required: ${actualPrice} LYD (${isUpgrade ? "upgrade difference" : "plan price"}). Please charge your wallet first.`));
       setActiveTab("wallet");
       return;
     }
-    if (!confirm(t(`سوف يتم خصم ${plan.price} د.ل من محفظتك تلقائياً وتفعيل الباقة مباشرة. هل توافق؟`, `${plan.price} LYD will be deducted and plan activated immediately. Confirm?`))) return;
-    // خصم تلقائي من المحفظة
-    const newBalance = walletBalance - plan.price;
+
+    const confirmMsg = isUpgrade
+      ? t(`ترقية من "${sub.plan?.name}" إلى "${plan.name}"\nسيتم خصم الفرق فقط: ${actualPrice} د.ل (${plan.price} - ${currentPlanPrice})\nمدة اشتراكك الحالية ستظل كما هي.\nهل توافق؟`,
+          `Upgrade from "${sub.plan?.name}" to "${plan.name}"\nOnly the difference will be charged: ${actualPrice} LYD (${plan.price} - ${currentPlanPrice})\nYour current subscription period remains the same.\nConfirm?`)
+      : t(`سوف يتم خصم ${actualPrice} د.ل من محفظتك تلقائياً وتفعيل الباقة مباشرة. هل توافق؟`, `${actualPrice} LYD will be deducted and plan activated immediately. Confirm?`);
+
+    if (!confirm(confirmMsg)) return;
+
+    const newBalance = walletBalance - actualPrice;
     await supabase.from("companies").update({ wallet: newBalance, plan: plan.id, plan_name: plan.name }).eq("id", companyId);
-    // إنشاء اشتراك نشط
-    const endDate = new Date(); endDate.setMonth(endDate.getMonth() + (plan.period === "سنة" ? 12 : plan.period === "6 أشهر" ? 6 : 1));
-    await supabase.from("subscriptions").insert({ company_id: companyId!, plan_id: plan.id, plan_name: plan.name, price: plan.price, start_date: new Date().toISOString(), end_date: endDate.toISOString(), status: "active" });
-    // تسجيل حركة مالية
-    await supabase.from("wallet_transactions").insert({ company_id: companyId!, amount: plan.price, type: "payment", description: `اشتراك باقة ${plan.name}` });
+
+    if (isUpgrade && subscription) {
+      // ترقية: تحديث الاشتراك الحالي مع الإبقاء على المدة
+      await supabase.from("subscriptions").update({ plan_id: plan.id, plan_name: plan.name, price: plan.price }).eq("id", subscription.id);
+      await supabase.from("wallet_transactions").insert({ company_id: companyId!, amount: actualPrice, type: "payment", description: `ترقية من ${sub.plan?.name} إلى ${plan.name} (فرق: ${actualPrice} د.ل)` });
+      // إشعار الشركة
+      if (user) await supabase.from("notifications").insert({ user_id: user.id, title: t("تمت الترقية بنجاح ⬆️","Upgrade Successful ⬆️"), message: t(`تم ترقية باقتك من "${sub.plan?.name}" إلى "${plan.name}". تم خصم الفرق ${actualPrice} د.ل فقط. مدة اشتراكك لم تتغير.`, `Upgraded from "${sub.plan?.name}" to "${plan.name}". Only ${actualPrice} LYD difference charged. Subscription period unchanged.`), type: "subscription" });
+    } else {
+      // اشتراك جديد
+      const endDate = new Date(); endDate.setMonth(endDate.getMonth() + (plan.period === "سنة" ? 12 : plan.period === "6 أشهر" ? 6 : 1));
+      await supabase.from("subscriptions").insert({ company_id: companyId!, plan_id: plan.id, plan_name: plan.name, price: plan.price, start_date: new Date().toISOString(), end_date: endDate.toISOString(), status: "active" });
+      await supabase.from("wallet_transactions").insert({ company_id: companyId!, amount: actualPrice, type: "payment", description: `اشتراك باقة ${plan.name}` });
+    }
+
     setCompany({ ...company, wallet: newBalance, plan: plan.id, plan_name: plan.name });
     const { data: subData } = await supabase.from("subscriptions").select("*").eq("company_id", companyId).eq("status", "active").order("created_at", { ascending: false }).limit(1);
     setSubscription(subData?.[0] || null);
     sub.refresh();
-    alert(t("✅ تم الاشتراك بنجاح وخصم المبلغ من محفظتك!", "✅ Subscription activated and amount deducted!"));
+    alert(isUpgrade
+      ? t(`✅ تمت الترقية بنجاح! تم خصم ${actualPrice} د.ل (الفرق فقط) من محفظتك.`, `✅ Upgrade successful! ${actualPrice} LYD (difference only) deducted.`)
+      : t("✅ تم الاشتراك بنجاح وخصم المبلغ من محفظتك!", "✅ Subscription activated and amount deducted!"));
   };
 
   const handleEmpRequest = async (id: string, status: string, notes?: string) => {
@@ -695,14 +717,22 @@ const CompanyDashboard = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {plans.map(plan => {
                     const isCurrent = company?.plan === plan.id || company?.plan_name === plan.name;
-                    const canAfford = walletBalance >= plan.price;
-                    const isUpgrade = plan.price > (sub.plan?.price || 0);
+                    const currentPlanPrice = sub.plan?.price || 0;
+                    const isUpgrade = !isCurrent && plan.price > currentPlanPrice && currentPlanPrice > 0;
+                    const priceDiff = isUpgrade ? plan.price - currentPlanPrice : plan.price;
+                    const canAfford = walletBalance >= priceDiff;
                     return (
                     <div key={plan.id} className={`${cardClass} border-2 ${isCurrent ? "border-primary shadow-lg shadow-primary/20" : "border-border/50"} relative`}>
                       {isCurrent && <span className="absolute -top-3 right-4 px-3 py-0.5 rounded-full text-[10px] bg-primary text-primary-foreground font-bold">{t("باقتك الحالية", "Current")}</span>}
                       {!isCurrent && isUpgrade && <span className="absolute -top-3 right-4 px-3 py-0.5 rounded-full text-[10px] bg-success text-success-foreground font-bold">⬆ {t("ترقية", "Upgrade")}</span>}
                       <h4 className="font-bold text-foreground text-lg mt-1">{plan.name}</h4>
                       <p className="text-3xl font-black text-primary mt-2">{plan.price} <span className="text-xs text-muted-foreground">{t("د.ل", "LYD")}/{plan.period}</span></p>
+                      {isUpgrade && (
+                        <div className="mt-1 bg-success/10 rounded-lg px-2 py-1">
+                          <p className="text-xs text-success font-bold">💡 {t(`ستدفع فقط الفرق: ${priceDiff} د.ل`, `You'll only pay the difference: ${priceDiff} LYD`)}</p>
+                          <p className="text-[10px] text-muted-foreground">{t("مدة اشتراكك الحالية لن تتغير", "Current subscription period stays the same")}</p>
+                        </div>
+                      )}
                       <div className="mt-3 text-xs text-muted-foreground space-y-1">
                         <p>👥 {fmtLimit(plan.max_users)} {t("مستخدم", "users")} · 👷 {fmtLimit(plan.max_employees)} {t("موظف", "emps")}</p>
                         <p>📦 {fmtLimit(plan.max_products)} {t("منتج", "products")} · 🏪 {fmtLimit(plan.max_stores)} {t("مخزن", "stores")}</p>
@@ -713,7 +743,7 @@ const CompanyDashboard = () => {
                         <button disabled className="w-full mt-4 px-6 py-2.5 rounded-xl bg-secondary text-muted-foreground text-sm font-bold cursor-not-allowed">{t("مشترك حالياً", "Current")}</button>
                       ) : (
                         <button onClick={() => subscribeToplan(plan)} className={`w-full mt-4 ${btnPrimary} ${!canAfford ? "opacity-60" : ""}`}>
-                          {canAfford ? (isUpgrade ? t("ترقية الآن", "Upgrade Now") : t("اشتراك", "Subscribe")) : t("رصيد غير كافٍ", "Insufficient Balance")}
+                          {canAfford ? (isUpgrade ? t(`ترقية (${priceDiff} د.ل فقط)`, `Upgrade (${priceDiff} LYD only)`) : t("اشتراك", "Subscribe")) : t("رصيد غير كافٍ", "Insufficient Balance")}
                         </button>
                       )}
                     </div>

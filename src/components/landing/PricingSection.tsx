@@ -5,20 +5,22 @@ import { supabase } from "@/integrations/supabase/client";
 
 const PricingSection = () => {
   const [plans, setPlans] = useState<any[]>([]);
+  const [currency, setCurrency] = useState<any>({ primary: "LYD", secondary: "USD", rate: 4.85 });
 
   useEffect(() => {
-    supabase.from("plans").select("*").eq("active", true).order("price", { ascending: true }).then(({ data }) => setPlans(data || []));
+    Promise.all([
+      supabase.from("plans").select("*").eq("active", true).order("price", { ascending: true }),
+      supabase.from("platform_settings").select("*").eq("key", "currency").maybeSingle(),
+    ]).then(([plansRes, currRes]) => {
+      setPlans(plansRes.data || []);
+      if (currRes.data?.value) setCurrency(currRes.data.value);
+    });
   }, []);
 
-  const fallbackPlans = [
-    { name: "تجربة مجانية", price: 0, period: "أسبوع", max_users: 2, max_employees: 2, max_stores: 1, max_products: 50, max_storage_mb: 100, features: ["لوحة تحكم","المنتجات","حركة المخزون","الباركود"], highlight: false },
-    { name: "الباقة الأساسية", price: 500, period: "شهر", max_users: 3, max_employees: 3, max_stores: 1, max_products: 200, max_storage_mb: 500, features: ["لوحة تحكم","المنتجات","حركة المخزون","الباركود","الموردين","الفواتير","التقارير"], highlight: false },
-    { name: "الباقة المتقدمة", price: 1500, period: "شهر", max_users: 10, max_employees: 10, max_stores: 3, max_products: 1000, max_storage_mb: 2000, features: ["كل مميزات الأساسية","المحاسبة","الجرد","الموارد البشرية","الطلبات","المراسلات"], highlight: true },
-    { name: "باقة الأعمال", price: 3000, period: "شهر", max_users: 30, max_employees: 25, max_stores: 5, max_products: 5000, max_storage_mb: 5000, features: ["كل مميزات المتقدمة","التقارير الذكية","المحاسبة المتقدمة","إعادة الطلب","سجل النشاطات"], highlight: false },
-    { name: "الباقة الاحترافية", price: 5000, period: "شهر", max_users: 100, max_employees: 100, max_stores: 15, max_products: 999999, max_storage_mb: 20000, features: ["جميع المميزات بلا حدود","أولوية الدعم الفني","تخصيص كامل"], highlight: false },
-  ];
+  const paidPlans = plans.filter(p => p.price > 0);
+  const trialPlan = plans.find(p => p.price === 0);
 
-  const displayPlans = plans.length > 0 ? plans.map((p, i) => ({ ...p, highlight: i === 2 })) : fallbackPlans;
+  const formatUSD = (lyd: number) => (lyd / (currency.rate || 4.85)).toFixed(2);
 
   return (
     <section id="pricing" className="py-24 px-4">
@@ -30,74 +32,93 @@ const PricingSection = () => {
           <p className="text-muted-foreground max-w-xl mx-auto">
             اختر الباقة المناسبة لحجم أعمالك. جميع الباقات تشمل الدعم الفني والتحديثات المستمرة.
           </p>
+          {trialPlan && (
+            <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-success/10 border border-success/30">
+              <span className="text-success font-bold text-sm">🎁 تجربة مجانية لمدة أسبوع بجميع المميزات!</span>
+            </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {displayPlans.map((plan) => (
-            <div
-              key={plan.name}
-              className={`rounded-2xl p-5 flex flex-col transition-all relative ${
-                plan.highlight
-                  ? "glass border-primary/50 shadow-glow scale-[1.02]"
-                  : "glass hover:border-primary/30"
-              }`}
-            >
-              {plan.highlight && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full gradient-primary text-xs font-bold text-primary-foreground flex items-center gap-1">
-                  <Star className="h-3 w-3" /> الأكثر طلباً
-                </div>
-              )}
-              <h3 className="text-lg font-bold text-foreground mb-2">{plan.name}</h3>
-              <div className="mb-1">
-                <span className="text-2xl font-black text-primary">{plan.price === 0 ? "مجاناً" : plan.price}</span>
-                {plan.price > 0 && <span className="text-xs text-muted-foreground mr-1">دينار / {plan.period}</span>}
-                {plan.price === 0 && <span className="text-xs text-muted-foreground mr-1">لمدة {plan.period}</span>}
-              </div>
-
-              <div className="space-y-1.5 mb-3 text-xs">
-                <div className="flex justify-between py-1 border-b border-border/30">
-                  <span className="text-muted-foreground">المستخدمين</span>
-                  <span className="font-bold text-foreground">{plan.max_users}</span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-border/30">
-                  <span className="text-muted-foreground">الموظفين</span>
-                  <span className="font-bold text-foreground">{plan.max_employees || plan.max_users}</span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-border/30">
-                  <span className="text-muted-foreground">المخازن</span>
-                  <span className="font-bold text-foreground">{plan.max_stores}</span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-border/30">
-                  <span className="text-muted-foreground">المنتجات</span>
-                  <span className="font-bold text-foreground">{plan.max_products >= 999999 ? "غير محدود" : plan.max_products}</span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-border/30">
-                  <span className="text-muted-foreground">التخزين</span>
-                  <span className="font-bold text-foreground">{plan.max_storage_mb >= 20000 ? "20 GB" : `${plan.max_storage_mb || 500} MB`}</span>
-                </div>
-              </div>
-
-              <div className="space-y-1.5 mb-4 flex-1">
-                {(plan.features || []).slice(0, 6).map((f: string) => (
-                  <div key={f} className="flex items-center gap-2 text-xs">
-                    <Check className="h-3.5 w-3.5 text-success shrink-0" />
-                    <span className="text-muted-foreground">{f}</span>
-                  </div>
-                ))}
-              </div>
-
-              <Link
-                to="/register/company"
-                className={`block text-center py-2 rounded-xl font-bold text-sm transition-all ${
-                  plan.highlight
-                    ? "gradient-primary text-primary-foreground shadow-glow"
-                    : "border border-border hover:border-primary/50 text-foreground"
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-${Math.min(paidPlans.length, 4)} gap-5 max-w-5xl mx-auto`}>
+          {paidPlans.map((plan, i) => {
+            const isMiddle = paidPlans.length === 3 && i === 1;
+            return (
+              <div
+                key={plan.id}
+                className={`rounded-2xl p-6 flex flex-col transition-all relative ${
+                  isMiddle
+                    ? "glass border-primary/50 shadow-glow scale-[1.02]"
+                    : "glass hover:border-primary/30"
                 }`}
               >
-                ابدأ الآن
-              </Link>
-            </div>
-          ))}
+                {isMiddle && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full gradient-primary text-xs font-bold text-primary-foreground flex items-center gap-1">
+                    <Star className="h-3 w-3" /> الأكثر طلباً
+                  </div>
+                )}
+                <h3 className="text-lg font-bold text-foreground mb-2">{plan.name}</h3>
+                {plan.name_en && <p className="text-xs text-muted-foreground mb-2">{plan.name_en}</p>}
+
+                {/* Dual pricing */}
+                <div className="mb-1">
+                  <span className="text-3xl font-black text-primary">{plan.price}</span>
+                  <span className="text-xs text-muted-foreground mr-1">د.ل / {plan.period}</span>
+                </div>
+                <div className="mb-3">
+                  <span className="text-sm font-bold text-muted-foreground">{formatUSD(plan.price)} $</span>
+                  <span className="text-[10px] text-muted-foreground/70 mr-1"> (1$ ≈ {currency.rate} د.ل)</span>
+                </div>
+
+                <div className="space-y-1.5 mb-3 text-xs">
+                  <div className="flex justify-between py-1 border-b border-border/30">
+                    <span className="text-muted-foreground">المستخدمين</span>
+                    <span className="font-bold text-foreground">{plan.max_users === -1 ? "∞" : plan.max_users}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/30">
+                    <span className="text-muted-foreground">الموظفين</span>
+                    <span className="font-bold text-foreground">{plan.max_employees === -1 ? "∞" : (plan.max_employees || plan.max_users)}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/30">
+                    <span className="text-muted-foreground">المخازن</span>
+                    <span className="font-bold text-foreground">{plan.max_stores === -1 ? "∞" : plan.max_stores}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/30">
+                    <span className="text-muted-foreground">المنتجات</span>
+                    <span className="font-bold text-foreground">{plan.max_products === -1 ? "غير محدود" : plan.max_products}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-border/30">
+                    <span className="text-muted-foreground">التخزين</span>
+                    <span className="font-bold text-foreground">{plan.max_storage_mb >= 5000 ? `${(plan.max_storage_mb / 1000).toFixed(0)} GB` : `${plan.max_storage_mb || 500} MB`}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 mb-4 flex-1">
+                  {(plan.features || []).slice(0, 6).map((f: string) => (
+                    <div key={f} className="flex items-center gap-2 text-xs">
+                      <Check className="h-3.5 w-3.5 text-success shrink-0" />
+                      <span className="text-muted-foreground">{f}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <Link
+                  to="/register/company"
+                  className={`block text-center py-2.5 rounded-xl font-bold text-sm transition-all ${
+                    isMiddle
+                      ? "gradient-primary text-primary-foreground shadow-glow"
+                      : "border border-border hover:border-primary/50 text-foreground"
+                  }`}
+                >
+                  ابدأ الآن
+                </Link>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Exchange rate note */}
+        <div className="text-center mt-6">
+          <p className="text-xs text-muted-foreground/60">💱 سعر الصرف: 1 دولار أمريكي ≈ {currency.rate} دينار ليبي (للتوضيح لغير الليبيين)</p>
         </div>
       </div>
     </section>

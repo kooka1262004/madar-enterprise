@@ -36,6 +36,7 @@ const sidebarSections = [
     { icon: MessageSquare, label: "المراسلات", labelEn: "Messages", key: "messages" },
     { icon: Bell, label: "الإشعارات", labelEn: "Notifications", key: "notifications" },
     { icon: Monitor, label: "تواصل معنا", labelEn: "Contact Info", key: "contact" },
+    { icon: Gift, label: "ميزات قيد التطوير", labelEn: "Coming Soon", key: "coming-soon" },
   ]},
   { title: "الحساب", titleEn: "Account", items: [
     { icon: User, label: "الملف الشخصي", labelEn: "Profile", key: "profile" },
@@ -461,14 +462,33 @@ const AdminDashboard = () => {
                   <th className="text-right py-2 px-3 text-muted-foreground">{t("الشركة", "Company")}</th>
                   <th className="text-right py-2 px-3 text-muted-foreground">{t("البريد", "Email")}</th>
                   <th className="text-right py-2 px-3 text-muted-foreground">{t("الباقة", "Plan")}</th>
+                  <th className="text-right py-2 px-3 text-muted-foreground">{t("انتهاء الباقة", "Plan Expiry")}</th>
                   <th className="text-right py-2 px-3 text-muted-foreground">{t("المحفظة", "Wallet")}</th>
                   <th className="text-right py-2 px-3 text-muted-foreground">{t("الحالة", "Status")}</th>
                   <th className="text-right py-2 px-3 text-muted-foreground">{t("الإجراءات", "Actions")}</th>
-                </tr></thead><tbody>{filteredCompanies.map(c => (
+                </tr></thead><tbody>{filteredCompanies.map(c => {
+                  const endDate = c.trial_end ? new Date(c.trial_end) : null;
+                  const now = new Date();
+                  const daysLeft = endDate ? Math.max(0, Math.ceil((endDate.getTime() - now.getTime()) / 86400000)) : 0;
+                  const isExpired = endDate ? now > endDate : false;
+                  const isNearExpiry = daysLeft > 0 && daysLeft <= 7;
+                  return (
                   <tr key={c.id} className="border-b border-border/30 hover:bg-secondary/30">
                     <td className="py-2 px-3 text-foreground font-medium">{c.company_name}</td>
                     <td className="py-2 px-3 text-muted-foreground text-xs">{c.email}</td>
                     <td className="py-2 px-3"><span className="px-2 py-0.5 rounded-full text-xs bg-primary/20 text-primary">{c.plan_name}</span></td>
+                    <td className="py-2 px-3">
+                      {endDate ? (
+                        <div>
+                          <p className={`text-xs font-bold ${isExpired ? "text-destructive" : isNearExpiry ? "text-warning" : "text-success"}`}>
+                            {endDate.toLocaleDateString("ar-LY")}
+                          </p>
+                          <p className={`text-[10px] ${isExpired ? "text-destructive" : isNearExpiry ? "text-warning" : "text-muted-foreground"}`}>
+                            {isExpired ? t("منتهية ❌","Expired ❌") : `${daysLeft} ${t("يوم متبقي","days left")}`}
+                          </p>
+                        </div>
+                      ) : <span className="text-xs text-muted-foreground">-</span>}
+                    </td>
                     <td className="py-2 px-3 text-foreground">{c.wallet || 0}</td>
                     <td className="py-2 px-3"><span className={`px-2 py-0.5 rounded-full text-xs ${c.status === "suspended" ? "bg-destructive/20 text-destructive" : "bg-success/20 text-success"}`}>{c.status === "suspended" ? t("معلّق", "Suspended") : t("نشط", "Active")}</span></td>
                     <td className="py-2 px-3"><div className="flex gap-1 flex-wrap">
@@ -478,7 +498,8 @@ const AdminDashboard = () => {
                       <button onClick={() => deleteCompany(c.id)} className="text-xs px-2 py-1 rounded-lg bg-destructive/20 text-destructive">{t("حذف", "Delete")}</button>
                     </div></td>
                   </tr>
-                ))}</tbody></table>
+                  );
+                })}</tbody></table>
               </div>
               {grantPlanModal && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"><div className="glass rounded-2xl p-6 max-w-md w-full">
@@ -1094,6 +1115,46 @@ const AdminDashboard = () => {
                   </div>
                 </div>
                 <button onClick={() => alert(t("✅ تم حفظ التغييرات!", "✅ Changes saved!"))} className="w-full px-6 py-2.5 rounded-xl gradient-primary text-primary-foreground text-sm font-bold">{t("حفظ التغييرات", "Save Changes")}</button>
+              </div>
+            </div>
+          )}
+
+          {/* Coming Soon Features */}
+          {activeTab === "coming-soon" && (
+            <div className="space-y-4">
+              <div className="glass rounded-2xl p-6">
+                <h3 className="font-bold text-foreground mb-4 flex items-center gap-2"><Gift className="h-5 w-5 text-primary" /> {t("ميزات قيد التطوير", "Coming Soon Features")}</h3>
+                <p className="text-xs text-muted-foreground mb-4">{t("أضف الميزات التي تخطط لإطلاقها قريباً. ستظهر للشركات كقائمة بالميزات القادمة.", "Add features you plan to launch soon.")}</p>
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <input id="coming-soon-input" placeholder={t("اكتب اسم الميزة الجديدة...", "New feature name...")} className={inputClass} />
+                    <button onClick={async () => {
+                      const input = document.getElementById("coming-soon-input") as HTMLInputElement;
+                      if (!input.value.trim()) return;
+                      const currentFeatures = platformSettings.coming_soon || [];
+                      const updated = [...currentFeatures, { name: input.value.trim(), added: new Date().toISOString() }];
+                      await saveSetting("coming_soon", updated);
+                      input.value = "";
+                    }} className="px-4 py-2 rounded-xl gradient-primary text-primary-foreground text-sm font-bold whitespace-nowrap"><Plus className="h-4 w-4 inline" /> {t("إضافة", "Add")}</button>
+                  </div>
+                  {(platformSettings.coming_soon || []).length === 0 ? (
+                    <div className="text-center py-8"><Gift className="h-12 w-12 text-muted-foreground mx-auto mb-3" /><p className="text-sm text-muted-foreground">{t("لا توجد ميزات مضافة بعد.", "No features added yet.")}</p></div>
+                  ) : (platformSettings.coming_soon || []).map((f: any, i: number) => (
+                    <div key={i} className="glass rounded-xl p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-warning animate-pulse" />
+                        <div>
+                          <p className="text-sm font-bold text-foreground">{f.name}</p>
+                          <p className="text-[10px] text-muted-foreground">{t("تمت الإضافة:", "Added:")} {new Date(f.added).toLocaleDateString("ar-LY")}</p>
+                        </div>
+                      </div>
+                      <button onClick={async () => {
+                        const updated = (platformSettings.coming_soon || []).filter((_: any, idx: number) => idx !== i);
+                        await saveSetting("coming_soon", updated);
+                      }} className="text-destructive p-1"><Trash2 className="h-4 w-4" /></button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}

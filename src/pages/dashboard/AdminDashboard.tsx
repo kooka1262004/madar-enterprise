@@ -235,9 +235,8 @@ const AdminDashboard = () => {
     } catch (err: any) { alert(t("خطأ: ","Error: ") + err.message); }
   };
 
-  const deletePlan = async (id: string) => {
-    await supabase.from("plans").delete().eq("id", id);
-    setPlans(plans.filter(p => p.id !== id));
+  const deletePlan = async (_id: string) => {
+    alert(t("لا يمكن حذف الباقات. النظام يعتمد على هيكل باقات محدد مسبقاً لضمان عمل الصلاحيات بشكل صحيح.","Plans cannot be deleted. The system relies on a predefined plan structure to ensure permissions work correctly."));
   };
 
   const saveCoupon = async (coupon: any) => {

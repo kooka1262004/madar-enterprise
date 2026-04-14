@@ -125,13 +125,13 @@ Deno.serve(async (req) => {
     }
 
     // Upsert profile
-    const { data: existingProfile } = await supabaseAdmin
+    const { data: existingProfileRecord } = await supabaseAdmin
       .from("profiles")
       .select("id")
       .eq("user_id", userId)
       .maybeSingle();
 
-    if (existingProfile) {
+    if (existingProfileRecord) {
       await supabaseAdmin.from("profiles").update({
         email: normalizedEmail,
         full_name: fullName,

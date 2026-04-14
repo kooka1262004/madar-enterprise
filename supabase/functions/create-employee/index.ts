@@ -131,7 +131,7 @@ Deno.serve(async (req) => {
       .eq("user_id", userId)
       .maybeSingle();
 
-    if (existingProfile) {
+    if (existingProfileRecord) {
       await supabaseAdmin.from("profiles").update({
         email: normalizedEmail,
         full_name: fullName,

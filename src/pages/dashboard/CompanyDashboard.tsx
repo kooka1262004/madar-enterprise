@@ -379,14 +379,42 @@ const CompanyDashboard = () => {
       "مسؤول موارد بشرية": ["dashboard","my-info","hr","users","permissions","attendance","requests","my-tasks"],
       "موظف عادي": ["dashboard","my-info","attendance","requests","my-tasks"],
     };
-    try {
-      const { data: result, error } = await supabase.functions.invoke("create-employee", {
-        body: { email: (d.email as string).trim().toLowerCase(), password: d.password as string, fullName: d.username as string, position: d.role as string, department: d.department as string || d.role as string, permissions: rolePerms[d.role as string] || ["dashboard","my-info"], companyId, salary: Number(d.salary) || 0, phone: d.phone as string || "", contractType: d.contractType as string || "دائم" },
-      });
-      if (error) { alert(t("خطأ في الاتصال: " + (error?.message || ""), "Connection error: " + (error?.message || ""))); return; }
-      if (result?.error) { alert(result.error); return; }
-      alert(t("✅ تم إضافة الموظف بنجاح!", "✅ Employee added!"));
-    } catch (err: any) { alert(t("خطأ: ","Error: ") + err.message); return; }
+    const isManual = d.creationMode === "manual";
+    
+    if (isManual) {
+      // إضافة يدوية بدون حساب تسجيل دخول
+      try {
+        const { error } = await supabase.from("employees").insert({
+          company_id: companyId!,
+          full_name: d.username as string,
+          email: (d.email as string)?.trim() || `manual-${Date.now()}@local`,
+          position: d.role as string || "",
+          department: d.department as string || "",
+          permissions: rolePerms[d.role as string] || ["dashboard","my-info"],
+          salary: Number(d.salary) || 0,
+          phone: d.phone as string || "",
+          contract_type: d.contractType as string || "دائم",
+          status: "active",
+          national_id: d.nationalId as string || "",
+          qualification: d.qualification as string || "",
+          bank_name: d.bankName as string || "",
+          bank_account: d.bankAccount as string || "",
+        });
+        if (error) { alert(t("خطأ: " + error.message, "Error: " + error.message)); return; }
+        alert(t("✅ تم إضافة الموظف بنجاح!", "✅ Employee added!"));
+      } catch (err: any) { alert(t("خطأ: ","Error: ") + err.message); return; }
+    } else {
+      if (!d.email || !d.password) { alert(t("البريد الإلكتروني وكلمة المرور مطلوبان في وضع حساب الدخول","Email and password are required for login account mode")); return; }
+      // إضافة مع حساب تسجيل دخول
+      try {
+        const { data: result, error } = await supabase.functions.invoke("create-employee", {
+          body: { email: (d.email as string).trim().toLowerCase(), password: d.password as string, fullName: d.username as string, position: d.role as string, department: d.department as string || d.role as string, permissions: rolePerms[d.role as string] || ["dashboard","my-info"], companyId, salary: Number(d.salary) || 0, phone: d.phone as string || "", contractType: d.contractType as string || "دائم" },
+        });
+        if (error) { alert(t("خطأ في الاتصال: " + (error?.message || ""), "Connection error: " + (error?.message || ""))); return; }
+        if (result?.error) { alert(result.error); return; }
+        alert(t("✅ تم إضافة الموظف بنجاح!", "✅ Employee added!"));
+      } catch (err: any) { alert(t("خطأ: ","Error: ") + err.message); return; }
+    }
     await refreshData("employees");
     setShowForm("");
   };
@@ -1576,18 +1604,21 @@ const CompanyDashboard = () => {
                   {showForm === "hr-user" && (
                     <form onSubmit={saveUser} className={`${cardClass} space-y-3`}>
                       <h4 className="font-bold text-foreground">{t("إضافة موظف جديد","Add New Employee")}</h4>
-                      <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2">
-                        <p className="text-[10px] text-amber-600 dark:text-amber-400">🔧 {t("هذه الميزة قيد التطوير - قد تواجه بعض المشاكل","This feature is under development - you may encounter issues")}</p>
+                      <div className="flex gap-2 mb-2">
+                        <label className="flex items-center gap-1 text-xs cursor-pointer"><input type="radio" name="creationMode" value="manual" defaultChecked className="accent-primary" /> {t("يدوي (بدون حساب دخول)","Manual (no login)")}</label>
+                        <label className="flex items-center gap-1 text-xs cursor-pointer"><input type="radio" name="creationMode" value="withLogin" className="accent-primary" /> {t("مع حساب تسجيل دخول ⚠️","With login account ⚠️")}</label>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div><label className="text-xs font-bold text-foreground">{t("الاسم الكامل *","Full Name *")}</label><input name="username" required className={inputClass} /></div>
-                        <div><label className="text-xs font-bold text-foreground">{t("البريد الإلكتروني *","Email *")}</label><input name="email" type="email" required className={inputClass} /></div>
-                        <div><label className="text-xs font-bold text-foreground">{t("كلمة المرور *","Password *")}</label><input name="password" type="password" required minLength={6} className={inputClass} /></div>
+                        <div><label className="text-xs font-bold text-foreground">{t("البريد الإلكتروني","Email")}</label><input name="email" type="email" className={inputClass} placeholder={t("اختياري في الوضع اليدوي","Optional in manual mode")} /></div>
+                        <div><label className="text-xs font-bold text-foreground">{t("كلمة المرور","Password")}</label><input name="password" type="password" minLength={6} className={inputClass} placeholder={t("مطلوبة فقط مع حساب الدخول","Required only with login")} /></div>
                         <div><label className="text-xs font-bold text-foreground">{t("الهاتف","Phone")}</label><input name="phone" className={inputClass} /></div>
-                        <div><label className="text-xs font-bold text-foreground">{t("المسمى الوظيفي *","Position *")}</label><select name="role" required className={inputClass}><option value="مسؤول مخزن">{t("مسؤول مخزن","Warehouse Manager")}</option><option value="محاسب">{t("محاسب","Accountant")}</option><option value="مسؤول موارد بشرية">{t("مسؤول موارد بشرية","HR Manager")}</option><option value="موظف عادي">{t("موظف عادي","Regular Employee")}</option></select></div>
+                        <div><label className="text-xs font-bold text-foreground">{t("المسمى الوظيفي","Position")}</label><select name="role" className={inputClass}><option value="مسؤول مخزن">{t("مسؤول مخزن","Warehouse Manager")}</option><option value="محاسب">{t("محاسب","Accountant")}</option><option value="مسؤول موارد بشرية">{t("مسؤول موارد بشرية","HR Manager")}</option><option value="موظف عادي">{t("موظف عادي","Regular Employee")}</option></select></div>
                         <div><label className="text-xs font-bold text-foreground">{t("القسم","Department")}</label><input name="department" className={inputClass} /></div>
                         <div><label className="text-xs font-bold text-foreground">{t("الراتب","Salary")}</label><input name="salary" type="number" className={inputClass} /></div>
                         <div><label className="text-xs font-bold text-foreground">{t("نوع العقد","Contract")}</label><select name="contractType" className={inputClass}><option value="دائم">{t("دائم","Permanent")}</option><option value="مؤقت">{t("مؤقت","Temporary")}</option><option value="تجريبي">{t("تجريبي","Probation")}</option></select></div>
+                        <div><label className="text-xs font-bold text-foreground">{t("رقم الهوية","National ID")}</label><input name="nationalId" className={inputClass} /></div>
+                        <div><label className="text-xs font-bold text-foreground">{t("المؤهل","Qualification")}</label><input name="qualification" className={inputClass} /></div>
                       </div>
                       <div className="flex gap-2"><button type="submit" className={btnPrimary}>{t("إضافة","Add")}</button><button type="button" onClick={() => setShowForm("")} className={btnOutline}>{t("إلغاء","Cancel")}</button></div>
                     </form>
@@ -1793,18 +1824,23 @@ const CompanyDashboard = () => {
               {showForm === "user" && (
                 <form onSubmit={saveUser} className={`${cardClass} space-y-3`}>
                   <h4 className="font-bold text-foreground">{t("إضافة موظف جديد","Add New Employee")}</h4>
-                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2">
-                    <p className="text-[10px] text-amber-600 dark:text-amber-400">🔧 {t("هذه الميزة قيد التطوير - قد تواجه بعض المشاكل","This feature is under development - you may encounter issues")}</p>
+                  <div className="flex gap-2 mb-2">
+                    <label className="flex items-center gap-1 text-xs cursor-pointer"><input type="radio" name="creationMode" value="manual" defaultChecked className="accent-primary" /> {t("يدوي (بدون حساب دخول)","Manual (no login)")}</label>
+                    <label className="flex items-center gap-1 text-xs cursor-pointer"><input type="radio" name="creationMode" value="withLogin" className="accent-primary" onChange={(e) => { const form = e.target.closest('form'); if(form) { const emailF = form.querySelector('[name=email]') as HTMLInputElement; const passF = form.querySelector('[name=password]') as HTMLInputElement; if(emailF) emailF.required = e.target.checked; if(passF) passF.required = e.target.checked; }}} /> {t("مع حساب تسجيل دخول ⚠️","With login account ⚠️")}</label>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div><label className="text-xs font-bold text-foreground">{t("الاسم الكامل *","Full Name *")}</label><input name="username" required className={inputClass} /></div>
-                    <div><label className="text-xs font-bold text-foreground">{t("البريد الإلكتروني *","Email *")}</label><input name="email" type="email" required className={inputClass} /></div>
-                    <div><label className="text-xs font-bold text-foreground">{t("كلمة المرور *","Password *")}</label><input name="password" type="password" required minLength={6} className={inputClass} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("البريد الإلكتروني","Email")}</label><input name="email" type="email" className={inputClass} placeholder={t("اختياري في الوضع اليدوي","Optional in manual mode")} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("كلمة المرور","Password")}</label><input name="password" type="password" minLength={6} className={inputClass} placeholder={t("مطلوبة فقط مع حساب الدخول","Required only with login")} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("الهاتف","Phone")}</label><input name="phone" className={inputClass} /></div>
-                    <div><label className="text-xs font-bold text-foreground">{t("المسمى الوظيفي *","Position *")}</label><select name="role" required className={inputClass}><option value="مسؤول مخزن">{t("مسؤول مخزن","Warehouse Manager")}</option><option value="محاسب">{t("محاسب","Accountant")}</option><option value="مسؤول موارد بشرية">{t("مسؤول موارد بشرية","HR Manager")}</option><option value="موظف عادي">{t("موظف عادي","Regular Employee")}</option></select></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("المسمى الوظيفي","Position")}</label><select name="role" className={inputClass}><option value="مسؤول مخزن">{t("مسؤول مخزن","Warehouse Manager")}</option><option value="محاسب">{t("محاسب","Accountant")}</option><option value="مسؤول موارد بشرية">{t("مسؤول موارد بشرية","HR Manager")}</option><option value="موظف عادي">{t("موظف عادي","Regular Employee")}</option></select></div>
                     <div><label className="text-xs font-bold text-foreground">{t("القسم","Department")}</label><input name="department" className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("الراتب","Salary")}</label><input name="salary" type="number" className={inputClass} /></div>
-                    <div><label className="text-xs font-bold text-foreground">{t("نوع العقد","Contract")}</label><select name="contractType" className={inputClass}><option>{t("دائم","Permanent")}</option><option>{t("مؤقت","Temporary")}</option><option>{t("تجريبي","Probation")}</option></select></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("نوع العقد","Contract")}</label><select name="contractType" className={inputClass}><option value="دائم">{t("دائم","Permanent")}</option><option value="مؤقت">{t("مؤقت","Temporary")}</option><option value="تجريبي">{t("تجريبي","Probation")}</option></select></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("رقم الهوية","National ID")}</label><input name="nationalId" className={inputClass} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("المؤهل","Qualification")}</label><input name="qualification" className={inputClass} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("اسم البنك","Bank Name")}</label><input name="bankName" className={inputClass} /></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("رقم الحساب البنكي","Bank Account")}</label><input name="bankAccount" className={inputClass} /></div>
                   </div>
                   <div className="flex gap-2"><button type="submit" className={btnPrimary}>{t("إضافة","Add")}</button><button type="button" onClick={() => setShowForm("")} className={btnOutline}>{t("إلغاء","Cancel")}</button></div>
                 </form>

@@ -111,9 +111,6 @@ const CompanyLogin = () => {
             <Link to="/forgot-password" className="text-primary hover:underline">{t("نسيت كلمة المرور؟", "Forgot password?")}</Link>
             <Link to="/register/company" className="text-primary hover:underline">{t("إنشاء حساب جديد", "Create account")}</Link>
           </div>
-          <div className="text-center border-t border-border pt-3">
-            <Link to="/login/user" className="text-xs text-muted-foreground hover:text-primary transition-colors">{t("دخول الموظفين →", "Employee Login →")}</Link>
-          </div>
         </form>
       </div>
     </div>

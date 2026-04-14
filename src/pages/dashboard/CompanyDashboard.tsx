@@ -379,14 +379,41 @@ const CompanyDashboard = () => {
       "مسؤول موارد بشرية": ["dashboard","my-info","hr","users","permissions","attendance","requests","my-tasks"],
       "موظف عادي": ["dashboard","my-info","attendance","requests","my-tasks"],
     };
-    try {
-      const { data: result, error } = await supabase.functions.invoke("create-employee", {
-        body: { email: (d.email as string).trim().toLowerCase(), password: d.password as string, fullName: d.username as string, position: d.role as string, department: d.department as string || d.role as string, permissions: rolePerms[d.role as string] || ["dashboard","my-info"], companyId, salary: Number(d.salary) || 0, phone: d.phone as string || "", contractType: d.contractType as string || "دائم" },
-      });
-      if (error) { alert(t("خطأ في الاتصال: " + (error?.message || ""), "Connection error: " + (error?.message || ""))); return; }
-      if (result?.error) { alert(result.error); return; }
-      alert(t("✅ تم إضافة الموظف بنجاح!", "✅ Employee added!"));
-    } catch (err: any) { alert(t("خطأ: ","Error: ") + err.message); return; }
+    const isManual = d.creationMode === "manual";
+    
+    if (isManual) {
+      // إضافة يدوية بدون حساب تسجيل دخول
+      try {
+        const { error } = await supabase.from("employees").insert({
+          company_id: companyId!,
+          full_name: d.username as string,
+          email: (d.email as string)?.trim() || `manual-${Date.now()}@local`,
+          position: d.role as string || "",
+          department: d.department as string || "",
+          permissions: rolePerms[d.role as string] || ["dashboard","my-info"],
+          salary: Number(d.salary) || 0,
+          phone: d.phone as string || "",
+          contract_type: d.contractType as string || "دائم",
+          status: "active",
+          national_id: d.nationalId as string || "",
+          qualification: d.qualification as string || "",
+          bank_name: d.bankName as string || "",
+          bank_account: d.bankAccount as string || "",
+        });
+        if (error) { alert(t("خطأ: " + error.message, "Error: " + error.message)); return; }
+        alert(t("✅ تم إضافة الموظف بنجاح!", "✅ Employee added!"));
+      } catch (err: any) { alert(t("خطأ: ","Error: ") + err.message); return; }
+    } else {
+      // إضافة مع حساب تسجيل دخول
+      try {
+        const { data: result, error } = await supabase.functions.invoke("create-employee", {
+          body: { email: (d.email as string).trim().toLowerCase(), password: d.password as string, fullName: d.username as string, position: d.role as string, department: d.department as string || d.role as string, permissions: rolePerms[d.role as string] || ["dashboard","my-info"], companyId, salary: Number(d.salary) || 0, phone: d.phone as string || "", contractType: d.contractType as string || "دائم" },
+        });
+        if (error) { alert(t("خطأ في الاتصال: " + (error?.message || ""), "Connection error: " + (error?.message || ""))); return; }
+        if (result?.error) { alert(result.error); return; }
+        alert(t("✅ تم إضافة الموظف بنجاح!", "✅ Employee added!"));
+      } catch (err: any) { alert(t("خطأ: ","Error: ") + err.message); return; }
+    }
     await refreshData("employees");
     setShowForm("");
   };

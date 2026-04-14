@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.madarenterprise',
-  appName: 'مدار',
+  appId: 'app.lovable.2a27d4ef6ab04fb899ca1940f96434a9',
+  appName: 'madar-enterprise',
   webDir: 'dist',
   server: {
     url: 'https://2a27d4ef-6ab0-4fb8-99ca-1940f96434a9.lovableproject.com?forceHideBadge=true',
@@ -10,7 +10,7 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 2500,
+      launchShowDuration: 0,
       launchAutoHide: true,
       backgroundColor: '#0a0f1a',
       showSpinner: false,

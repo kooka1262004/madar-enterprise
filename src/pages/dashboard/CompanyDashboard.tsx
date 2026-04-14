@@ -383,9 +383,10 @@ const CompanyDashboard = () => {
       const { data: result, error } = await supabase.functions.invoke("create-employee", {
         body: { email: (d.email as string).trim().toLowerCase(), password: d.password as string, fullName: d.username as string, position: d.role as string, department: d.department as string || d.role as string, permissions: rolePerms[d.role as string] || ["dashboard","my-info"], companyId, salary: Number(d.salary) || 0, phone: d.phone as string || "", contractType: d.contractType as string || "دائم" },
       });
-      if (error || result?.error) { alert(result?.error || t("خطأ في إنشاء الموظف", "Error")); return; }
-      alert(t("تم إضافة الموظف بنجاح!", "Employee added!"));
-    } catch (err: any) { alert(err.message); return; }
+      if (error) { alert(t("خطأ في الاتصال: " + (error?.message || ""), "Connection error: " + (error?.message || ""))); return; }
+      if (result?.error) { alert(result.error); return; }
+      alert(t("✅ تم إضافة الموظف بنجاح!", "✅ Employee added!"));
+    } catch (err: any) { alert(t("خطأ: ","Error: ") + err.message); return; }
     await refreshData("employees");
     setShowForm("");
   };

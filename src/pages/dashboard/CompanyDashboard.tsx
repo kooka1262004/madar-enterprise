@@ -383,9 +383,10 @@ const CompanyDashboard = () => {
       const { data: result, error } = await supabase.functions.invoke("create-employee", {
         body: { email: (d.email as string).trim().toLowerCase(), password: d.password as string, fullName: d.username as string, position: d.role as string, department: d.department as string || d.role as string, permissions: rolePerms[d.role as string] || ["dashboard","my-info"], companyId, salary: Number(d.salary) || 0, phone: d.phone as string || "", contractType: d.contractType as string || "دائم" },
       });
-      if (error || result?.error) { alert(result?.error || t("خطأ في إنشاء الموظف", "Error")); return; }
-      alert(t("تم إضافة الموظف بنجاح!", "Employee added!"));
-    } catch (err: any) { alert(err.message); return; }
+      if (error) { alert(t("خطأ في الاتصال: " + (error?.message || ""), "Connection error: " + (error?.message || ""))); return; }
+      if (result?.error) { alert(result.error); return; }
+      alert(t("✅ تم إضافة الموظف بنجاح!", "✅ Employee added!"));
+    } catch (err: any) { alert(t("خطأ: ","Error: ") + err.message); return; }
     await refreshData("employees");
     setShowForm("");
   };
@@ -1568,7 +1569,29 @@ const CompanyDashboard = () => {
 
               {hrTab === "employees" && (
                 <div className="space-y-2">
-                  <button onClick={() => exportToPDF(t("تفاصيل الموظفين","Employee Details"), employees.map(e => ({[t("الاسم","Name")]:e.full_name,[t("البريد","Email")]:e.email,[t("الهاتف","Phone")]:e.phone||"-",[t("الوظيفة","Position")]:e.position,[t("الراتب","Salary")]:e.salary,[t("نوع العقد","Contract")]:e.contract_type,[t("المؤهل","Qualification")]:e.qualification||"-"})), [t("الاسم","Name"),t("البريد","Email"),t("الهاتف","Phone"),t("الوظيفة","Position"),t("الراتب","Salary"),t("نوع العقد","Contract"),t("المؤهل","Qualification")])} className="px-3 py-2 rounded-xl border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> {t("تحميل التفاصيل PDF","Download Details PDF")}</button>
+                  <div className="flex gap-2 flex-wrap">
+                    <button onClick={() => setShowForm(showForm === "hr-user" ? "" : "hr-user")} className={btnPrimary + " flex items-center gap-1"}><UserPlus className="h-3 w-3" /> {t("إضافة موظف","Add Employee")}</button>
+                    <button onClick={() => exportToPDF(t("تفاصيل الموظفين","Employee Details"), employees.map(e => ({[t("الاسم","Name")]:e.full_name,[t("البريد","Email")]:e.email,[t("الهاتف","Phone")]:e.phone||"-",[t("الوظيفة","Position")]:e.position,[t("الراتب","Salary")]:e.salary,[t("نوع العقد","Contract")]:e.contract_type,[t("المؤهل","Qualification")]:e.qualification||"-"})), [t("الاسم","Name"),t("البريد","Email"),t("الهاتف","Phone"),t("الوظيفة","Position"),t("الراتب","Salary"),t("نوع العقد","Contract"),t("المؤهل","Qualification")])} className="px-3 py-2 rounded-xl border border-border text-foreground text-xs flex items-center gap-1"><Download className="h-3 w-3" /> {t("تحميل التفاصيل PDF","Download Details PDF")}</button>
+                  </div>
+                  {showForm === "hr-user" && (
+                    <form onSubmit={saveUser} className={`${cardClass} space-y-3`}>
+                      <h4 className="font-bold text-foreground">{t("إضافة موظف جديد","Add New Employee")}</h4>
+                      <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2">
+                        <p className="text-[10px] text-amber-600 dark:text-amber-400">🔧 {t("هذه الميزة قيد التطوير - قد تواجه بعض المشاكل","This feature is under development - you may encounter issues")}</p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div><label className="text-xs font-bold text-foreground">{t("الاسم الكامل *","Full Name *")}</label><input name="username" required className={inputClass} /></div>
+                        <div><label className="text-xs font-bold text-foreground">{t("البريد الإلكتروني *","Email *")}</label><input name="email" type="email" required className={inputClass} /></div>
+                        <div><label className="text-xs font-bold text-foreground">{t("كلمة المرور *","Password *")}</label><input name="password" type="password" required minLength={6} className={inputClass} /></div>
+                        <div><label className="text-xs font-bold text-foreground">{t("الهاتف","Phone")}</label><input name="phone" className={inputClass} /></div>
+                        <div><label className="text-xs font-bold text-foreground">{t("المسمى الوظيفي *","Position *")}</label><select name="role" required className={inputClass}><option value="مسؤول مخزن">{t("مسؤول مخزن","Warehouse Manager")}</option><option value="محاسب">{t("محاسب","Accountant")}</option><option value="مسؤول موارد بشرية">{t("مسؤول موارد بشرية","HR Manager")}</option><option value="موظف عادي">{t("موظف عادي","Regular Employee")}</option></select></div>
+                        <div><label className="text-xs font-bold text-foreground">{t("القسم","Department")}</label><input name="department" className={inputClass} /></div>
+                        <div><label className="text-xs font-bold text-foreground">{t("الراتب","Salary")}</label><input name="salary" type="number" className={inputClass} /></div>
+                        <div><label className="text-xs font-bold text-foreground">{t("نوع العقد","Contract")}</label><select name="contractType" className={inputClass}><option value="دائم">{t("دائم","Permanent")}</option><option value="مؤقت">{t("مؤقت","Temporary")}</option><option value="تجريبي">{t("تجريبي","Probation")}</option></select></div>
+                      </div>
+                      <div className="flex gap-2"><button type="submit" className={btnPrimary}>{t("إضافة","Add")}</button><button type="button" onClick={() => setShowForm("")} className={btnOutline}>{t("إلغاء","Cancel")}</button></div>
+                    </form>
+                  )}
                   {employees.map(e => (
                     <div key={e.id} className="glass rounded-xl p-4">
                       <div className="flex justify-between items-start mb-2">
@@ -1778,7 +1801,7 @@ const CompanyDashboard = () => {
                     <div><label className="text-xs font-bold text-foreground">{t("البريد الإلكتروني *","Email *")}</label><input name="email" type="email" required className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("كلمة المرور *","Password *")}</label><input name="password" type="password" required minLength={6} className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("الهاتف","Phone")}</label><input name="phone" className={inputClass} /></div>
-                    <div><label className="text-xs font-bold text-foreground">{t("المسمى الوظيفي *","Position *")}</label><select name="role" required className={inputClass}><option>{t("مسؤول مخزن","Warehouse Manager")}</option><option>{t("محاسب","Accountant")}</option><option>{t("مسؤول موارد بشرية","HR Manager")}</option><option>{t("موظف عادي","Regular Employee")}</option></select></div>
+                    <div><label className="text-xs font-bold text-foreground">{t("المسمى الوظيفي *","Position *")}</label><select name="role" required className={inputClass}><option value="مسؤول مخزن">{t("مسؤول مخزن","Warehouse Manager")}</option><option value="محاسب">{t("محاسب","Accountant")}</option><option value="مسؤول موارد بشرية">{t("مسؤول موارد بشرية","HR Manager")}</option><option value="موظف عادي">{t("موظف عادي","Regular Employee")}</option></select></div>
                     <div><label className="text-xs font-bold text-foreground">{t("القسم","Department")}</label><input name="department" className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("الراتب","Salary")}</label><input name="salary" type="number" className={inputClass} /></div>
                     <div><label className="text-xs font-bold text-foreground">{t("نوع العقد","Contract")}</label><select name="contractType" className={inputClass}><option>{t("دائم","Permanent")}</option><option>{t("مؤقت","Temporary")}</option><option>{t("تجريبي","Probation")}</option></select></div>

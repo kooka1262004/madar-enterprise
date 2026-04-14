@@ -54,14 +54,23 @@ Deno.serve(async (req) => {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Check if user already exists
-    const { data: { users: existingUsers } } = await supabaseAdmin.auth.admin.listUsers();
-    let existingUser = existingUsers?.find((u: any) => u.email?.toLowerCase() === normalizedEmail);
-    
+    // Check if user already exists by email using admin API
     let userId: string;
+    
+    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers({
+      page: 1,
+      perPage: 1,
+    });
+    
+    // Try to find existing user by querying profiles table
+    const { data: existingProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("user_id")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
 
-    if (existingUser) {
-      userId = existingUser.id;
+    if (existingProfile) {
+      userId = existingProfile.user_id;
       // Update password if user exists
       await supabaseAdmin.auth.admin.updateUser(userId, { password });
     } else {

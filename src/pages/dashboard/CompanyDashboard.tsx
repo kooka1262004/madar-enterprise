@@ -404,6 +404,7 @@ const CompanyDashboard = () => {
         alert(t("✅ تم إضافة الموظف بنجاح!", "✅ Employee added!"));
       } catch (err: any) { alert(t("خطأ: ","Error: ") + err.message); return; }
     } else {
+      if (!d.email || !d.password) { alert(t("البريد الإلكتروني وكلمة المرور مطلوبان في وضع حساب الدخول","Email and password are required for login account mode")); return; }
       // إضافة مع حساب تسجيل دخول
       try {
         const { data: result, error } = await supabase.functions.invoke("create-employee", {

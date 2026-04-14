@@ -155,3 +155,8 @@
     @apply bg-card/60 backdrop-blur-xl border border-border/50;
   }
 }
+
+@keyframes loading {
+  0% { width: 0; }
+  100% { width: 100%; }
+}
